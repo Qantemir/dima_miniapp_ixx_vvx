@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShoppingCart, Package } from 'lucide-react';
+import { ShoppingCart, Package, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ProductCard } from '@/components/ProductCard';
+import { CartDialog } from '@/components/CartDialog';
 import { api } from '@/lib/api';
-import { getUserId, showAlert } from '@/lib/telegram';
+import { getUserId, showAlert, showPopup } from '@/lib/telegram';
 import type { Category, Product } from '@/types/api';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -15,6 +16,7 @@ export const CatalogPage = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [cartItemsCount, setCartItemsCount] = useState(0);
+  const [cartDialogOpen, setCartDialogOpen] = useState(false);
 
   useEffect(() => {
     loadCatalog();
@@ -63,11 +65,19 @@ export const CatalogPage = () => {
         variant_id: variantId,
         quantity,
       });
-      setCartItemsCount(prev => prev + 1);
+      await loadCartCount();
       showAlert('Товар добавлен в корзину');
     } catch (error) {
       showAlert('Ошибка при добавлении в корзину');
     }
+  };
+
+  const handleHelp = () => {
+    showPopup({
+      title: 'Помощь',
+      message: 'По всем вопросам обращайтесь в поддержку через бота или напишите администратору.',
+      buttons: [{ type: 'ok', text: 'Понятно' }]
+    });
   };
 
   const filteredProducts = selectedCategory
@@ -102,19 +112,29 @@ export const CatalogPage = () => {
             <h1 className="text-xl font-bold text-foreground">Магазин</h1>
           </div>
           
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate('/cart')}
-            className="relative"
-          >
-            <ShoppingCart className="h-5 w-5" />
-            {cartItemsCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
-                {cartItemsCount}
-              </span>
-            )}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleHelp}
+            >
+              <HelpCircle className="h-6 w-6" />
+            </Button>
+            
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setCartDialogOpen(true)}
+              className="relative"
+            >
+              <ShoppingCart className="h-7 w-7" />
+              {cartItemsCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-xs font-bold rounded-full h-6 w-6 flex items-center justify-center">
+                  {cartItemsCount}
+                </span>
+              )}
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -162,6 +182,13 @@ export const CatalogPage = () => {
           </div>
         )}
       </div>
+
+      {/* Cart Dialog */}
+      <CartDialog 
+        open={cartDialogOpen} 
+        onOpenChange={setCartDialogOpen}
+        onCartUpdate={loadCartCount}
+      />
     </div>
   );
 };
