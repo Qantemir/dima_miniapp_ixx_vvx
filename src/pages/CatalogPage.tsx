@@ -1,25 +1,27 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { ShoppingCart, Package, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ProductCard } from '@/components/ProductCard';
 import { CartDialog } from '@/components/CartDialog';
 import { api } from '@/lib/api';
 import { getUserId, showAlert, showPopup } from '@/lib/telegram';
-import type { Category, Product } from '@/types/api';
+import type { Category, Product, StoreStatus } from '@/types/api';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export const CatalogPage = () => {
-  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [cartItemsCount, setCartItemsCount] = useState(0);
   const [cartDialogOpen, setCartDialogOpen] = useState(false);
+  const [storeStatus, setStoreStatus] = useState<StoreStatus | null>(null);
+  const [storeStatusLoading, setStoreStatusLoading] = useState(true);
 
   useEffect(() => {
     loadCatalog();
+    loadStoreStatus();
     loadCartCount();
   }, []);
 
@@ -32,6 +34,17 @@ export const CatalogPage = () => {
       showAlert('Ошибка загрузки каталога');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadStoreStatus = async () => {
+    try {
+      const status = await api.getStoreStatus();
+      setStoreStatus(status);
+    } catch (error) {
+      // Store status endpoint is optional
+    } finally {
+      setStoreStatusLoading(false);
     }
   };
 
@@ -52,6 +65,11 @@ export const CatalogPage = () => {
     variantId: string | undefined,
     quantity: number
   ) => {
+    if (storeStatus?.is_sleep_mode) {
+      showAlert(storeStatus.sleep_message || 'Магазин временно не принимает заказы');
+      return;
+    }
+
     const userId = getUserId();
     if (!userId) {
       showAlert('Ошибка: не удалось определить пользователя');
@@ -84,7 +102,7 @@ export const CatalogPage = () => {
     ? products.filter(p => p.category_id === selectedCategory)
     : products;
 
-  if (loading) {
+  if (loading || storeStatusLoading) {
     return (
       <div className="min-h-screen bg-background p-4 space-y-4">
         <Skeleton className="h-12 w-full" />
@@ -111,25 +129,18 @@ export const CatalogPage = () => {
             <Package className="h-6 w-6 text-primary" />
             <h1 className="text-xl font-bold text-foreground">Магазин</h1>
           </div>
-          
+
           <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleHelp}
-            >
-              <HelpCircle className="h-6 w-6" />
+            <Button variant="outline" size="sm" onClick={handleHelp}>
+              <HelpCircle className="h-4 w-4 mr-2" />
+              Помощь
             </Button>
-            
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setCartDialogOpen(true)}
-              className="relative"
-            >
-              <ShoppingCart className="h-7 w-7" />
+
+            <Button variant="default" size="sm" onClick={() => setCartDialogOpen(true)} className="relative">
+              <ShoppingCart className="h-4 w-4 mr-2" />
+              Корзина
               {cartItemsCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-xs font-bold rounded-full h-6 w-6 flex items-center justify-center">
+                <span className="ml-2 bg-primary-foreground/90 text-primary text-xxs font-bold rounded-full h-5 px-2 flex items-center justify-center">
                   {cartItemsCount}
                 </span>
               )}
@@ -137,6 +148,17 @@ export const CatalogPage = () => {
           </div>
         </div>
       </div>
+
+      {storeStatus?.is_sleep_mode && (
+        <div className="p-4">
+          <Alert>
+            <AlertTitle>Магазин временно не работает</AlertTitle>
+            <AlertDescription>
+              {storeStatus.sleep_message || 'Мы временно не принимаем заказы. Возвращайтесь позже!'}
+            </AlertDescription>
+          </Alert>
+        </div>
+      )}
 
       {/* Categories */}
       {categories.length > 0 && (
@@ -177,6 +199,7 @@ export const CatalogPage = () => {
                 key={product.id}
                 product={product}
                 onAddToCart={handleAddToCart}
+                purchasesDisabled={storeStatus?.is_sleep_mode}
               />
             ))}
           </div>

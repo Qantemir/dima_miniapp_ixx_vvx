@@ -7,6 +7,7 @@ import { api } from '@/lib/api';
 import { showAlert, showBackButton, hideBackButton } from '@/lib/telegram';
 import type { Order, OrderStatus } from '@/types/api';
 import { Skeleton } from '@/components/ui/skeleton';
+import { AdminHeader } from '@/components/AdminHeader';
 
 const STATUS_FILTERS: Array<{ value: OrderStatus | 'all'; label: string }> = [
   { value: 'all', label: 'Все' },
@@ -64,13 +65,11 @@ export const AdminOrdersPage = () => {
 
   return (
     <div className="min-h-screen bg-background pb-6">
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-card border-b border-border p-4">
-        <div className="flex items-center gap-2">
-          <Package className="h-6 w-6 text-primary" />
-          <h1 className="text-xl font-bold text-foreground">Заказы</h1>
-        </div>
-      </div>
+      <AdminHeader
+        title="Заказы"
+        description="Просматривайте заказы и обновляйте их статусы"
+        icon={Package}
+      />
 
       {/* Filters */}
       <div className="p-4 bg-card border-b border-border">

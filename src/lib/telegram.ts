@@ -7,6 +7,26 @@ export const getTelegram = () => {
   return null;
 };
 
+const compareVersions = (current: string, min: string) => {
+  const currentParts = current.split('.').map(part => parseInt(part, 10) || 0);
+  const minParts = min.split('.').map(part => parseInt(part, 10) || 0);
+  const length = Math.max(currentParts.length, minParts.length);
+
+  for (let i = 0; i < length; i++) {
+    const cur = currentParts[i] ?? 0;
+    const minVal = minParts[i] ?? 0;
+    if (cur > minVal) return true;
+    if (cur < minVal) return false;
+  }
+  return true;
+};
+
+const isVersionSupported = (minVersion: string) => {
+  const tg = getTelegram();
+  if (!tg?.version) return false;
+  return compareVersions(tg.version, minVersion);
+};
+
 export const initTelegram = () => {
   const tg = getTelegram();
   if (tg) {
@@ -92,7 +112,7 @@ export const hideMainButton = () => {
 
 export const showBackButton = (onClick: () => void) => {
   const tg = getTelegram();
-  if (!tg) return;
+  if (!tg || !isVersionSupported('6.1') || !tg.BackButton) return;
 
   tg.BackButton.onClick(onClick);
   tg.BackButton.show();
@@ -100,7 +120,7 @@ export const showBackButton = (onClick: () => void) => {
 
 export const hideBackButton = () => {
   const tg = getTelegram();
-  if (!tg) return;
+  if (!tg || !isVersionSupported('6.1') || !tg.BackButton) return;
   
   tg.BackButton.hide();
   tg.BackButton.offClick(() => {});
@@ -115,17 +135,33 @@ export const showAlert = (message: string) => {
   }
 };
 
-export const showPopup = (params: {
-  title?: string;
-  message: string;
-  buttons?: Array<{ id?: string; type?: string; text?: string }>;
-}, callback?: (id: string) => void) => {
+export const showPopup = (
+  params: {
+    title?: string;
+    message: string;
+    buttons?: Array<{ id?: string; type?: string; text?: string }>;
+  },
+  callback?: (id: string) => void
+) => {
   const tg = getTelegram();
-  if (tg) {
-    tg.showPopup(params, callback);
-  } else {
-    alert(params.message);
+  const canUsePopup =
+    !!tg && isVersionSupported('6.1') && typeof tg.showPopup === 'function';
+
+  if (canUsePopup && tg) {
+    try {
+      tg.showPopup(params, callback);
+      return;
+    } catch (error) {
+      console.warn('Telegram showPopup not supported, fallback to confirm', error);
+    }
   }
+
+  const ok = window.confirm(params.message);
+  const okButton =
+    params.buttons?.find(button => button.type !== 'cancel')?.id || 'confirm';
+  const cancelButton =
+    params.buttons?.find(button => button.type === 'cancel')?.id || 'cancel';
+  callback?.(ok ? okButton : cancelButton);
 };
 
 export const showConfirm = (message: string, callback?: (ok: boolean) => void) => {

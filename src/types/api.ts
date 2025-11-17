@@ -3,8 +3,10 @@
 export interface Category {
   id: string;
   name: string;
-  description?: string;
-  image?: string;
+}
+
+export interface CategoryPayload {
+  name: string;
 }
 
 export interface ProductVariant {
@@ -22,8 +24,19 @@ export interface Product {
   name: string;
   description?: string;
   image?: string;
+  images?: string[];
   variants?: ProductVariant[];
   price?: number;
+  available: boolean;
+}
+
+export interface ProductPayload {
+  name: string;
+  description?: string;
+  price: number;
+  image?: string;
+  images?: string[];
+  category_id: string;
   available: boolean;
 }
 
@@ -81,6 +94,31 @@ export interface Order {
   created_at: string;
   updated_at?: string;
   can_edit_address: boolean;
+}
+
+export type BroadcastSegment = 'all' ;
+
+export interface BroadcastRequest {
+  title: string;
+  message: string;
+  segment: BroadcastSegment;
+  link?: string;
+}
+
+export interface BroadcastResponse {
+  success: boolean;
+  sent_count?: number;
+}
+
+export interface StoreStatus {
+  is_sleep_mode: boolean;
+  sleep_message?: string;
+  updated_at?: string;
+}
+
+export interface UpdateStoreStatusRequest {
+  sleep: boolean;
+  message?: string;
 }
 
 export interface CreateOrderRequest {

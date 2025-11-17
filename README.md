@@ -60,6 +60,42 @@ This project is built with:
 - shadcn-ui
 - Tailwind CSS
 
+## Environment setup (frontend + backend)
+
+Both the React frontend and FastAPI backend read variables from a **single** `.env` file located in the project root.
+
+1. Copy `env.example` → `.env`
+2. Adjust the values:
+
+| Variable | Used by | Description |
+| --- | --- | --- |
+| `MONGO_URI` | backend | Connection string for MongoDB |
+| `MONGO_DB` | backend | Database name |
+| `ADMIN_IDS` | both | Comma-separated Telegram admin IDs |
+| `TELEGRAM_BOT_TOKEN` | backend | (Optional) bot token for notifications |
+| `JWT_SECRET` | backend | Secret for signing tokens |
+| `VITE_API_URL` | frontend | URL of the FastAPI service (default `http://localhost:8000/api`) |
+| `VITE_ADMIN_IDS` | frontend | Same admin IDs for client-side checks |
+| `VITE_USE_MOCK_CATALOG` | frontend | `true` to use local mock data, `false` when backend is ready |
+
+> **Important:** `.env` is ignored by git. Keep credentials only in this local file (or environment variables on the server).
+
+### Running locally
+
+```bash
+# 1. Backend
+cd backend
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+
+# 2. Frontend (new terminal)
+npm install
+npm run dev
+```
+
+The frontend uses the values from `.env` automatically (thanks to `VITE_*` prefixes) and will switch off the mock catalog once you set `VITE_USE_MOCK_CATALOG=false`.
+
 ## How can I deploy this project?
 
 Simply open [Lovable](https://lovable.dev/projects/94153c60-7d9e-4841-b392-60e080f90a8b) and click on Share -> Publish.

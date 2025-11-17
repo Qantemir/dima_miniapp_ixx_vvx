@@ -6,10 +6,19 @@ import type { Product, ProductVariant } from '@/types/api';
 
 interface ProductCardProps {
   product: Product;
-  onAddToCart: (productId: string, variantId: string | undefined, quantity: number) => void;
+  onAddToCart: (
+    productId: string,
+    variantId: string | undefined,
+    quantity: number
+  ) => void;
+  purchasesDisabled?: boolean;
 }
 
-export const ProductCard = ({ product, onAddToCart }: ProductCardProps) => {
+export const ProductCard = ({
+  product,
+  onAddToCart,
+  purchasesDisabled = false,
+}: ProductCardProps) => {
   const [quantity, setQuantity] = useState(1);
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(
     product.variants?.[0] || null
@@ -19,7 +28,7 @@ export const ProductCard = ({ product, onAddToCart }: ProductCardProps) => {
   const isAvailable = selectedVariant?.available ?? product.available;
 
   const handleAddToCart = () => {
-    if (isAvailable) {
+    if (isAvailable && !purchasesDisabled) {
       onAddToCart(product.id, selectedVariant?.id, quantity);
       setQuantity(1);
     }
@@ -28,12 +37,14 @@ export const ProductCard = ({ product, onAddToCart }: ProductCardProps) => {
   const increment = () => setQuantity(prev => prev + 1);
   const decrement = () => setQuantity(prev => Math.max(1, prev - 1));
 
+  const displayImage = product.images?.[0] ?? product.image;
+
   return (
     <Card className="overflow-hidden border-border bg-card">
-      {product.image && (
+      {displayImage && (
         <div className="aspect-square w-full overflow-hidden bg-muted">
           <img
-            src={product.image}
+            src={displayImage}
             alt={product.name}
             className="h-full w-full object-cover"
           />
@@ -77,7 +88,7 @@ export const ProductCard = ({ product, onAddToCart }: ProductCardProps) => {
             {currentPrice} ₽
           </div>
 
-          {isAvailable ? (
+          {isAvailable && !purchasesDisabled ? (
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1 bg-secondary rounded-lg">
                 <Button
@@ -103,6 +114,10 @@ export const ProductCard = ({ product, onAddToCart }: ProductCardProps) => {
                 В корзину
               </Button>
             </div>
+          ) : isAvailable && purchasesDisabled ? (
+            <span className="text-sm text-muted-foreground">
+              Магазин временно не принимает заказы
+            </span>
           ) : (
             <span className="text-sm text-muted-foreground">Нет в наличии</span>
           )}

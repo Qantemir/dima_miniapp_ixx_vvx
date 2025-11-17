@@ -10,6 +10,10 @@ import { CheckoutPage } from "./pages/CheckoutPage";
 import { OrderPage } from "./pages/OrderPage";
 import { AdminOrdersPage } from "./pages/AdminOrdersPage";
 import { AdminOrderDetailPage } from "./pages/AdminOrderDetailPage";
+import { AdminCatalogPage } from "./pages/AdminCatalogPage";
+import { AdminCategoryPage } from "./pages/AdminCategoryPage";
+import { AdminBroadcastPage } from "./pages/AdminBroadcastPage";
+import { AdminStoreSettingsPage } from "./pages/AdminStoreSettingsPage";
 import { initTelegram, getUserId, isAdmin } from "./lib/telegram";
 import { ADMIN_IDS } from "./types/api";
 import NotFound from "./pages/NotFound";
@@ -39,6 +43,11 @@ const App = () => {
             
             {/* Admin routes */}
             <Route path="/admin" element={<AdminOrdersPage />} />
+            <Route path="/admin/orders" element={<AdminOrdersPage />} />
+            <Route path="/admin/catalog" element={<AdminCatalogPage />} />
+            <Route path="/admin/catalog/:categoryId" element={<AdminCategoryPage />} />
+            <Route path="/admin/broadcast" element={<AdminBroadcastPage />} />
+            <Route path="/admin/store" element={<AdminStoreSettingsPage />} />
             <Route path="/admin/order/:orderId" element={<AdminOrderDetailPage />} />
             
             {/* 404 */}
