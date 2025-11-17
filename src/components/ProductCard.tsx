@@ -1,0 +1,113 @@
+import { useState } from 'react';
+import { Plus, Minus } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import type { Product, ProductVariant } from '@/types/api';
+
+interface ProductCardProps {
+  product: Product;
+  onAddToCart: (productId: string, variantId: string | undefined, quantity: number) => void;
+}
+
+export const ProductCard = ({ product, onAddToCart }: ProductCardProps) => {
+  const [quantity, setQuantity] = useState(1);
+  const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(
+    product.variants?.[0] || null
+  );
+
+  const currentPrice = selectedVariant?.price || product.price || 0;
+  const isAvailable = selectedVariant?.available ?? product.available;
+
+  const handleAddToCart = () => {
+    if (isAvailable) {
+      onAddToCart(product.id, selectedVariant?.id, quantity);
+      setQuantity(1);
+    }
+  };
+
+  const increment = () => setQuantity(prev => prev + 1);
+  const decrement = () => setQuantity(prev => Math.max(1, prev - 1));
+
+  return (
+    <Card className="overflow-hidden border-border bg-card">
+      {product.image && (
+        <div className="aspect-square w-full overflow-hidden bg-muted">
+          <img
+            src={product.image}
+            alt={product.name}
+            className="h-full w-full object-cover"
+          />
+        </div>
+      )}
+      
+      <div className="p-4 space-y-3">
+        <div>
+          <h3 className="font-semibold text-foreground">{product.name}</h3>
+          {product.description && (
+            <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+              {product.description}
+            </p>
+          )}
+        </div>
+
+        {product.variants && product.variants.length > 1 && (
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">Вариант:</p>
+            <div className="flex flex-wrap gap-2">
+              {product.variants.map((variant) => (
+                <button
+                  key={variant.id}
+                  onClick={() => setSelectedVariant(variant)}
+                  disabled={!variant.available}
+                  className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+                    selectedVariant?.id === variant.id
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-secondary text-secondary-foreground border-border hover:bg-secondary/80'
+                  } ${!variant.available ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  {variant.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between pt-2">
+          <div className="text-2xl font-bold text-foreground">
+            {currentPrice} ₽
+          </div>
+
+          {isAvailable ? (
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 bg-secondary rounded-lg">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={decrement}
+                  className="h-8 w-8"
+                >
+                  <Minus className="h-4 w-4" />
+                </Button>
+                <span className="w-8 text-center font-medium">{quantity}</span>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={increment}
+                  className="h-8 w-8"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+              
+              <Button onClick={handleAddToCart} size="sm">
+                В корзину
+              </Button>
+            </div>
+          ) : (
+            <span className="text-sm text-muted-foreground">Нет в наличии</span>
+          )}
+        </div>
+      </div>
+    </Card>
+  );
+};
