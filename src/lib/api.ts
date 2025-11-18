@@ -60,7 +60,7 @@ class ApiClient {
         if (isJson) {
           const error = payload as ApiError;
           throw new Error(error.message || error.error || 'API request failed');
-        }
+      }
         throw new Error(
           'API request failed: сервер вернул не-JSON ответ. Проверьте адрес API или запущен ли бэкенд.'
         );

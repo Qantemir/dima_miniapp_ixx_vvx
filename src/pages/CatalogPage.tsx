@@ -1,13 +1,23 @@
 import { useEffect, useState } from 'react';
-import { ShoppingCart, Package, HelpCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { ShoppingCart, Package, HelpCircle, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ProductCard } from '@/components/ProductCard';
 import { CartDialog } from '@/components/CartDialog';
 import { api } from '@/lib/api';
-import { getUserId, showAlert, showPopup } from '@/lib/telegram';
+import { getUserId, isAdmin, showAlert } from '@/lib/telegram';
 import type { Category, Product, StoreStatus } from '@/types/api';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useAdminView } from '@/contexts/AdminViewContext';
+import { ADMIN_IDS } from '@/types/api';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 export const CatalogPage = () => {
   const [loading, setLoading] = useState(true);
@@ -16,8 +26,13 @@ export const CatalogPage = () => {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [cartItemsCount, setCartItemsCount] = useState(0);
   const [cartDialogOpen, setCartDialogOpen] = useState(false);
+  const [helpDialogOpen, setHelpDialogOpen] = useState(false);
   const [storeStatus, setStoreStatus] = useState<StoreStatus | null>(null);
   const [storeStatusLoading, setStoreStatusLoading] = useState(true);
+  const navigate = useNavigate();
+  const { forceClientView, setForceClientView } = useAdminView();
+  const userId = getUserId();
+  const isUserAdmin = userId ? isAdmin(userId, ADMIN_IDS) : false;
 
   useEffect(() => {
     loadCatalog();
@@ -90,13 +105,7 @@ export const CatalogPage = () => {
     }
   };
 
-  const handleHelp = () => {
-    showPopup({
-      title: 'Помощь',
-      message: 'По всем вопросам обращайтесь в поддержку через бота или напишите администратору.',
-      buttons: [{ type: 'ok', text: 'Понятно' }]
-    });
-  };
+  const handleHelp = () => setHelpDialogOpen(true);
 
   const filteredProducts = selectedCategory
     ? products.filter(p => p.category_id === selectedCategory)
@@ -129,13 +138,27 @@ export const CatalogPage = () => {
             <Package className="h-6 w-6 text-primary" />
             <h1 className="text-xl font-bold text-foreground">Магазин</h1>
           </div>
-
+          
           <div className="flex items-center gap-2">
+            {isUserAdmin && forceClientView && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setForceClientView(false);
+                  navigate('/admin');
+                }}
+                className="gap-2"
+              >
+                <ShieldCheck className="h-4 w-4" />
+                Админ-режим
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={handleHelp}>
               <HelpCircle className="h-4 w-4 mr-2" />
               Помощь
             </Button>
-
+            
             <Button variant="default" size="sm" onClick={() => setCartDialogOpen(true)} className="relative">
               <ShoppingCart className="h-4 w-4 mr-2" />
               Корзина
@@ -212,6 +235,51 @@ export const CatalogPage = () => {
         onOpenChange={setCartDialogOpen}
         onCartUpdate={loadCartCount}
       />
+
+      <Dialog open={helpDialogOpen} onOpenChange={setHelpDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Помощь</DialogTitle>
+            <DialogDescription>
+              Краткая инструкция по работе с магазином
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <section>
+              <h3 className="text-sm font-semibold text-foreground">Как сделать заказ</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                Выберите нужную категорию, откройте карточку товара и нажмите «Добавить в корзину».
+                После добавления всех товаров перейдите в корзину и оформите заказ, указав контактные данные.
+              </p>
+            </section>
+
+            <section>
+              <h3 className="text-sm font-semibold text-foreground">Оплата</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                Мы принимаем оплату картой или переводом. После оформления заказа вам придёт инструкция
+                с реквизитами и суммой. Оплата подтверждается автоматически.
+              </p>
+            </section>
+
+            <section>
+              <h3 className="text-sm font-semibold text-foreground">Доставка</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                Доступны самовывоз и курьерская доставка. Сроки и стоимость рассчитываются менеджером
+                после подтверждения заказа и зависят от вашего адреса.
+              </p>
+            </section>
+
+            <section>
+              <h3 className="text-sm font-semibold text-foreground">Поддержка</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                Если возникли вопросы, напишите в поддержку в чате мини‑приложения или свяжитесь с администратором
+                через нашего Telegram-бота: @your_support_bot.
+              </p>
+            </section>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -17,46 +17,57 @@ import { AdminStoreSettingsPage } from "./pages/AdminStoreSettingsPage";
 import { initTelegram, getUserId, isAdmin } from "./lib/telegram";
 import { ADMIN_IDS } from "./types/api";
 import NotFound from "./pages/NotFound";
+import { AdminViewProvider, useAdminView } from "./contexts/AdminViewContext";
 
 const queryClient = new QueryClient();
 
-const App = () => {
+const AppRoutes = () => {
   useEffect(() => {
     initTelegram();
   }, []);
 
+  const { forceClientView } = useAdminView();
   const userId = getUserId();
   const isUserAdmin = userId ? isAdmin(userId, ADMIN_IDS) : false;
 
   return (
+    <BrowserRouter>
+      <Routes>
+        {/* Client routes */}
+        <Route
+          path="/"
+          element={isUserAdmin && !forceClientView ? <Navigate to="/admin" replace /> : <CatalogPage />}
+        />
+        <Route path="/cart" element={<CartPage />} />
+        <Route path="/checkout" element={<CheckoutPage />} />
+        <Route path="/order/:orderId?" element={<OrderPage />} />
+
+        {/* Admin routes */}
+        <Route path="/admin" element={<AdminOrdersPage />} />
+        <Route path="/admin/orders" element={<AdminOrdersPage />} />
+        <Route path="/admin/catalog" element={<AdminCatalogPage />} />
+        <Route path="/admin/catalog/:categoryId" element={<AdminCategoryPage />} />
+        <Route path="/admin/broadcast" element={<AdminBroadcastPage />} />
+        <Route path="/admin/store" element={<AdminStoreSettingsPage />} />
+        <Route path="/admin/order/:orderId" element={<AdminOrderDetailPage />} />
+
+        {/* 404 */}
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </BrowserRouter>
+  );
+};
+
+const App = () => (
+  <AdminViewProvider>
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter>
-          <Routes>
-            {/* Client routes */}
-            <Route path="/" element={isUserAdmin ? <Navigate to="/admin" replace /> : <CatalogPage />} />
-            <Route path="/cart" element={<CartPage />} />
-            <Route path="/checkout" element={<CheckoutPage />} />
-            <Route path="/order/:orderId?" element={<OrderPage />} />
-            
-            {/* Admin routes */}
-            <Route path="/admin" element={<AdminOrdersPage />} />
-            <Route path="/admin/orders" element={<AdminOrdersPage />} />
-            <Route path="/admin/catalog" element={<AdminCatalogPage />} />
-            <Route path="/admin/catalog/:categoryId" element={<AdminCategoryPage />} />
-            <Route path="/admin/broadcast" element={<AdminBroadcastPage />} />
-            <Route path="/admin/store" element={<AdminStoreSettingsPage />} />
-            <Route path="/admin/order/:orderId" element={<AdminOrderDetailPage />} />
-            
-            {/* 404 */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
+        <AppRoutes />
       </TooltipProvider>
     </QueryClientProvider>
-  );
-};
+  </AdminViewProvider>
+);
 
 export default App;

@@ -33,11 +33,23 @@ VITE_USE_MOCK_CATALOG=false        # set to true when backend is offline
 
 ## Run server
 
+**Local development:**
 ```bash
 uvicorn app.main:app --reload --port 8000
 ```
 
-The API will be available at `http://localhost:8000/api`.
+**Production (Railway):**
+Railway автоматически предоставляет переменную окружения `PORT`. Используйте:
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
+```
+
+Или в `Procfile` (для Railway):
+```
+web: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+```
+
+The API will be available at `http://localhost:8000/api` (local) or `https://your-app.railway.app/api` (Railway).
 
 ## Collections
 

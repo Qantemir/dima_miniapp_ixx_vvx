@@ -137,9 +137,9 @@ export const showAlert = (message: string) => {
 
 export const showPopup = (
   params: {
-    title?: string;
-    message: string;
-    buttons?: Array<{ id?: string; type?: string; text?: string }>;
+  title?: string;
+  message: string;
+  buttons?: Array<{ id?: string; type?: string; text?: string }>;
   },
   callback?: (id: string) => void
 ) => {
@@ -149,7 +149,7 @@ export const showPopup = (
 
   if (canUsePopup && tg) {
     try {
-      tg.showPopup(params, callback);
+    tg.showPopup(params, callback);
       return;
     } catch (error) {
       console.warn('Telegram showPopup not supported, fallback to confirm', error);
