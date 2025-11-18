@@ -107,7 +107,19 @@ export const getUserId = (): number | null => {
 
 export const getUser = () => {
   const tg = getTelegram();
-  return tg?.initDataUnsafe?.user || null;
+  if (tg?.initDataUnsafe?.user) {
+    return tg.initDataUnsafe.user;
+  }
+
+  const fallbackId = getDevFallbackUserId();
+  if (!fallbackId) return null;
+
+  return {
+    id: fallbackId,
+    first_name: "Demo",
+    last_name: "",
+    username: "demo_user",
+  };
 };
 
 export const isAdmin = (userId: number, adminIds: number[]): boolean => {
