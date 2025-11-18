@@ -5,7 +5,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from ..database import get_db
 from ..schemas import AddToCartRequest, Cart, RemoveFromCartRequest
-from ..utils import serialize_doc
+from ..utils import as_object_id, serialize_doc
 
 router = APIRouter(tags=["cart"])
 
@@ -38,7 +38,12 @@ async def get_cart(user_id: int = Query(...), db: AsyncIOMotorDatabase = Depends
 async def add_to_cart(
   payload: AddToCartRequest, db: AsyncIOMotorDatabase = Depends(get_db)
 ):
-  product = await db.products.find_one({"_id": payload.product_id})
+  try:
+    product_oid = as_object_id(payload.product_id)
+  except ValueError:
+    raise HTTPException(status_code=400, detail="Некорректный идентификатор товара")
+
+  product = await db.products.find_one({"_id": product_oid})
   if not product:
     raise HTTPException(status_code=404, detail="Товар не найден")
 

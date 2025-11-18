@@ -9,6 +9,8 @@ import { api } from '@/lib/api';
 import { getUserId, showAlert, showMainButton, hideMainButton, showBackButton, hideBackButton } from '@/lib/telegram';
 import type { Order } from '@/types/api';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Seo } from '@/components/Seo';
+import { buildCanonicalUrl } from '@/lib/seo';
 
 export const OrderPage = () => {
   const { orderId } = useParams<{ orderId: string }>();
@@ -97,34 +99,74 @@ export const OrderPage = () => {
     }
   };
 
+  const jsonLdBase = {
+    "@context": "https://schema.org",
+    "@type": "Order",
+    url: orderId ? buildCanonicalUrl(`/order/${orderId}`) : buildCanonicalUrl("/order"),
+    orderStatus: "https://schema.org/OrderProcessing",
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-background p-4 space-y-4">
-        <Skeleton className="h-12 w-full" />
-        <Skeleton className="h-32 w-full" />
-        <Skeleton className="h-48 w-full" />
-      </div>
+      <>
+        <Seo title="Заказ" description="Отслеживайте состояние заказа и обновляйте адрес доставки." path={orderId ? `/order/${orderId}` : '/order'} jsonLd={jsonLdBase} />
+        <div className="min-h-screen bg-background p-4 space-y-4">
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-48 w-full" />
+        </div>
+      </>
     );
   }
 
   if (!order) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="text-center">
-          <Package className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-          <p className="text-muted-foreground">Заказ не найден</p>
-          <Button onClick={() => navigate('/')} className="mt-4">
-            Вернуться в каталог
-          </Button>
+      <>
+        <Seo title="Заказ не найден" description="Создайте заказ в каталоге Mini Shop." path="/order" jsonLd={jsonLdBase} />
+        <div className="min-h-screen bg-background flex items-center justify-center p-4">
+          <div className="text-center">
+            <Package className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+            <p className="text-muted-foreground">Заказ не найден</p>
+            <Button onClick={() => navigate('/')} className="mt-4">
+              Вернуться в каталог
+            </Button>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
   const canEditAddress = order.can_edit_address;
+  const orderJsonLd = {
+    ...jsonLdBase,
+    orderNumber: order.id,
+    priceCurrency: "RUB",
+    price: order.total_amount,
+    acceptedOffer: order.items.map(item => ({
+      "@type": "Offer",
+      itemOffered: {
+        "@type": "Product",
+        name: item.product_name,
+      },
+      price: item.price,
+      priceCurrency: "RUB",
+      eligibleQuantity: {
+        "@type": "QuantitativeValue",
+        value: item.quantity,
+      },
+    })),
+    orderStatus: order.status,
+  };
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <>
+      <Seo
+        title={`Заказ ${order.id.slice(-6)}`}
+        description="Отслеживайте статус заказа и редактируйте адрес доставки."
+        path={orderId ? `/order/${orderId}` : '/order'}
+        jsonLd={orderJsonLd}
+      />
+      <div className="min-h-screen bg-background pb-24">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-card border-b border-border p-4">
         <div className="flex items-center gap-3">
@@ -246,6 +288,7 @@ export const OrderPage = () => {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 };

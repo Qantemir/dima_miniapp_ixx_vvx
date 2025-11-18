@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShoppingCart, Package, HelpCircle, ShieldCheck } from 'lucide-react';
+import { ShoppingCart, CheckCircle2, Package, HelpCircle, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ProductCard } from '@/components/ProductCard';
 import { CartDialog } from '@/components/CartDialog';
@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAdminView } from '@/contexts/AdminViewContext';
 import { ADMIN_IDS } from '@/types/api';
+import { Seo } from '@/components/Seo';
 import {
   Dialog,
   DialogContent,
@@ -27,12 +28,37 @@ export const CatalogPage = () => {
   const [cartItemsCount, setCartItemsCount] = useState(0);
   const [cartDialogOpen, setCartDialogOpen] = useState(false);
   const [helpDialogOpen, setHelpDialogOpen] = useState(false);
+  const [addSuccess, setAddSuccess] = useState(false);
   const [storeStatus, setStoreStatus] = useState<StoreStatus | null>(null);
   const [storeStatusLoading, setStoreStatusLoading] = useState(true);
   const navigate = useNavigate();
   const { forceClientView, setForceClientView } = useAdminView();
   const userId = getUserId();
   const isUserAdmin = userId ? isAdmin(userId, ADMIN_IDS) : false;
+
+  const catalogJsonLd = useMemo(() => {
+    if (!products.length) return undefined;
+    return {
+      "@context": "https://schema.org",
+      "@type": "ItemList",
+      name: "Каталог товаров",
+      itemListElement: products.slice(0, 20).map((product, index) => ({
+        "@type": "Product",
+        name: product.name,
+        description: product.description,
+        image: product.images?.[0] || product.image,
+        offers: {
+          "@type": "Offer",
+          priceCurrency: "RUB",
+          price: product.price ?? 0,
+          availability: product.available
+            ? "https://schema.org/InStock"
+            : "https://schema.org/OutOfStock",
+        },
+        position: index + 1,
+      })),
+    };
+  }, [products]);
 
   useEffect(() => {
     loadCatalog();
@@ -99,7 +125,8 @@ export const CatalogPage = () => {
         quantity,
       });
       await loadCartCount();
-      showAlert('Товар добавлен в корзину');
+      setAddSuccess(true);
+      setTimeout(() => setAddSuccess(false), 2000);
     } catch (error) {
       showAlert('Ошибка при добавлении в корзину');
     }
@@ -113,24 +140,38 @@ export const CatalogPage = () => {
 
   if (loading || storeStatusLoading) {
     return (
-      <div className="min-h-screen bg-background p-4 space-y-4">
-        <Skeleton className="h-12 w-full" />
-        <div className="flex gap-2 overflow-x-auto pb-2">
-          {[1, 2, 3].map(i => (
-            <Skeleton key={i} className="h-10 w-24 flex-shrink-0" />
-          ))}
+      <>
+        <Seo
+          title="Каталог товаров"
+          description="Просматривайте категории и товары Mini Shop прямо внутри Telegram."
+          path="/"
+        />
+        <div className="min-h-screen bg-background p-4 space-y-4">
+          <Skeleton className="h-12 w-full" />
+          <div className="flex gap-2 overflow-x-auto pb-2">
+            {[1, 2, 3].map(i => (
+              <Skeleton key={i} className="h-10 w-24 flex-shrink-0" />
+            ))}
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+            {[1, 2, 3, 4].map(i => (
+              <Skeleton key={i} className="h-80 w-full" />
+            ))}
+          </div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {[1, 2, 3, 4].map(i => (
-            <Skeleton key={i} className="h-80 w-full" />
-          ))}
-        </div>
-      </div>
+      </>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <>
+      <Seo
+        title="Каталог товаров"
+        description="Выбирайте товары по категориям и добавляйте их в корзину в Mini Shop."
+        path="/"
+        jsonLd={catalogJsonLd}
+      />
+      <div className="min-h-screen bg-background pb-20">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-card border-b border-border p-4">
         <div className="flex items-center justify-between">
@@ -159,15 +200,22 @@ export const CatalogPage = () => {
               Помощь
             </Button>
             
-            <Button variant="default" size="sm" onClick={() => setCartDialogOpen(true)} className="relative">
-              <ShoppingCart className="h-4 w-4 mr-2" />
-              Корзина
-              {cartItemsCount > 0 && (
-                <span className="ml-2 bg-primary-foreground/90 text-primary text-xxs font-bold rounded-full h-5 px-2 flex items-center justify-center">
-                  {cartItemsCount}
+            <div className="relative">
+              <Button variant="default" size="sm" onClick={() => setCartDialogOpen(true)} className="relative">
+                <ShoppingCart className="h-4 w-4 mr-2" />
+                Корзина
+                {cartItemsCount > 0 && (
+                  <span className="ml-2 bg-primary-foreground/90 text-primary text-xxs font-bold rounded-full h-5 px-2 flex items-center justify-center">
+                    {cartItemsCount}
+                  </span>
+                )}
+              </Button>
+              {addSuccess && (
+                <span className="absolute -right-1 -top-7 flex items-center gap-1 text-xs text-primary bg-card/95 px-2 py-1 rounded-full shadow">
+                  <CheckCircle2 className="h-4 w-4" /> Добавлено
                 </span>
               )}
-            </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -235,7 +283,6 @@ export const CatalogPage = () => {
         onOpenChange={setCartDialogOpen}
         onCartUpdate={loadCartCount}
       />
-
       <Dialog open={helpDialogOpen} onOpenChange={setHelpDialogOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
@@ -280,6 +327,7 @@ export const CatalogPage = () => {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </>
   );
 };

@@ -6,6 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { api } from '@/lib/api';
+import { Seo } from '@/components/Seo';
+import { buildCanonicalUrl } from '@/lib/seo';
 import { getUser, showAlert, showMainButton, hideMainButton, showBackButton, hideBackButton } from '@/lib/telegram';
 
 export const CheckoutPage = () => {
@@ -68,8 +70,18 @@ export const CheckoutPage = () => {
     }
   };
 
+  const checkoutJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "CheckoutPage",
+    name: "Оформление заказа",
+    description: "Введите контактные данные для подтверждения заказа в Mini Shop.",
+    url: buildCanonicalUrl("/checkout"),
+  };
+
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <>
+      <Seo title="Оформление заказа" description="Введите контактные данные для подтверждения заказа." path="/checkout" jsonLd={checkoutJsonLd} />
+      <div className="min-h-screen bg-background pb-24">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-card border-b border-border p-4">
         <div className="flex items-center gap-3">
@@ -138,7 +150,16 @@ export const CheckoutPage = () => {
         <div className="text-sm text-muted-foreground">
           * Обязательные поля
         </div>
+
+        <Button
+          className="w-full h-12 text-base"
+          disabled={submitting}
+          onClick={handleSubmit}
+        >
+          {submitting ? 'Отправка...' : 'Подтвердить заказ'}
+        </Button>
       </div>
-    </div>
+      </div>
+    </>
   );
 };

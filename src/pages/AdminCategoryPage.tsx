@@ -31,6 +31,7 @@ import {
   showPopup,
 } from '@/lib/telegram';
 import type { Category, Product, ProductPayload } from '@/types/api';
+import { Seo } from '@/components/Seo';
 
 type DialogMode = 'create' | 'edit';
 
@@ -213,9 +214,20 @@ export const AdminCategoryPage = () => {
     }
   };
 
+  const seoTitle = category ? `Админ: ${category.name}` : "Админ: Категория";
+  const seoPath = categoryId ? `/admin/catalog/${categoryId}` : "/admin/catalog";
+  const seoProps = {
+    title: seoTitle,
+    description: "Редактируйте товары внутри выбранной категории.",
+    path: seoPath,
+    noIndex: true,
+  };
+
   if (loading || !category || !formData) {
     return (
-      <div className="min-h-screen bg-background pb-6">
+      <>
+        <Seo {...seoProps} />
+        <div className="min-h-screen bg-background pb-6">
         <AdminHeader
           title="Каталог"
           description="Создавайте и редактируйте карточки товаров"
@@ -224,12 +236,15 @@ export const AdminCategoryPage = () => {
         <div className="p-4">
           <Skeleton className="h-48 w-full" />
         </div>
-      </div>
+        </div>
+      </>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background pb-6">
+    <>
+      <Seo {...seoProps} />
+      <div className="min-h-screen bg-background pb-6">
       <AdminHeader
         title={category.name}
         description="Управляйте товарами категории"
@@ -407,7 +422,8 @@ export const AdminCategoryPage = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </>
   );
 };
 

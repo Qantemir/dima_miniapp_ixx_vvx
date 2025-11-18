@@ -16,6 +16,7 @@ import {
   showBackButton,
 } from '@/lib/telegram';
 import type { StoreStatus } from '@/types/api';
+import { Seo } from '@/components/Seo';
 
 export const AdminStoreSettingsPage = () => {
   const navigate = useNavigate();
@@ -64,14 +65,16 @@ export const AdminStoreSettingsPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-6">
-      <AdminHeader
-        title="Режим сна"
-        description="Включайте и отключайте приём заказов"
-        icon={Moon}
-      />
+    <>
+      <Seo title="Админ: Режим сна" description="Управляйте статусом магазина и сообщением для клиентов." path="/admin/store" noIndex />
+      <div className="min-h-screen bg-background pb-6">
+        <AdminHeader
+          title="Режим сна"
+          description="Включайте и отключайте приём заказов"
+          icon={Moon}
+        />
 
-      <div className="p-4 space-y-4">
+        <div className="p-4 space-y-4">
         {loading ? (
           <Skeleton className="h-48 w-full" />
         ) : (
@@ -121,8 +124,9 @@ export const AdminStoreSettingsPage = () => {
             )}
           </>
         )}
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 

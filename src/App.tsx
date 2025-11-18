@@ -3,7 +3,11 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import {
+  Navigate,
+  RouterProvider,
+  createBrowserRouter,
+} from "react-router-dom";
 import { CatalogPage } from "./pages/CatalogPage";
 import { CartPage } from "./pages/CartPage";
 import { CheckoutPage } from "./pages/CheckoutPage";
@@ -21,41 +25,46 @@ import { AdminViewProvider, useAdminView } from "./contexts/AdminViewContext";
 
 const queryClient = new QueryClient();
 
-const AppRoutes = () => {
-  useEffect(() => {
-    initTelegram();
-  }, []);
-
+const RootRoute = () => {
   const { forceClientView } = useAdminView();
   const userId = getUserId();
   const isUserAdmin = userId ? isAdmin(userId, ADMIN_IDS) : false;
 
-  return (
-    <BrowserRouter>
-      <Routes>
-        {/* Client routes */}
-        <Route
-          path="/"
-          element={isUserAdmin && !forceClientView ? <Navigate to="/admin" replace /> : <CatalogPage />}
-        />
-        <Route path="/cart" element={<CartPage />} />
-        <Route path="/checkout" element={<CheckoutPage />} />
-        <Route path="/order/:orderId?" element={<OrderPage />} />
+  if (isUserAdmin && !forceClientView) {
+    return <Navigate to="/admin" replace />;
+  }
 
-        {/* Admin routes */}
-        <Route path="/admin" element={<AdminOrdersPage />} />
-        <Route path="/admin/orders" element={<AdminOrdersPage />} />
-        <Route path="/admin/catalog" element={<AdminCatalogPage />} />
-        <Route path="/admin/catalog/:categoryId" element={<AdminCategoryPage />} />
-        <Route path="/admin/broadcast" element={<AdminBroadcastPage />} />
-        <Route path="/admin/store" element={<AdminStoreSettingsPage />} />
-        <Route path="/admin/order/:orderId" element={<AdminOrderDetailPage />} />
+  return <CatalogPage />;
+};
 
-        {/* 404 */}
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </BrowserRouter>
-  );
+const router = createBrowserRouter(
+  [
+    { path: "/", element: <RootRoute /> },
+    { path: "/cart", element: <CartPage /> },
+    { path: "/checkout", element: <CheckoutPage /> },
+    { path: "/order/:orderId?", element: <OrderPage /> },
+    { path: "/admin", element: <AdminOrdersPage /> },
+    { path: "/admin/orders", element: <AdminOrdersPage /> },
+    { path: "/admin/catalog", element: <AdminCatalogPage /> },
+    { path: "/admin/catalog/:categoryId", element: <AdminCategoryPage /> },
+    { path: "/admin/broadcast", element: <AdminBroadcastPage /> },
+    { path: "/admin/store", element: <AdminStoreSettingsPage /> },
+    { path: "/admin/order/:orderId", element: <AdminOrderDetailPage /> },
+    { path: "*", element: <NotFound /> },
+  ],
+  {
+    future: {
+      v7_relativeSplatPath: true,
+    },
+  }
+);
+
+const AppRouter = () => {
+  useEffect(() => {
+    initTelegram();
+  }, []);
+
+  return <RouterProvider router={router} future={{ v7_startTransition: true }} />;
 };
 
 const App = () => (
@@ -64,7 +73,7 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <AppRoutes />
+        <AppRouter />
       </TooltipProvider>
     </QueryClientProvider>
   </AdminViewProvider>

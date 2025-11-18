@@ -76,7 +76,8 @@ Both the React frontend and FastAPI backend read variables from a **single** `.e
 | `JWT_SECRET` | backend | Secret for signing tokens |
 | `VITE_API_URL` | frontend | URL of the FastAPI service (default `http://localhost:8000/api`) |
 | `VITE_ADMIN_IDS` | frontend | Same admin IDs for client-side checks |
-| `VITE_USE_MOCK_CATALOG` | frontend | `true` to use local mock data, `false` when backend is ready |
+| `VITE_PUBLIC_URL` | frontend | Public base URL used for canonical links, sitemap and OG tags |
+| `VITE_DEV_USER_ID` | frontend (dev) | Optional fallback Telegram user id when testing в браузере |
 
 > **Important:** `.env` is ignored by git. Keep credentials only in this local file (or environment variables on the server).
 
@@ -90,11 +91,26 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 
 # 2. Frontend (new terminal)
-npm install
-npm run dev
+yarn install # или npm install
+yarn dev     # или npm run dev
 ```
 
-The frontend uses the values from `.env` automatically (thanks to `VITE_*` prefixes) and will switch off the mock catalog once you set `VITE_USE_MOCK_CATALOG=false`.
+Или одним процессом (после первого `pip install` и `yarn install`):
+
+```bash
+yarn dev:full
+```
+
+Команда `dev:full` автоматически активирует виртуальное окружение backend’а (`backend/.venv`) и параллельно запускает Vite. Если используешь zsh/bash, всё заработает сразу. На Windows PowerShell вместо `source .venv/bin/activate` укажи `.venv\\Scripts\\activate`.
+
+Фронтенд использует значения из `.env` автоматически (благодаря `VITE_*`). Убедись, что `VITE_API_URL` указывает на твой FastAPI-бэкенд (например, `http://localhost:8000/api` локально или Railway-URL в проде), а `VITE_PUBLIC_URL` соответствует публичному домену (используется в мета-тегах, `robots.txt` и `sitemap.xml`).
+
+### SEO & мета-теги
+
+- Все страницы получают уникальные мета-теги через `react-helmet-async` и компонент `Seo` (`src/components/Seo.tsx`).
+- Базовые значения (название магазина, описание, ключевые слова, OG-изображение) задаются в `src/lib/seo.ts`. Обнови их под свой бренд.
+- Файлы `public/robots.txt` и `public/sitemap.xml` содержат базовые ссылки (`https://miniapp.local`). Замени домен после деплоя.
+- В `public/favicon.svg` хранится иконка PWA/OG — при необходимости подмени своим svg/png.
 
 ## How can I deploy this project?
 

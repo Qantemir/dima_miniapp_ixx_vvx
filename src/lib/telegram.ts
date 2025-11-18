@@ -72,9 +72,37 @@ export const applyTelegramTheme = (themeParams: any) => {
   }
 };
 
+const DEV_USER_STORAGE_KEY = 'miniapp_dev_user_id';
+
+const getDevFallbackUserId = (): number | null => {
+  const envValue = import.meta.env.VITE_DEV_USER_ID;
+  if (envValue) {
+    const parsed = Number(envValue);
+    if (!Number.isNaN(parsed)) {
+      return parsed;
+    }
+  }
+
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  const stored = window.localStorage.getItem(DEV_USER_STORAGE_KEY);
+  if (stored) {
+    const parsed = Number(stored);
+    if (!Number.isNaN(parsed)) {
+      return parsed;
+    }
+  }
+
+  const generated = Math.floor(Math.random() * 1_000_000) + 1;
+  window.localStorage.setItem(DEV_USER_STORAGE_KEY, generated.toString());
+  return generated;
+};
+
 export const getUserId = (): number | null => {
   const tg = getTelegram();
-  return tg?.initDataUnsafe?.user?.id || null;
+  return tg?.initDataUnsafe?.user?.id || getDevFallbackUserId();
 };
 
 export const getUser = () => {
@@ -128,11 +156,19 @@ export const hideBackButton = () => {
 
 export const showAlert = (message: string) => {
   const tg = getTelegram();
-  if (tg) {
-    tg.showAlert(message);
-  } else {
-    alert(message);
+  const canUseAlert =
+    !!tg && typeof tg.showAlert === 'function' && isVersionSupported('6.1');
+
+  if (canUseAlert) {
+    try {
+      tg.showAlert(message);
+      return;
+    } catch (error) {
+      console.warn('Telegram showAlert not supported, fallback to window.alert', error);
+    }
   }
+
+  window.alert(message);
 };
 
 export const showPopup = (
@@ -166,12 +202,20 @@ export const showPopup = (
 
 export const showConfirm = (message: string, callback?: (ok: boolean) => void) => {
   const tg = getTelegram();
-  if (tg) {
-    tg.showConfirm(message, callback);
-  } else {
-    const result = confirm(message);
-    callback?.(result);
+  const canUseConfirm =
+    !!tg && typeof tg.showConfirm === 'function' && isVersionSupported('6.1');
+
+  if (canUseConfirm) {
+    try {
+      tg.showConfirm(message, callback);
+      return;
+    } catch (error) {
+      console.warn('Telegram showConfirm not supported, fallback to window.confirm', error);
+    }
   }
+
+  const result = window.confirm(message);
+  callback?.(result);
 };
 
 export const closeMiniApp = () => {

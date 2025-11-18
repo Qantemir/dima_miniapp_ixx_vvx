@@ -7,6 +7,7 @@ import { api } from '@/lib/api';
 import { getUserId, showAlert, showBackButton, hideBackButton, showPopup } from '@/lib/telegram';
 import type { Order, OrderStatus } from '@/types/api';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Seo } from '@/components/Seo';
 
 const AVAILABLE_STATUSES: OrderStatus[] = [
   'новый',
@@ -97,22 +98,39 @@ export const AdminOrderDetailPage = () => {
     );
   };
 
+  const seoPath = orderId ? `/admin/order/${orderId}` : '/admin/order';
+  const seoTitle = order ? `Админ: Заказ ${order.id.slice(-6)}` : "Админ: Заказ";
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-background p-4 space-y-4">
-        <Skeleton className="h-12 w-full" />
-        <Skeleton className="h-32 w-full" />
-        <Skeleton className="h-48 w-full" />
-      </div>
+      <>
+        <Seo title={seoTitle} description="Просматривайте информацию о заказе." path={seoPath} noIndex />
+        <div className="min-h-screen bg-background p-4 space-y-4">
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-48 w-full" />
+        </div>
+      </>
     );
   }
 
   if (!order) {
-    return null;
+    return (
+      <>
+        <Seo title="Админ: Заказ" description="Заказ не найден." path={seoPath} noIndex />
+        <div className="min-h-screen bg-background p-4 space-y-4">
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-48 w-full" />
+        </div>
+      </>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-background pb-6">
+    <>
+      <Seo title={seoTitle} description="Изменяйте статус и просматривайте детали заказа." path={seoPath} noIndex />
+      <div className="min-h-screen bg-background pb-6">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-card border-b border-border p-4">
         <div className="flex items-center gap-3">
@@ -234,6 +252,7 @@ export const AdminOrderDetailPage = () => {
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </>
   );
 };

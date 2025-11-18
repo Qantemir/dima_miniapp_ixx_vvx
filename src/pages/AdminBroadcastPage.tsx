@@ -14,6 +14,7 @@ import {
   showBackButton,
 } from '@/lib/telegram';
 import type { BroadcastRequest } from '@/types/api';
+import { Seo } from '@/components/Seo';
 
 export const AdminBroadcastPage = () => {
   const navigate = useNavigate();
@@ -58,49 +59,52 @@ export const AdminBroadcastPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-6">
-      <AdminHeader
-        title="Рассылка"
-        description="Отправляйте сообщения клиентам"
-        icon={Megaphone}
-      />
+    <>
+      <Seo title="Админ: Рассылка" description="Создавайте push-рассылки для клиентов." path="/admin/broadcast" noIndex />
+      <div className="min-h-screen bg-background pb-6">
+        <AdminHeader
+          title="Рассылка"
+          description="Отправляйте сообщения клиентам"
+          icon={Megaphone}
+        />
 
-      <div className="p-4">
-        <Card className="border border-border bg-card p-4">
-          <form className="space-y-4" onSubmit={handleSubmit}>
-            <div className="space-y-2">
-              <Label>Заголовок</Label>
-              <Input
-                value={formData.title}
-                onChange={event =>
-                  setFormData(prev => ({ ...prev, title: event.target.value }))
-                }
-                placeholder="Например, Черная пятница"
-              />
-            </div>
+        <div className="p-4">
+          <Card className="border border-border bg-card p-4">
+            <form className="space-y-4" onSubmit={handleSubmit}>
+              <div className="space-y-2">
+                <Label>Заголовок</Label>
+                <Input
+                  value={formData.title}
+                  onChange={event =>
+                    setFormData(prev => ({ ...prev, title: event.target.value }))
+                  }
+                  placeholder="Например, Черная пятница"
+                />
+              </div>
 
-            <div className="space-y-2">
-              <Label>Сообщение</Label>
-              <Textarea
-                rows={5}
-                value={formData.message}
-                onChange={event =>
-                  setFormData(prev => ({
-                    ...prev,
-                    message: event.target.value,
-                  }))
-                }
-                placeholder="Расскажите клиентам о новостях и акциях"
-              />
-            </div>
+              <div className="space-y-2">
+                <Label>Сообщение</Label>
+                <Textarea
+                  rows={5}
+                  value={formData.message}
+                  onChange={event =>
+                    setFormData(prev => ({
+                      ...prev,
+                      message: event.target.value,
+                    }))
+                  }
+                  placeholder="Расскажите клиентам о новостях и акциях"
+                />
+              </div>
 
-            <Button type="submit" disabled={sending} className="w-full">
-              {sending ? 'Отправка...' : 'Отправить рассылку'}
-            </Button>
-          </form>
-        </Card>
+              <Button type="submit" disabled={sending} className="w-full">
+                {sending ? 'Отправка...' : 'Отправить рассылку'}
+              </Button>
+            </form>
+          </Card>
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 

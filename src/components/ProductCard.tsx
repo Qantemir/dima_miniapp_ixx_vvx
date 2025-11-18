@@ -40,9 +40,9 @@ export const ProductCard = ({
   const displayImage = product.images?.[0] ?? product.image;
 
   return (
-    <Card className="overflow-hidden border-border bg-card">
+    <Card className="w-full overflow-hidden border-border bg-card rounded-2xl shadow-sm h-full">
       {displayImage && (
-        <div className="aspect-square w-full overflow-hidden bg-muted">
+        <div className="aspect-[4/3] w-full overflow-hidden bg-muted">
           <img
             src={displayImage}
             alt={product.name}
@@ -51,7 +51,7 @@ export const ProductCard = ({
         </div>
       )}
       
-      <div className="p-4 space-y-3">
+      <div className="p-3 space-y-3">
         <div>
           <h3 className="font-semibold text-foreground">{product.name}</h3>
           {product.description && (
@@ -83,34 +83,34 @@ export const ProductCard = ({
           </div>
         )}
 
-        <div className="flex items-center justify-between pt-2">
-          <div className="text-2xl font-bold text-foreground">
+        <div className="flex items-end justify-between pt-2 gap-2">
+          <div className="text-xl font-bold text-foreground">
             {currentPrice} ₽
           </div>
 
           {isAvailable && !purchasesDisabled ? (
             <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1 bg-secondary rounded-lg">
+              <div className="flex items-center gap-1 bg-secondary rounded-xl px-2 py-1">
                 <Button
                   size="icon"
                   variant="ghost"
                   onClick={decrement}
-                  className="h-8 w-8"
+                  className="h-7 w-7"
                 >
                   <Minus className="h-4 w-4" />
                 </Button>
-                <span className="w-8 text-center font-medium">{quantity}</span>
+                <span className="w-6 text-center font-medium">{quantity}</span>
                 <Button
                   size="icon"
                   variant="ghost"
                   onClick={increment}
-                  className="h-8 w-8"
+                  className="h-7 w-7"
                 >
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
               
-              <Button onClick={handleAddToCart} size="sm">
+              <Button onClick={handleAddToCart} size="sm" className="px-4">
                 В корзину
               </Button>
             </div>

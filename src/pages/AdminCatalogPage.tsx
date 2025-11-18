@@ -33,6 +33,7 @@ import type {
   Category,
   CategoryPayload,
 } from '@/types/api';
+import { Seo } from '@/components/Seo';
 
 type DialogMode = 'create' | 'edit';
 
@@ -132,9 +133,18 @@ export const AdminCatalogPage = () => {
     );
   };
 
+  const seoProps = {
+    title: "Админ: Категории",
+    description: "Создавайте и редактируйте категории каталога.",
+    path: "/admin/catalog",
+    noIndex: true,
+  };
+
   if (loading || !catalog) {
     return (
-      <div className="min-h-screen bg-background pb-6">
+      <>
+        <Seo {...seoProps} />
+        <div className="min-h-screen bg-background pb-6">
         <AdminHeader
           title="Каталог"
           description="Создавайте и редактируйте карточки товаров"
@@ -203,19 +213,22 @@ export const AdminCatalogPage = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </div>
+        </div>
+      </>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background pb-6">
-      <AdminHeader
-        title="Каталог"
-        description="Создавайте и редактируйте карточки товаров"
-        icon={Boxes}
-      />
+    <>
+      <Seo {...seoProps} />
+      <div className="min-h-screen bg-background pb-6">
+        <AdminHeader
+          title="Каталог"
+          description="Создавайте и редактируйте карточки товаров"
+          icon={Boxes}
+        />
 
-      <div className="p-4 space-y-6">
+        <div className="p-4 space-y-6">
         <Card className="border border-border bg-card p-4 space-y-3">
           <div className="flex items-center justify-between">
             <div>
@@ -272,9 +285,9 @@ export const AdminCatalogPage = () => {
           </div>
         </Card>
 
-      </div>
+        </div>
 
-      <Dialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
+        <Dialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
@@ -307,8 +320,9 @@ export const AdminCatalogPage = () => {
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
-    </div>
+        </Dialog>
+      </div>
+    </>
   );
 };
 

@@ -91,14 +91,14 @@ export const CartDialog = ({ open, onOpenChange, onCartUpdate }: CartDialogProps
   if (!cart || cart.items.length === 0) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md" aria-describedby="empty-cart-description">
           <DialogHeader>
             <DialogTitle>Корзина</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col items-center justify-center py-8">
             <ShoppingCart className="h-16 w-16 text-muted-foreground mb-4" />
             <p className="text-lg text-muted-foreground mb-2">Корзина пуста</p>
-            <p className="text-sm text-muted-foreground mb-6 text-center">
+            <p id="empty-cart-description" className="text-sm text-muted-foreground mb-6 text-center">
               Добавьте товары из каталога
             </p>
             <Button onClick={() => onOpenChange(false)}>
@@ -112,13 +112,16 @@ export const CartDialog = ({ open, onOpenChange, onCartUpdate }: CartDialogProps
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-[85vh] flex flex-col p-0">
+        <DialogContent
+          className="max-w-md max-h-[85vh] flex flex-col p-0"
+          aria-describedby="cart-dialog-content"
+        >
         <DialogHeader className="px-6 pt-6 pb-4 border-b">
           <DialogTitle className="text-xl">Корзина</DialogTitle>
         </DialogHeader>
 
         {/* Cart Items */}
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+        <div id="cart-dialog-content" className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
           {cart.items.map(item => (
             <CartItem
               key={item.id}

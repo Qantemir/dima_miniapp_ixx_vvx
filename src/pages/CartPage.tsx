@@ -7,6 +7,8 @@ import { api } from '@/lib/api';
 import { getUserId, showAlert, showMainButton, hideMainButton, showBackButton, hideBackButton } from '@/lib/telegram';
 import type { Cart } from '@/types/api';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Seo } from '@/components/Seo';
+import { buildCanonicalUrl } from '@/lib/seo';
 
 export const CartPage = () => {
   const navigate = useNavigate();
@@ -69,20 +71,33 @@ export const CartPage = () => {
     }
   };
 
+  const cartJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    name: "Корзина",
+    description: "Проверьте товары перед оформлением заказа в Mini Shop.",
+    url: buildCanonicalUrl("/cart"),
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-background p-4 space-y-4">
-        <Skeleton className="h-12 w-full" />
-        {[1, 2, 3].map(i => (
-          <Skeleton key={i} className="h-24 w-full" />
-        ))}
-      </div>
+      <>
+        <Seo title="Корзина" description="Проверьте товары перед оформлением заказа." path="/cart" jsonLd={cartJsonLd} />
+        <div className="min-h-screen bg-background p-4 space-y-4">
+          <Skeleton className="h-12 w-full" />
+          {[1, 2, 3].map(i => (
+            <Skeleton key={i} className="h-24 w-full" />
+          ))}
+        </div>
+      </>
     );
   }
 
   if (!cart || cart.items.length === 0) {
     return (
-      <div className="min-h-screen bg-background flex flex-col">
+      <>
+        <Seo title="Корзина пуста" description="Добавьте товары в корзину, чтобы оформить заказ." path="/cart" jsonLd={cartJsonLd} />
+        <div className="min-h-screen bg-background flex flex-col">
         <div className="p-4 border-b border-border bg-card">
           <div className="flex items-center gap-3">
             <Button
@@ -106,12 +121,15 @@ export const CartPage = () => {
             Перейти к покупкам
           </Button>
         </div>
-      </div>
+        </div>
+      </>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <>
+      <Seo title="Корзина" description="Редактируйте корзину и переходите к оформлению заказа." path="/cart" jsonLd={cartJsonLd} />
+      <div className="min-h-screen bg-background pb-24">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-card border-b border-border p-4">
         <div className="flex items-center gap-3">
@@ -146,6 +164,7 @@ export const CartPage = () => {
           </span>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 };

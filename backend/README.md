@@ -28,7 +28,7 @@ TELEGRAM_BOT_TOKEN=your_bot_token  # optional
 JWT_SECRET=change-me
 VITE_API_URL=http://localhost:8000/api
 VITE_ADMIN_IDS=123456,987654
-VITE_USE_MOCK_CATALOG=false        # set to true when backend is offline
+VITE_PUBLIC_URL=https://miniapp.local
 ```
 
 ## Run server
