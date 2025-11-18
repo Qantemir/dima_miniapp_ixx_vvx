@@ -107,7 +107,9 @@ export interface BroadcastRequest {
 
 export interface BroadcastResponse {
   success: boolean;
-  sent_count?: number;
+  sent_count: number;
+  total_count: number;
+  failed_count: number;
 }
 
 export interface StoreStatus {

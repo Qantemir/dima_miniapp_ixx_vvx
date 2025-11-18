@@ -1,4 +1,5 @@
 from uuid import uuid4
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
@@ -65,6 +66,22 @@ async def add_to_cart(
 
   cart = recalculate_total(cart)
   await db.carts.update_one({"_id": cart["_id"]}, {"$set": cart})
+  
+  # Сохраняем или обновляем клиента в базе данных
+  now = datetime.utcnow()
+  existing_customer = await db.customers.find_one({"telegram_id": payload.user_id})
+  if existing_customer:
+    await db.customers.update_one(
+      {"telegram_id": payload.user_id},
+      {"$set": {"last_cart_activity": now}}
+    )
+  else:
+    await db.customers.insert_one({
+      "telegram_id": payload.user_id,
+      "added_at": now,
+      "last_cart_activity": now,
+    })
+  
   return Cart(**serialize_doc(cart) | {"id": str(cart["_id"])})
 
 

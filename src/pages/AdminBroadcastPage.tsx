@@ -41,12 +41,21 @@ export const AdminBroadcastPage = () => {
 
     setSending(true);
     try {
-      await api.sendBroadcast({
+      const result = await api.sendBroadcast({
         title: formData.title,
         message: formData.message,
         segment: 'all',
       });
-      showAlert('Рассылка отправлена');
+      
+      // Формируем детальное сообщение о результатах рассылки
+      let message = `✅ Рассылка завершена!\n\n`;
+      message += `📊 Всего клиентов: ${result.total_count}\n`;
+      message += `✅ Доставлено: ${result.sent_count}\n`;
+      if (result.failed_count > 0) {
+        message += `❌ Ошибок: ${result.failed_count} (недоступные клиенты удалены из базы)`;
+      }
+      
+      showAlert(message);
       setFormData({
         title: '',
         message: '',

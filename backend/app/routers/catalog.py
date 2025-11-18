@@ -44,11 +44,18 @@ async def get_admin_catalog(db: AsyncIOMotorDatabase = Depends(get_db)):
 async def create_category(
   payload: CategoryCreate, db: AsyncIOMotorDatabase = Depends(get_db)
 ):
-  existing = await db.categories.find_one({"name": payload.name})
+  if not payload.name or not payload.name.strip():
+    raise HTTPException(status_code=400, detail="Название категории не может быть пустым")
+  
+  existing = await db.categories.find_one({"name": payload.name.strip()})
   if existing:
     raise HTTPException(status_code=400, detail="Категория уже существует")
-  result = await db.categories.insert_one(payload.dict())
+  
+  category_data = {"name": payload.name.strip()}
+  result = await db.categories.insert_one(category_data)
   doc = await db.categories.find_one({"_id": result.inserted_id})
+  if not doc:
+    raise HTTPException(status_code=500, detail="Ошибка при создании категории")
   return Category(**serialize_doc(doc) | {"id": str(doc["_id"])})
 
 

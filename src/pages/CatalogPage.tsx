@@ -6,12 +6,13 @@ import { ProductCard } from '@/components/ProductCard';
 import { CartDialog } from '@/components/CartDialog';
 import { api } from '@/lib/api';
 import { getUserId, isAdmin, showAlert } from '@/lib/telegram';
-import type { Category, Product, StoreStatus } from '@/types/api';
+import type { Category, Product } from '@/types/api';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAdminView } from '@/contexts/AdminViewContext';
 import { ADMIN_IDS } from '@/types/api';
 import { Seo } from '@/components/Seo';
+import { useStoreStatus } from '@/contexts/StoreStatusContext';
 import {
   Dialog,
   DialogContent,
@@ -29,8 +30,7 @@ export const CatalogPage = () => {
   const [cartDialogOpen, setCartDialogOpen] = useState(false);
   const [helpDialogOpen, setHelpDialogOpen] = useState(false);
   const [addSuccess, setAddSuccess] = useState(false);
-  const [storeStatus, setStoreStatus] = useState<StoreStatus | null>(null);
-  const [storeStatusLoading, setStoreStatusLoading] = useState(true);
+  const { status: storeStatus, loading: storeStatusLoading } = useStoreStatus();
   const navigate = useNavigate();
   const { forceClientView, setForceClientView } = useAdminView();
   const userId = getUserId();
@@ -62,7 +62,6 @@ export const CatalogPage = () => {
 
   useEffect(() => {
     loadCatalog();
-    loadStoreStatus();
     loadCartCount();
   }, []);
 
@@ -72,20 +71,11 @@ export const CatalogPage = () => {
       setCategories(data.categories);
       setProducts(data.products);
     } catch (error) {
-      showAlert('Ошибка загрузки каталога');
+      const errorMessage = error instanceof Error ? error.message : 'Ошибка загрузки каталога';
+      console.error('Failed to load catalog:', error);
+      showAlert(`Ошибка загрузки каталога: ${errorMessage}`);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const loadStoreStatus = async () => {
-    try {
-      const status = await api.getStoreStatus();
-      setStoreStatus(status);
-    } catch (error) {
-      // Store status endpoint is optional
-    } finally {
-      setStoreStatusLoading(false);
     }
   };
 
@@ -146,19 +136,19 @@ export const CatalogPage = () => {
           description="Просматривайте категории и товары Mini Shop прямо внутри Telegram."
           path="/"
         />
-        <div className="min-h-screen bg-background p-4 space-y-4">
-          <Skeleton className="h-12 w-full" />
-          <div className="flex gap-2 overflow-x-auto pb-2">
-            {[1, 2, 3].map(i => (
-              <Skeleton key={i} className="h-10 w-24 flex-shrink-0" />
-            ))}
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
-            {[1, 2, 3, 4].map(i => (
-              <Skeleton key={i} className="h-80 w-full" />
-            ))}
-          </div>
+      <div className="min-h-screen bg-background p-4 space-y-4">
+        <Skeleton className="h-12 w-full" />
+        <div className="flex gap-2 overflow-x-auto pb-2">
+          {[1, 2, 3].map(i => (
+            <Skeleton key={i} className="h-10 w-24 flex-shrink-0" />
+          ))}
         </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+          {[1, 2, 3, 4].map(i => (
+            <Skeleton key={i} className="h-80 w-full" />
+          ))}
+        </div>
+      </div>
       </>
     );
   }
@@ -171,7 +161,7 @@ export const CatalogPage = () => {
         path="/"
         jsonLd={catalogJsonLd}
       />
-      <div className="min-h-screen bg-background pb-20">
+    <div className="min-h-screen bg-background pb-20">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-card border-b border-border p-4">
         <div className="flex items-center justify-between">
@@ -182,7 +172,7 @@ export const CatalogPage = () => {
           
           <div className="flex items-center gap-2">
             {isUserAdmin && forceClientView && (
-              <Button
+            <Button
                 variant="secondary"
                 size="sm"
                 onClick={() => {
@@ -204,9 +194,9 @@ export const CatalogPage = () => {
               <Button variant="default" size="sm" onClick={() => setCartDialogOpen(true)} className="relative">
                 <ShoppingCart className="h-4 w-4 mr-2" />
                 Корзина
-                {cartItemsCount > 0 && (
+              {cartItemsCount > 0 && (
                   <span className="ml-2 bg-primary-foreground/90 text-primary text-xxs font-bold rounded-full h-5 px-2 flex items-center justify-center">
-                    {cartItemsCount}
+                  {cartItemsCount}
                   </span>
                 )}
               </Button>
@@ -327,7 +317,7 @@ export const CatalogPage = () => {
           </div>
         </DialogContent>
       </Dialog>
-      </div>
+    </div>
     </>
   );
 };

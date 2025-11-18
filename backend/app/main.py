@@ -18,7 +18,9 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup():
-  await connect_to_mongo()
+  # Не блокируем старт сервера подключением к MongoDB
+  # Подключение произойдет лениво при первом запросе
+  pass
 
 
 @app.on_event("shutdown")
@@ -36,4 +38,9 @@ app.include_router(store.router, prefix=settings.api_prefix)
 @app.get("/")
 async def root():
   return {"message": "Mini Shop API is running"}
+
+@app.get("/health")
+async def health():
+  """Health check endpoint that doesn't require database."""
+  return {"status": "ok", "message": "Server is running"}
 

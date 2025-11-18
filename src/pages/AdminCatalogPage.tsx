@@ -87,7 +87,8 @@ export const AdminCatalogPage = () => {
   };
 
   const handleCategorySubmit = async () => {
-    if (!categoryForm.name) {
+    const trimmedName = categoryForm.name?.trim();
+    if (!trimmedName) {
       showAlert('Укажите название категории');
       return;
     }
@@ -95,22 +96,28 @@ export const AdminCatalogPage = () => {
     setSaving(true);
     try {
       if (categoryDialogMode === 'create') {
-        await api.createCategory(categoryForm);
+        await api.createCategory({ name: trimmedName });
         showAlert('Категория создана');
       } else if (selectedCategory) {
-        await api.updateCategory(selectedCategory.id, categoryForm);
+        await api.updateCategory(selectedCategory.id, { name: trimmedName });
         showAlert('Категория обновлена');
       }
       setCategoryDialogOpen(false);
+      setCategoryForm(createEmptyCategory());
       await loadCatalog();
     } catch (error) {
-      showAlert('Ошибка сохранения категории');
+      const errorMessage = error instanceof Error ? error.message : 'Ошибка сохранения категории';
+      showAlert(errorMessage);
+      console.error('Category save error:', error);
     } finally {
       setSaving(false);
     }
   };
 
-  const handleCategoryDelete = (category: Category) => {
+  const handleCategoryDelete = (category: Category, event?: React.MouseEvent) => {
+    if (event) {
+      event.stopPropagation();
+    }
     showPopup(
       {
         title: 'Удаление категории',
@@ -126,8 +133,10 @@ export const AdminCatalogPage = () => {
           await api.deleteCategory(category.id);
           showAlert('Категория удалена');
           await loadCatalog();
-        } catch {
-          showAlert('Не удалось удалить категорию');
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Не удалось удалить категорию';
+          console.error('Category delete error:', error);
+          showAlert(`Ошибка удаления: ${errorMessage}`);
         }
       }
     );
@@ -267,13 +276,18 @@ export const AdminCatalogPage = () => {
                         <MoreVertical className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => openCategoryDialog(category)}>
+                    <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                      <DropdownMenuItem 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openCategoryDialog(category);
+                        }}
+                      >
                         Редактировать
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         className="text-destructive focus:text-destructive"
-                        onClick={() => handleCategoryDelete(category)}
+                        onClick={(e) => handleCategoryDelete(category, e)}
                       >
                         Удалить
                       </DropdownMenuItem>

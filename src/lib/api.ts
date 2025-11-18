@@ -30,15 +30,37 @@ class ApiClient {
     options?: RequestInit
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
+    console.log('[API] Request:', url, options?.method || 'GET');
+    
+    let timeoutId: NodeJS.Timeout | null = null;
+    const controller = new AbortController();
     
     try {
+      // Добавляем таймаут для запросов
+      timeoutId = setTimeout(() => {
+        controller.abort();
+      }, 10000); // 10 секунд таймаут
+      
       const response = await fetch(url, {
         ...options,
+        signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',
           ...options?.headers,
         },
       });
+      
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+
+      console.log('[API] Response:', response.status, response.statusText, url);
+
+      // Обработка ответа 204 No Content (нет тела ответа)
+      if (response.status === 204) {
+        return undefined as T;
+      }
 
       const contentType = response.headers.get('content-type') || '';
       const isJson = contentType.includes('application/json');
@@ -47,7 +69,7 @@ class ApiClient {
       if (!response.ok) {
         if (isJson) {
           const error = payload as ApiError;
-          throw new Error(error.message || error.error || 'API request failed');
+          throw new Error(error.message || error.error || `API request failed: ${response.status} ${response.statusText}`);
         }
         throw new Error(
           'API request failed: сервер вернул не-JSON ответ. Проверьте адрес API или запущен ли бэкенд.'
@@ -62,7 +84,25 @@ class ApiClient {
 
       return payload as T;
     } catch (error) {
+      // Очищаем таймаут в случае ошибки
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      
       console.error('API Error:', error);
+      
+      // Обработка прерванных запросов (таймаут или отмена)
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('Превышено время ожидания ответа от сервера. Проверьте, что бэкенд запущен на http://localhost:8000 и отвечает на запросы.');
+      }
+      
+      // Обработка ошибок сети
+      if (error instanceof TypeError) {
+        if (error.message.includes('fetch') || error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+          throw new Error('Не удалось подключиться к серверу. Убедитесь, что бэкенд запущен на http://localhost:8000');
+        }
+      }
+      
       throw error;
     }
   }

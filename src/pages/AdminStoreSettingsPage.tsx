@@ -100,15 +100,14 @@ export const AdminStoreSettingsPage = () => {
                   value={message}
                   onChange={event => setMessage(event.target.value)}
                   placeholder="Например: Мы временно не принимаем заказы. Вернёмся завтра!"
-                  disabled={!sleepEnabled}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Сообщение увидят клиенты на главной странице. Если оставить пустым — будет показан текст по умолчанию.
+                  Сообщение увидят клиенты на главной странице. Если оставить пустым — будет показан текст по умолчанию. Вы можете ввести сообщение заранее, перед включением режима сна.
                 </p>
               </div>
 
               <Button onClick={handleSave} disabled={saving}>
-                {sleepEnabled ? 'Сохранить сообщение' : 'Снова открыть магазин'}
+                {saving ? 'Сохранение...' : sleepEnabled ? 'Сохранить изменения' : 'Сохранить настройки'}
               </Button>
             </Card>
 

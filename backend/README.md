@@ -24,7 +24,7 @@ Duplicate `env.example` → `.env` in the repository root and edit:
 MONGO_URI=mongodb://localhost:27017
 MONGO_DB=miniapp
 ADMIN_IDS=123456,987654
-TELEGRAM_BOT_TOKEN=your_bot_token  # optional
+TELEGRAM_BOT_TOKEN=your_bot_token  # Обязательно для работы рассылки
 JWT_SECRET=change-me
 VITE_API_URL=http://localhost:8000/api
 VITE_ADMIN_IDS=123456,987654
@@ -53,12 +53,28 @@ The API will be available at `http://localhost:8000/api` (local) or `https://you
 
 ## Collections
 
-- `categories`
-- `products`
-- `carts`
-- `orders`
-- `broadcasts`
-- `store_status`
+- `categories` - категории товаров
+- `products` - товары
+- `carts` - корзины пользователей
+- `orders` - заказы
+- `broadcasts` - история рассылок
+- `store_status` - статус магазина (режим сна)
+- `customers` - список клиентов (Telegram ID) для рассылки
 
 Indexes are created automatically on insert. Use MongoDB Compass to inspect data.
+
+## Рассылка
+
+Система рассылки работает следующим образом:
+
+1. **Сбор клиентов**: Когда пользователь добавляет товар в корзину, его Telegram ID автоматически сохраняется в коллекцию `customers`.
+
+2. **Отправка рассылки**: При создании рассылки через админ-панель (`/admin/broadcast`), система:
+   - Получает все Telegram ID из коллекции `customers`
+   - Отправляет сообщения через Telegram Bot API
+   - Подсчитывает количество успешно отправленных сообщений
+
+3. **Очистка базы**: Если отправка не удалась (пользователь заблокировал/удалил бота, невалидный ID), такой Telegram ID автоматически удаляется из базы данных.
+
+**Важно**: Для работы рассылки необходимо указать `TELEGRAM_BOT_TOKEN` в `.env` файле. Получить токен можно у [@BotFather](https://t.me/BotFather) в Telegram.
 

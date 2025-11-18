@@ -5,10 +5,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Card } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { api } from '@/lib/api';
 import { Seo } from '@/components/Seo';
 import { buildCanonicalUrl } from '@/lib/seo';
-import { getUser, showAlert, showMainButton, hideMainButton, showBackButton, hideBackButton } from '@/lib/telegram';
+import { getUser, getUserId, showAlert, showMainButton, hideMainButton, showBackButton, hideBackButton } from '@/lib/telegram';
+import type { Cart } from '@/types/api';
+import { useStoreStatus } from '@/contexts/StoreStatusContext';
 
 export const CheckoutPage = () => {
   const navigate = useNavigate();
@@ -19,6 +23,9 @@ export const CheckoutPage = () => {
     address: '',
     comment: '',
   });
+  const [cartSummary, setCartSummary] = useState<Cart | null>(null);
+  const [cartLoading, setCartLoading] = useState(true);
+  const { status: storeStatus } = useStoreStatus();
 
   useEffect(() => {
     const user = getUser();
@@ -31,12 +38,30 @@ export const CheckoutPage = () => {
 
     showBackButton(() => navigate('/cart'));
     showMainButton('Подтвердить заказ', handleSubmit);
+    loadCartSummary();
 
     return () => {
       hideMainButton();
       hideBackButton();
     };
   }, []);
+
+  const loadCartSummary = async () => {
+    const userId = getUserId();
+    if (!userId) {
+      showAlert('Ошибка: не удалось определить пользователя');
+      return;
+    }
+    setCartLoading(true);
+    try {
+      const cart = await api.getCart(userId);
+      setCartSummary(cart);
+    } catch (error) {
+      showAlert('Не удалось загрузить корзину');
+    } finally {
+      setCartLoading(false);
+    }
+  };
 
   const handleSubmit = async () => {
     if (!formData.name || !formData.phone || !formData.address) {
@@ -47,6 +72,16 @@ export const CheckoutPage = () => {
     const user = getUser();
     if (!user) {
       showAlert('Ошибка: не удалось определить пользователя');
+      return;
+    }
+
+    if (storeStatus?.is_sleep_mode) {
+      showAlert(storeStatus.sleep_message || 'Магазин временно не принимает заказы');
+      return;
+    }
+
+    if (!cartSummary || cartSummary.items.length === 0) {
+      showAlert('В корзине нет товаров');
       return;
     }
 
@@ -151,9 +186,53 @@ export const CheckoutPage = () => {
           * Обязательные поля
         </div>
 
+        <Card className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-semibold">Состав заказа</p>
+              <p className="text-sm text-muted-foreground">Проверьте товары перед оплатой</p>
+            </div>
+            <Button variant="ghost" size="sm" onClick={loadCartSummary} disabled={cartLoading}>
+              Обновить
+            </Button>
+          </div>
+
+          {cartLoading ? (
+            <div className="space-y-2">
+              {[1, 2].map(item => (
+                <Skeleton key={item} className="h-16 w-full" />
+              ))}
+            </div>
+          ) : !cartSummary || cartSummary.items.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Корзина пуста. Вернитесь в каталог и добавьте товары.
+            </p>
+          ) : (
+            <>
+              <div className="space-y-3">
+                {cartSummary.items.map(item => (
+                  <div key={item.id} className="flex justify-between text-sm">
+                    <p className="text-foreground">
+                      {item.product_name}
+                      <span className="text-muted-foreground"> × {item.quantity}</span>
+                    </p>
+                    <p className="font-semibold text-foreground">{item.quantity * item.price} ₽</p>
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-between border-t pt-3 font-semibold text-lg">
+                <span>Итого</span>
+                <span>{cartSummary.total_amount} ₽</span>
+              </div>
+            </>
+          )}
+        </Card>
+
         <Button
           className="w-full h-12 text-base"
-          disabled={submitting}
+          disabled={
+            submitting || cartLoading || !cartSummary || cartSummary.items.length === 0 || storeStatus?.is_sleep_mode
+          }
           onClick={handleSubmit}
         >
           {submitting ? 'Отправка...' : 'Подтвердить заказ'}

@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Navigate,
+  Outlet,
   RouterProvider,
   createBrowserRouter,
 } from "react-router-dom";
@@ -22,6 +23,8 @@ import { initTelegram, getUserId, isAdmin } from "./lib/telegram";
 import { ADMIN_IDS } from "./types/api";
 import NotFound from "./pages/NotFound";
 import { AdminViewProvider, useAdminView } from "./contexts/AdminViewContext";
+import { StoreStatusProvider } from "./contexts/StoreStatusContext";
+import { StoreSleepOverlay } from "./components/StoreSleepOverlay";
 
 const queryClient = new QueryClient();
 
@@ -37,20 +40,32 @@ const RootRoute = () => {
   return <CatalogPage />;
 };
 
+const RootLayout = () => (
+  <>
+    <StoreSleepOverlay />
+    <Outlet />
+  </>
+);
+
 const router = createBrowserRouter(
   [
-    { path: "/", element: <RootRoute /> },
-    { path: "/cart", element: <CartPage /> },
-    { path: "/checkout", element: <CheckoutPage /> },
-    { path: "/order/:orderId?", element: <OrderPage /> },
-    { path: "/admin", element: <AdminOrdersPage /> },
-    { path: "/admin/orders", element: <AdminOrdersPage /> },
-    { path: "/admin/catalog", element: <AdminCatalogPage /> },
-    { path: "/admin/catalog/:categoryId", element: <AdminCategoryPage /> },
-    { path: "/admin/broadcast", element: <AdminBroadcastPage /> },
-    { path: "/admin/store", element: <AdminStoreSettingsPage /> },
-    { path: "/admin/order/:orderId", element: <AdminOrderDetailPage /> },
-    { path: "*", element: <NotFound /> },
+    {
+      element: <RootLayout />,
+      children: [
+        { path: "/", element: <RootRoute /> },
+        { path: "/cart", element: <CartPage /> },
+        { path: "/checkout", element: <CheckoutPage /> },
+        { path: "/order/:orderId?", element: <OrderPage /> },
+        { path: "/admin", element: <AdminOrdersPage /> },
+        { path: "/admin/orders", element: <AdminOrdersPage /> },
+        { path: "/admin/catalog", element: <AdminCatalogPage /> },
+        { path: "/admin/catalog/:categoryId", element: <AdminCategoryPage /> },
+        { path: "/admin/broadcast", element: <AdminBroadcastPage /> },
+        { path: "/admin/store", element: <AdminStoreSettingsPage /> },
+        { path: "/admin/order/:orderId", element: <AdminOrderDetailPage /> },
+        { path: "*", element: <NotFound /> },
+      ],
+    },
   ],
   {
     future: {
@@ -69,13 +84,15 @@ const AppRouter = () => {
 
 const App = () => (
   <AdminViewProvider>
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <AppRouter />
-      </TooltipProvider>
-    </QueryClientProvider>
+    <StoreStatusProvider>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <AppRouter />
+        </TooltipProvider>
+      </QueryClientProvider>
+    </StoreStatusProvider>
   </AdminViewProvider>
 );
 

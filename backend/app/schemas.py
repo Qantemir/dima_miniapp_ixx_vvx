@@ -172,6 +172,8 @@ class BroadcastRequest(BaseModel):
 class BroadcastResponse(BaseModel):
     success: bool
     sent_count: int = 0
+    total_count: int = 0
+    failed_count: int = 0
 
 
 class StoreStatus(BaseModel):
@@ -183,4 +185,14 @@ class StoreStatus(BaseModel):
 class StoreSleepRequest(BaseModel):
     sleep: bool
     message: Optional[str] = None
+
+
+class Customer(BaseModel):
+    id: PyObjectId = Field(default_factory=PyObjectId, alias="id")
+    telegram_id: int
+    added_at: datetime = Field(default_factory=datetime.utcnow)
+    last_cart_activity: datetime = Field(default_factory=datetime.utcnow)
+
+    class Config:
+        allow_population_by_field_name = True
 
