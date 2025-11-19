@@ -1,6 +1,6 @@
 import { ChangeEvent, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Boxes, MoreVertical, Plus } from 'lucide-react';
+import { Boxes, MoreVertical, Plus, Trash2, X } from 'lucide-react';
 import { AdminHeader } from '@/components/AdminHeader';
 import { Button } from '@/components/ui/button';
 import {
@@ -25,12 +25,15 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { api } from '@/lib/api';
 import {
+  getUserId,
+  isAdmin,
   hideBackButton,
   showAlert,
   showBackButton,
   showPopup,
 } from '@/lib/telegram';
-import type { Category, Product, ProductPayload } from '@/types/api';
+import { ADMIN_IDS } from '@/types/api';
+import type { Category, Product, ProductPayload, ProductVariant } from '@/types/api';
 import { Seo } from '@/components/Seo';
 
 type DialogMode = 'create' | 'edit';
@@ -56,8 +59,18 @@ export const AdminCategoryPage = () => {
   const [dialogMode, setDialogMode] = useState<DialogMode>('create');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [formData, setFormData] = useState<ProductPayload | null>(null);
+  const [variants, setVariants] = useState<ProductVariant[]>([]);
 
   useEffect(() => {
+    const userId = getUserId();
+    const isUserAdmin = userId ? isAdmin(userId, ADMIN_IDS) : false;
+    
+    if (!isUserAdmin) {
+      showAlert('Доступ запрещён. Требуются права администратора.');
+      navigate('/');
+      return;
+    }
+
     showBackButton(() => navigate('/admin/catalog'));
     return () => hideBackButton();
   }, [navigate]);
@@ -96,6 +109,7 @@ export const AdminCategoryPage = () => {
     setDialogMode('create');
     setSelectedProduct(null);
     setFormData(createEmptyProduct(categoryId));
+    setVariants([]);
     setDialogOpen(true);
   };
 
@@ -112,6 +126,7 @@ export const AdminCategoryPage = () => {
       category_id: product.category_id,
       available: product.available,
     });
+    setVariants(product.variants || []);
     setDialogOpen(true);
   };
 
@@ -182,10 +197,47 @@ export const AdminCategoryPage = () => {
     });
   };
 
+  const addVariant = () => {
+    const newVariant: ProductVariant = {
+      id: `variant-${Date.now()}`,
+      name: '',
+      quantity: 0,
+      available: true,
+    };
+    setVariants(prev => [...prev, newVariant]);
+  };
+
+  const updateVariant = (index: number, field: keyof ProductVariant, value: any) => {
+    setVariants(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+  };
+
+  const removeVariant = (index: number) => {
+    setVariants(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleSubmit = async () => {
     if (!formData || !category) return;
     if (!formData.name || !formData.price) {
       showAlert('Заполните обязательные поля');
+      return;
+    }
+
+    // Вариации обязательны для всех товаров
+    if (variants.length === 0) {
+      showAlert('Необходимо добавить хотя бы одну вариацию (вкус)');
+      return;
+    }
+
+    // Валидация вариаций
+    const invalidVariants = variants.filter(
+      v => !v.name.trim() || v.quantity < 0
+    );
+    if (invalidVariants.length > 0) {
+      showAlert('Заполните все поля вариаций корректно');
       return;
     }
 
@@ -194,6 +246,7 @@ export const AdminCategoryPage = () => {
       category_id: category.id,
       image: formData.images?.[0] || formData.image || '',
       images: formData.images,
+      variants: variants,
     };
 
     setSaving(true);
@@ -279,7 +332,7 @@ export const AdminCategoryPage = () => {
                     <div className="text-sm text-muted-foreground mt-2 flex flex-wrap gap-3">
                       <span>
                         Цена:{' '}
-                        <span className="text-foreground font-medium">{product.price ?? 0} ₽</span>
+                        <span className="text-foreground font-medium">{product.price ?? 0} ₸</span>
                       </span>
                       <span>
                         Статус:{' '}
@@ -315,13 +368,14 @@ export const AdminCategoryPage = () => {
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
+        <DialogContent className="max-h-[90vh] flex flex-col p-0">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b flex-shrink-0">
             <DialogTitle>{dialogMode === 'create' ? 'Новый товар' : 'Редактирование товара'}</DialogTitle>
             <DialogDescription>Заполните информацию о товаре и сохраните изменения.</DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-2">
+          <div className="flex-1 overflow-y-auto px-6 py-4">
+            <div className="space-y-4">
             <div className="space-y-2">
               <Label>Название</Label>
               <Input
@@ -351,21 +405,36 @@ export const AdminCategoryPage = () => {
             </div>
 
             <div className="space-y-2">
-              <Label>Цена (₽)</Label>
+              <Label>Цена (₸)</Label>
               <Input
-                type="number"
-                min={0}
-                value={formData.price}
-                onChange={event =>
-                  setFormData(prev =>
-                    prev
-                      ? {
-                          ...prev,
-                          price: Number(event.target.value),
-                        }
-                      : prev
-                  )
-                }
+                type="text"
+                value={formData.price === 0 ? '' : formData.price.toString()}
+                onChange={event => {
+                  const value = event.target.value.trim();
+                  if (value === '') {
+                    setFormData(prev =>
+                      prev
+                        ? {
+                            ...prev,
+                            price: 0,
+                          }
+                        : prev
+                    );
+                    return;
+                  }
+                  const numValue = parseFloat(value.replace(',', '.'));
+                  if (!isNaN(numValue) && numValue >= 0) {
+                    setFormData(prev =>
+                      prev
+                        ? {
+                            ...prev,
+                            price: numValue,
+                          }
+                        : prev
+                    );
+                  }
+                }}
+                placeholder="0"
               />
             </div>
 
@@ -398,6 +467,78 @@ export const AdminCategoryPage = () => {
               )}
             </div>
 
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="font-medium">Вариации (вкусы)</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addVariant}
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Добавить вкус
+                </Button>
+              </div>
+              {variants.length > 0 ? (
+                <div className="space-y-3 border border-border rounded-lg p-3">
+                  {variants.map((variant, index) => (
+                    <div key={variant.id} className="space-y-2 p-3 bg-muted/50 rounded-lg">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 space-y-2">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Название вкуса *</Label>
+                            <Input
+                              value={variant.name}
+                              onChange={e => updateVariant(index, 'name', e.target.value)}
+                              placeholder="Например, Клубника"
+                              className="text-sm"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Количество на складе *</Label>
+                            <Input
+                              type="text"
+                              value={variant.quantity === 0 ? '' : variant.quantity.toString()}
+                              onChange={e => {
+                                const value = e.target.value.trim();
+                                if (value === '') {
+                                  updateVariant(index, 'quantity', 0);
+                                  return;
+                                }
+                                const numValue = parseInt(value, 10);
+                                if (!isNaN(numValue) && numValue >= 0) {
+                                  updateVariant(index, 'quantity', numValue);
+                                }
+                              }}
+                              placeholder="0"
+                              className="text-sm"
+                            />
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            Цена: {formData?.price || 0} ₸ (общая для всех вкусов)
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeVariant(index)}
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-destructive p-3 border border-destructive/50 rounded-lg bg-destructive/5">
+                  ⚠️ Необходимо добавить хотя бы одну вариацию (вкус). Товар без вариаций не может быть продан.
+                </p>
+              )}
+            </div>
+
             <div className="flex items-center justify-between rounded-lg border border-border p-3">
               <div>
                 <Label className="font-medium">В наличии</Label>
@@ -410,9 +551,10 @@ export const AdminCategoryPage = () => {
                 }
               />
             </div>
+            </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="px-6 py-4 border-t flex-shrink-0">
             <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
               Отмена
             </Button>

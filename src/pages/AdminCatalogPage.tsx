@@ -34,10 +34,13 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { api } from '@/lib/api';
 import {
+  getUserId,
+  isAdmin,
   hideBackButton,
   showAlert,
   showBackButton,
 } from '@/lib/telegram';
+import { ADMIN_IDS } from '@/types/api';
 import type {
   CatalogResponse,
   Category,
@@ -65,12 +68,21 @@ export const AdminCatalogPage = () => {
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
+    const userId = getUserId();
+    const isUserAdmin = userId ? isAdmin(userId, ADMIN_IDS) : false;
+    
+    if (!isUserAdmin) {
+      showAlert('Доступ запрещён. Требуются права администратора.');
+      navigate('/');
+      return;
+    }
+
     loadCatalog();
     showBackButton(() => navigate('/'));
     return () => {
       hideBackButton();
     };
-  }, []);
+  }, [navigate]);
 
   const loadCatalog = async () => {
     setLoading(true);

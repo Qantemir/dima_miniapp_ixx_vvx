@@ -12,10 +12,10 @@ export interface CategoryPayload {
 export interface ProductVariant {
   id: string;
   name: string;
-  price: number;
   description?: string;
   image?: string;
   available: boolean;
+  quantity: number; // Количество на складе
 }
 
 export interface Product {
@@ -38,6 +38,7 @@ export interface ProductPayload {
   images?: string[];
   category_id: string;
   available: boolean;
+  variants?: ProductVariant[];
 }
 
 export interface CatalogResponse {
@@ -94,6 +95,8 @@ export interface Order {
   created_at: string;
   updated_at?: string;
   can_edit_address: boolean;
+  payment_receipt_url?: string;
+  payment_receipt_filename?: string;
 }
 
 export type BroadcastSegment = 'all' ;
@@ -131,6 +134,7 @@ export interface CreateOrderRequest {
   comment?: string;
   delivery_type?: string;
   payment_type?: string;
+  payment_receipt: File;
 }
 
 export interface UpdateAddressRequest {

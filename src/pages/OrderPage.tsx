@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { OrderStatusBadge } from '@/components/OrderStatusBadge';
 import { api } from '@/lib/api';
+import { buildApiAssetUrl } from '@/lib/utils';
 import { getUserId, showAlert, showMainButton, hideMainButton, showBackButton, hideBackButton } from '@/lib/telegram';
 import type { Order } from '@/types/api';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -136,11 +137,14 @@ export const OrderPage = () => {
     );
   }
 
-  const canEditAddress = order.can_edit_address;
+  const canEditAddress =
+    order.can_edit_address &&
+    (order.status === 'новый' || order.status === 'в обработке');
+  const receiptUrl = order.payment_receipt_url ? buildApiAssetUrl(order.payment_receipt_url) : null;
   const orderJsonLd = {
     ...jsonLdBase,
     orderNumber: order.id,
-    priceCurrency: "RUB",
+    priceCurrency: "KZT",
     price: order.total_amount,
     acceptedOffer: order.items.map(item => ({
       "@type": "Offer",
@@ -149,7 +153,7 @@ export const OrderPage = () => {
         name: item.product_name,
       },
       price: item.price,
-      priceCurrency: "RUB",
+      priceCurrency: "KZT",
       eligibleQuantity: {
         "@type": "QuantitativeValue",
         value: item.quantity,
@@ -259,11 +263,11 @@ export const OrderPage = () => {
                     {item.variant_name && ` (${item.variant_name})`}
                   </p>
                   <p className="text-muted-foreground">
-                    {item.quantity} × {item.price} ₽
+                    {item.quantity} × {item.price} ₸
                   </p>
                 </div>
                 <span className="font-medium text-foreground">
-                  {item.quantity * item.price} ₽
+                  {item.quantity * item.price} ₸
                 </span>
               </div>
             ))}
@@ -271,7 +275,7 @@ export const OrderPage = () => {
           <div className="pt-3 border-t border-border flex justify-between">
             <span className="font-semibold text-foreground">Итого:</span>
             <span className="text-xl font-bold text-foreground">
-              {order.total_amount} ₽
+              {order.total_amount} ₸
             </span>
           </div>
         </div>
@@ -287,6 +291,23 @@ export const OrderPage = () => {
             )}
           </div>
         </div>
+
+        {receiptUrl && (
+          <div className="bg-card rounded-lg p-4 border border-border space-y-2">
+            <h3 className="font-semibold text-foreground">Чек об оплате</h3>
+            <p className="text-sm text-muted-foreground">
+              {order.payment_receipt_filename || 'Файл чека'} доступен для скачивания
+            </p>
+            <a
+              href={receiptUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex w-full items-center justify-center rounded-md border border-border px-4 py-2 text-sm font-medium text-primary hover:bg-primary/10 transition-colors"
+            >
+              Открыть чек
+            </a>
+          </div>
+        )}
       </div>
       </div>
     </>

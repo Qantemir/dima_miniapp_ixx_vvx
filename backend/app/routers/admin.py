@@ -8,8 +8,9 @@ from pymongo.errors import ServerSelectionTimeoutError, ConnectionFailure
 
 from ..database import get_db
 from ..schemas import BroadcastRequest, BroadcastResponse, Order, OrderStatus, UpdateStatusRequest
-from ..utils import as_object_id, serialize_doc
+from ..utils import as_object_id, serialize_doc, restore_variant_quantity
 from ..config import get_settings
+from ..auth import verify_admin
 
 router = APIRouter(tags=["admin"])
 
@@ -19,6 +20,7 @@ async def list_orders(
   status_filter: Optional[OrderStatus] = Query(None, alias="status"),
   limit: int = Query(50, ge=1, le=200),
   db: AsyncIOMotorDatabase = Depends(get_db),
+  _admin_id: int = Depends(verify_admin),
 ):
   try:
     query = {}
@@ -34,7 +36,11 @@ async def list_orders(
 
 
 @router.get("/admin/order/{order_id}", response_model=Order)
-async def get_order(order_id: str, db: AsyncIOMotorDatabase = Depends(get_db)):
+async def get_order(
+  order_id: str,
+  db: AsyncIOMotorDatabase = Depends(get_db),
+  _admin_id: int = Depends(verify_admin),
+):
   doc = await db.orders.find_one({"_id": as_object_id(order_id)})
   if not doc:
     raise HTTPException(status_code=404, detail="Заказ не найден")
@@ -46,11 +52,31 @@ async def update_order_status(
   order_id: str,
   payload: UpdateStatusRequest,
   db: AsyncIOMotorDatabase = Depends(get_db),
+  _admin_id: int = Depends(verify_admin),
 ):
-  disallowed_edit_statuses = {
-    OrderStatus.SHIPPED.value,
-    OrderStatus.DONE.value,
-    OrderStatus.CANCELED.value,
+  # Получаем старый статус заказа
+  old_doc = await db.orders.find_one({"_id": as_object_id(order_id)})
+  if not old_doc:
+    raise HTTPException(status_code=404, detail="Заказ не найден")
+  
+  old_status = old_doc.get("status")
+  new_status = payload.status.value
+  
+  # Если заказ отменяется, возвращаем товары на склад
+  if new_status == OrderStatus.CANCELED.value and old_status != OrderStatus.CANCELED.value:
+    items = old_doc.get("items", [])
+    for item in items:
+      if item.get("variant_id"):
+        await restore_variant_quantity(
+          db,
+          item.get("product_id"),
+          item.get("variant_id"),
+          item.get("quantity", 0)
+        )
+  
+  editable_statuses = {
+    OrderStatus.NEW.value,
+    OrderStatus.PROCESSING.value,
   }
   doc = await db.orders.find_one_and_update(
     {"_id": as_object_id(order_id)},
@@ -58,7 +84,7 @@ async def update_order_status(
       "$set": {
         "status": payload.status.value,
         "updated_at": datetime.utcnow(),
-        "can_edit_address": payload.status.value not in disallowed_edit_statuses,
+        "can_edit_address": payload.status.value in editable_statuses,
       }
     },
     return_document=True,
@@ -72,6 +98,7 @@ async def update_order_status(
 async def send_broadcast(
   payload: BroadcastRequest,
   db: AsyncIOMotorDatabase = Depends(get_db),
+  _admin_id: int = Depends(verify_admin),
 ):
   settings = get_settings()
   if not settings.telegram_bot_token:

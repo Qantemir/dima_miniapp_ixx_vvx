@@ -30,7 +30,7 @@ export const CartPage = () => {
   useEffect(() => {
     if (cart && cart.items.length > 0) {
       showMainButton(
-        `Оформить заказ • ${cart.total_amount} ₽`,
+        `Оформить заказ • ${cart.total_amount} ₸`,
         () => navigate('/checkout')
       );
     } else {
@@ -53,6 +53,22 @@ export const CartPage = () => {
       showAlert('Ошибка загрузки корзины');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleUpdateQuantity = async (itemId: string, quantity: number) => {
+    const userId = getUserId();
+    if (!userId) return;
+
+    try {
+      const updatedCart = await api.updateCartItem({
+        user_id: userId,
+        item_id: itemId,
+        quantity,
+      });
+      setCart(updatedCart);
+    } catch (error) {
+      showAlert('Ошибка при обновлении количества');
     }
   };
 
@@ -150,6 +166,7 @@ export const CartPage = () => {
           <CartItem
             key={item.id}
             item={item}
+            onUpdateQuantity={handleUpdateQuantity}
             onRemove={handleRemoveItem}
           />
         ))}
@@ -160,7 +177,7 @@ export const CartPage = () => {
         <div className="flex items-center justify-between text-lg">
           <span className="text-muted-foreground">Итого:</span>
           <span className="font-bold text-foreground text-2xl">
-            {cart.total_amount} ₽
+            {cart.total_amount} ₸
           </span>
         </div>
       </div>

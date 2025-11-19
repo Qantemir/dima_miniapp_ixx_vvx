@@ -16,6 +16,7 @@ from ..schemas import (
   ProductUpdate,
 )
 from ..utils import as_object_id, serialize_doc
+from ..auth import verify_admin
 
 router = APIRouter(tags=["catalog"])
 
@@ -34,7 +35,10 @@ async def get_catalog(db: AsyncIOMotorDatabase = Depends(get_db)):
 
 
 @router.get("/admin/catalog", response_model=CatalogResponse)
-async def get_admin_catalog(db: AsyncIOMotorDatabase = Depends(get_db)):
+async def get_admin_catalog(
+  db: AsyncIOMotorDatabase = Depends(get_db),
+  _admin_id: int = Depends(verify_admin),
+):
   return await fetch_catalog(db)
 
 
@@ -53,7 +57,9 @@ def _build_id_candidates(raw_id: str) -> Sequence[object]:
   status_code=status.HTTP_201_CREATED,
 )
 async def create_category(
-  payload: CategoryCreate, db: AsyncIOMotorDatabase = Depends(get_db)
+  payload: CategoryCreate,
+  db: AsyncIOMotorDatabase = Depends(get_db),
+  _admin_id: int = Depends(verify_admin),
 ):
   if not payload.name or not payload.name.strip():
     raise HTTPException(status_code=400, detail="Название категории не может быть пустым")
@@ -75,6 +81,7 @@ async def update_category(
   category_id: str,
   payload: CategoryUpdate,
   db: AsyncIOMotorDatabase = Depends(get_db),
+  _admin_id: int = Depends(verify_admin),
 ):
   update_data = payload.dict(exclude_unset=True)
   if not update_data:
@@ -110,7 +117,11 @@ async def update_category(
   "/admin/category/{category_id}",
   status_code=status.HTTP_204_NO_CONTENT,
 )
-async def delete_category(category_id: str, db: AsyncIOMotorDatabase = Depends(get_db)):
+async def delete_category(
+  category_id: str,
+  db: AsyncIOMotorDatabase = Depends(get_db),
+  _admin_id: int = Depends(verify_admin),
+):
   category_doc = await db.categories.find_one({"_id": {"$in": _build_id_candidates(category_id)}})
   if not category_doc:
     raise HTTPException(status_code=404, detail="Категория не найдена")
@@ -137,7 +148,9 @@ async def delete_category(category_id: str, db: AsyncIOMotorDatabase = Depends(g
   status_code=status.HTTP_201_CREATED,
 )
 async def create_product(
-  payload: ProductCreate, db: AsyncIOMotorDatabase = Depends(get_db)
+  payload: ProductCreate,
+  db: AsyncIOMotorDatabase = Depends(get_db),
+  _admin_id: int = Depends(verify_admin),
 ):
   category = await db.categories.find_one({"_id": as_object_id(payload.category_id)})
   if not category:
@@ -155,6 +168,7 @@ async def update_product(
   product_id: str,
   payload: ProductUpdate,
   db: AsyncIOMotorDatabase = Depends(get_db),
+  _admin_id: int = Depends(verify_admin),
 ):
   update_payload = payload.dict(exclude_unset=True)
   if "category_id" in update_payload:
@@ -177,7 +191,11 @@ async def update_product(
   "/admin/product/{product_id}",
   status_code=status.HTTP_204_NO_CONTENT,
 )
-async def delete_product(product_id: str, db: AsyncIOMotorDatabase = Depends(get_db)):
+async def delete_product(
+  product_id: str,
+  db: AsyncIOMotorDatabase = Depends(get_db),
+  _admin_id: int = Depends(verify_admin),
+):
   result = await db.products.delete_one({"_id": as_object_id(product_id)})
   if result.deleted_count == 0:
     raise HTTPException(status_code=404, detail="Товар не найден")

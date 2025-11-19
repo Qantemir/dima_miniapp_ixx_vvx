@@ -18,11 +18,22 @@ import {
   type UpdateStoreStatusRequest,
   type ApiError,
 } from '@/types/api';
+import { getUserId } from '@/lib/telegram';
+
 class ApiClient {
   private baseUrl: string;
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl;
+  }
+
+  private addAdminAuth(endpoint: string): string {
+    const userId = getUserId();
+    if (!userId) {
+      throw new Error('Не удалось определить пользователя');
+    }
+    const separator = endpoint.includes('?') ? '&' : '?';
+    return `${endpoint}${separator}user_id=${userId}`;
   }
 
   private async request<T>(
@@ -41,13 +52,17 @@ class ApiClient {
         controller.abort();
       }, 10000); // 10 секунд таймаут
       
+      const isFormData =
+        typeof FormData !== 'undefined' && options?.body instanceof FormData;
+      const headers = new Headers(options?.headers as HeadersInit);
+      if (!isFormData && !headers.has('Content-Type')) {
+        headers.set('Content-Type', 'application/json');
+      }
+
       const response = await fetch(url, {
-        ...options,
+        ...(options || {}),
         signal: controller.signal,
-        headers: {
-          'Content-Type': 'application/json',
-          ...options?.headers,
-        },
+        headers,
       });
       
       if (timeoutId) {
@@ -135,6 +150,17 @@ class ApiClient {
     });
   }
 
+  async updateCartItem(data: {
+    user_id: number;
+    item_id: string;
+    quantity: number;
+  }): Promise<Cart> {
+    return this.request<Cart>('/cart/item', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
   async removeFromCart(data: {
     user_id: number;
     item_id: string;
@@ -146,9 +172,25 @@ class ApiClient {
   }
 
   async createOrder(data: CreateOrderRequest): Promise<Order> {
+    const formData = new FormData();
+    formData.append('user_id', data.user_id.toString());
+    formData.append('name', data.name);
+    formData.append('phone', data.phone);
+    formData.append('address', data.address);
+    if (data.comment) {
+      formData.append('comment', data.comment);
+    }
+    if (data.delivery_type) {
+      formData.append('delivery_type', data.delivery_type);
+    }
+    if (data.payment_type) {
+      formData.append('payment_type', data.payment_type);
+    }
+    formData.append('payment_receipt', data.payment_receipt);
+
     return this.request<Order>('/order', {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: formData,
     });
   }
 
@@ -178,15 +220,17 @@ class ApiClient {
     limit?: number;
   }): Promise<Order[]> {
     const queryParams = new URLSearchParams();
+    const userId = getUserId();
+    if (userId) queryParams.append('user_id', userId.toString());
     if (params?.status) queryParams.append('status', params.status);
     if (params?.limit) queryParams.append('limit', params.limit.toString());
     
     const query = queryParams.toString();
-    return this.request<Order[]>(`/admin/orders${query ? `?${query}` : ''}`);
+    return this.request<Order[]>(`/admin/orders?${query}`);
   }
 
   async getOrder(orderId: string): Promise<Order> {
-    return this.request<Order>(`/admin/order/${orderId}`);
+    return this.request<Order>(this.addAdminAuth(`/admin/order/${orderId}`));
   }
 
   async updateOrderStatus(
@@ -200,11 +244,11 @@ class ApiClient {
   }
 
   async getAdminCatalog(): Promise<CatalogResponse> {
-    return this.request<CatalogResponse>('/admin/catalog');
+    return this.request<CatalogResponse>(this.addAdminAuth('/admin/catalog'));
   }
 
   async createProduct(data: ProductPayload): Promise<Product> {
-    return this.request<Product>('/admin/product', {
+    return this.request<Product>(this.addAdminAuth('/admin/product'), {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -214,20 +258,20 @@ class ApiClient {
     productId: string,
     data: Partial<ProductPayload>
   ): Promise<Product> {
-    return this.request<Product>(`/admin/product/${productId}`, {
+    return this.request<Product>(this.addAdminAuth(`/admin/product/${productId}`), {
       method: 'PATCH',
       body: JSON.stringify(data),
     });
   }
 
   async deleteProduct(productId: string): Promise<void> {
-    await this.request(`/admin/product/${productId}`, {
+    await this.request(this.addAdminAuth(`/admin/product/${productId}`), {
       method: 'DELETE',
     });
   }
 
   async createCategory(data: CategoryPayload): Promise<Category> {
-    return this.request<Category>(`/admin/category`, {
+    return this.request<Category>(this.addAdminAuth('/admin/category'), {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -237,20 +281,20 @@ class ApiClient {
     categoryId: string,
     data: Partial<CategoryPayload>
   ): Promise<Category> {
-    return this.request<Category>(`/admin/category/${categoryId}`, {
+    return this.request<Category>(this.addAdminAuth(`/admin/category/${categoryId}`), {
       method: 'PATCH',
       body: JSON.stringify(data),
     });
   }
 
   async deleteCategory(categoryId: string) {
-    await this.request(`/admin/category/${categoryId}`, {
+    await this.request(this.addAdminAuth(`/admin/category/${categoryId}`), {
       method: 'DELETE',
     });
   }
 
   async sendBroadcast(data: BroadcastRequest): Promise<BroadcastResponse> {
-    return this.request<BroadcastResponse>('/admin/broadcast', {
+    return this.request<BroadcastResponse>(this.addAdminAuth('/admin/broadcast'), {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -263,7 +307,7 @@ class ApiClient {
   async setStoreSleepMode(
     data: UpdateStoreStatusRequest
   ): Promise<StoreStatus> {
-    return this.request<StoreStatus>('/admin/store/sleep', {
+    return this.request<StoreStatus>(this.addAdminAuth('/admin/store/sleep'), {
       method: 'PATCH',
       body: JSON.stringify(data),
     });

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShoppingCart, CheckCircle2, Package, HelpCircle, ShieldCheck } from 'lucide-react';
+import { ShoppingCart, CheckCircle2, Package, HelpCircle, ShieldCheck, ClipboardList } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ProductCard } from '@/components/ProductCard';
 import { CartDialog } from '@/components/CartDialog';
@@ -49,7 +49,7 @@ export const CatalogPage = () => {
         image: product.images?.[0] || product.image,
         offers: {
           "@type": "Offer",
-          priceCurrency: "RUB",
+          priceCurrency: "KZT",
           price: product.price ?? 0,
           availability: product.available
             ? "https://schema.org/InStock"
@@ -185,6 +185,10 @@ export const CatalogPage = () => {
                 Админ-режим
               </Button>
             )}
+            <Button variant="outline" size="sm" onClick={() => navigate('/order')}>
+              <ClipboardList className="h-4 w-4 mr-2" />
+              Мои заказы
+            </Button>
             <Button variant="outline" size="sm" onClick={handleHelp}>
               <HelpCircle className="h-4 w-4 mr-2" />
               Помощь

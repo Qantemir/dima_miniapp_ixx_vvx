@@ -4,8 +4,10 @@ import { ArrowLeft, MapPin, User, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { OrderStatusBadge } from '@/components/OrderStatusBadge';
 import { api } from '@/lib/api';
-import { getUserId, showAlert, showBackButton, hideBackButton } from '@/lib/telegram';
+import { buildApiAssetUrl } from '@/lib/utils';
+import { getUserId, isAdmin, showAlert, showBackButton, hideBackButton } from '@/lib/telegram';
 import type { Order, OrderStatus } from '@/types/api';
+import { ADMIN_IDS } from '@/types/api';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Seo } from '@/components/Seo';
 import {
@@ -55,6 +57,15 @@ export const AdminOrderDetailPage = () => {
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
 
   useEffect(() => {
+    const userId = getUserId();
+    const isUserAdmin = userId ? isAdmin(userId, ADMIN_IDS) : false;
+    
+    if (!isUserAdmin) {
+      showAlert('Доступ запрещён. Требуются права администратора.');
+      navigate('/');
+      return;
+    }
+
     if (orderId) {
       loadOrder();
     }
@@ -64,7 +75,7 @@ export const AdminOrderDetailPage = () => {
     return () => {
       hideBackButton();
     };
-  }, [orderId]);
+  }, [orderId, navigate]);
 
   const loadOrder = async () => {
     if (!orderId) return;
@@ -152,6 +163,8 @@ export const AdminOrderDetailPage = () => {
       </>
     );
   }
+
+  const receiptUrl = order.payment_receipt_url ? buildApiAssetUrl(order.payment_receipt_url) : null;
 
   return (
     <>
@@ -255,11 +268,11 @@ export const AdminOrderDetailPage = () => {
                     {item.variant_name && ` (${item.variant_name})`}
                   </p>
                   <p className="text-muted-foreground">
-                    {item.quantity} × {item.price} ₽
+                    {item.quantity} × {item.price} ₸
                   </p>
                 </div>
                 <span className="font-semibold text-foreground">
-                  {item.quantity * item.price} ₽
+                  {item.quantity * item.price} ₸
                 </span>
               </div>
             ))}
@@ -267,10 +280,27 @@ export const AdminOrderDetailPage = () => {
           <div className="pt-3 border-t border-border flex justify-between items-center">
             <span className="text-lg font-semibold text-foreground">Итого:</span>
             <span className="text-2xl font-bold text-foreground">
-              {order.total_amount} ₽
+              {order.total_amount} ₸
             </span>
           </div>
         </div>
+
+        {receiptUrl && (
+          <div className="bg-card rounded-lg p-4 border border-border space-y-2">
+            <h3 className="font-semibold text-foreground">Чек об оплате</h3>
+            <p className="text-sm text-muted-foreground">
+              {order.payment_receipt_filename || 'Файл чека'} приложен к заказу
+            </p>
+            <a
+              href={receiptUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex w-full items-center justify-center rounded-md border border-border px-4 py-2 text-sm font-medium text-primary hover:bg-primary/10 transition-colors"
+            >
+              Открыть чек
+            </a>
+          </div>
+        )}
 
         {/* Comment */}
         {order.comment && (

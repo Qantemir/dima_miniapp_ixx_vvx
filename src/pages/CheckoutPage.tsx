@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,27 @@ import { getUser, getUserId, showAlert, showMainButton, hideMainButton, showBack
 import type { Cart } from '@/types/api';
 import { useStoreStatus } from '@/contexts/StoreStatusContext';
 
+const RECEIPT_MAX_SIZE = 10 * 1024 * 1024; // 10 MB
+const RECEIPT_ALLOWED_TYPES = [
+  'application/pdf',
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/webp',
+  'image/heic',
+  'image/heif',
+];
+
+const formatFileSize = (size: number) => {
+  if (size >= 1024 * 1024) {
+    return `${(size / (1024 * 1024)).toFixed(2)} МБ`;
+  }
+  if (size >= 1024) {
+    return `${(size / 1024).toFixed(0)} КБ`;
+  }
+  return `${size} Б`;
+};
+
 export const CheckoutPage = () => {
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
@@ -26,6 +47,8 @@ export const CheckoutPage = () => {
   const [cartSummary, setCartSummary] = useState<Cart | null>(null);
   const [cartLoading, setCartLoading] = useState(true);
   const { status: storeStatus } = useStoreStatus();
+  const [paymentReceipt, setPaymentReceipt] = useState<File | null>(null);
+  const [receiptError, setReceiptError] = useState<string | null>(null);
 
   useEffect(() => {
     const user = getUser();
@@ -63,14 +86,45 @@ export const CheckoutPage = () => {
     }
   };
 
+  const handleReceiptChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      setPaymentReceipt(null);
+      setReceiptError('Пожалуйста, прикрепите чек об оплате');
+      return;
+    }
+
+    if (!RECEIPT_ALLOWED_TYPES.includes(file.type)) {
+      event.target.value = '';
+      setPaymentReceipt(null);
+      setReceiptError('Допустимы только изображения (JPG, PNG, WEBP, HEIC) или PDF');
+      return;
+    }
+
+    if (file.size > RECEIPT_MAX_SIZE) {
+      event.target.value = '';
+      setPaymentReceipt(null);
+      setReceiptError(`Файл слишком большой. Максимум ${(RECEIPT_MAX_SIZE / (1024 * 1024)).toFixed(0)} МБ`);
+      return;
+    }
+
+    setReceiptError(null);
+    setPaymentReceipt(file);
+  };
+
   const handleSubmit = async () => {
     if (!formData.name || !formData.phone || !formData.address) {
       showAlert('Пожалуйста, заполните все обязательные поля');
       return;
     }
 
-    const user = getUser();
-    if (!user) {
+    if (!paymentReceipt) {
+      showAlert('Пожалуйста, прикрепите чек об оплате');
+      return;
+    }
+
+    const userId = getUserId();
+    if (!userId) {
       showAlert('Ошибка: не удалось определить пользователя');
       return;
     }
@@ -89,17 +143,19 @@ export const CheckoutPage = () => {
 
     try {
       const order = await api.createOrder({
-        user_id: user.id,
+        user_id: userId,
         name: formData.name,
         phone: formData.phone,
         address: formData.address,
         comment: formData.comment,
+        payment_receipt: paymentReceipt,
       });
 
       showAlert('Заказ успешно оформлен!');
       navigate(`/order/${order.id}`);
     } catch (error) {
-      showAlert('Ошибка при оформлении заказа');
+      const message = error instanceof Error ? error.message : 'Ошибка при оформлении заказа';
+      showAlert(message);
     } finally {
       setSubmitting(false);
     }
@@ -180,6 +236,46 @@ export const CheckoutPage = () => {
               disabled={submitting}
             />
           </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="receipt">Чек об оплате *</Label>
+            <Input
+              id="receipt"
+              type="file"
+              accept="image/*,.pdf"
+              onChange={handleReceiptChange}
+              disabled={submitting}
+            />
+            <p className="text-xs text-muted-foreground">
+              Прикрепите скриншот или PDF до {(RECEIPT_MAX_SIZE / (1024 * 1024)).toFixed(0)} МБ
+            </p>
+            {receiptError && (
+              <p className="text-sm text-destructive">
+                {receiptError}
+              </p>
+            )}
+            {paymentReceipt && !receiptError && (
+              <div className="flex items-center justify-between rounded-md border border-dashed border-muted p-3 text-sm">
+                <div className="min-w-0">
+                  <p className="font-medium text-foreground truncate">{paymentReceipt.name}</p>
+                  <p className="text-xs text-muted-foreground">{formatFileSize(paymentReceipt.size)}</p>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setPaymentReceipt(null);
+                    setReceiptError('Пожалуйста, прикрепите чек об оплате');
+                    const input = document.getElementById('receipt') as HTMLInputElement | null;
+                    if (input) input.value = '';
+                  }}
+                >
+                  Удалить
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="text-sm text-muted-foreground">
@@ -216,13 +312,13 @@ export const CheckoutPage = () => {
                       {item.product_name}
                       <span className="text-muted-foreground"> × {item.quantity}</span>
                     </p>
-                    <p className="font-semibold text-foreground">{item.quantity * item.price} ₽</p>
+                    <p className="font-semibold text-foreground">{item.quantity * item.price} ₸</p>
                   </div>
                 ))}
               </div>
               <div className="flex justify-between border-t pt-3 font-semibold text-lg">
                 <span>Итого</span>
-                <span>{cartSummary.total_amount} ₽</span>
+                <span>{cartSummary.total_amount} ₸</span>
               </div>
             </>
           )}
@@ -231,7 +327,13 @@ export const CheckoutPage = () => {
         <Button
           className="w-full h-12 text-base"
           disabled={
-            submitting || cartLoading || !cartSummary || cartSummary.items.length === 0 || storeStatus?.is_sleep_mode
+            submitting ||
+            cartLoading ||
+            !cartSummary ||
+            cartSummary.items.length === 0 ||
+            storeStatus?.is_sleep_mode ||
+            !paymentReceipt ||
+            !!receiptError
           }
           onClick={handleSubmit}
         >

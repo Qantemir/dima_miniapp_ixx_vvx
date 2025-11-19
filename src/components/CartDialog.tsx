@@ -50,6 +50,23 @@ export const CartDialog = ({ open, onOpenChange, onCartUpdate }: CartDialogProps
     }
   };
 
+  const handleUpdateQuantity = async (itemId: string, quantity: number) => {
+    const userId = getUserId();
+    if (!userId) return;
+
+    try {
+      const updatedCart = await api.updateCartItem({
+        user_id: userId,
+        item_id: itemId,
+        quantity,
+      });
+      setCart(updatedCart);
+      onCartUpdate?.();
+    } catch (error) {
+      showAlert('Ошибка при обновлении количества');
+    }
+  };
+
   const handleRemoveItem = async (itemId: string) => {
     const userId = getUserId();
     if (!userId) return;
@@ -113,30 +130,31 @@ export const CartDialog = ({ open, onOpenChange, onCartUpdate }: CartDialogProps
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent
-          className="max-w-md max-h-[85vh] flex flex-col p-0"
+          className="max-w-md max-h-[90vh] sm:max-h-[85vh] flex flex-col p-0 w-[95vw] sm:w-full"
           aria-describedby="cart-dialog-content"
         >
-        <DialogHeader className="px-6 pt-6 pb-4 border-b">
-          <DialogTitle className="text-xl">Корзина</DialogTitle>
+        <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 border-b">
+          <DialogTitle className="text-lg sm:text-xl">Корзина</DialogTitle>
         </DialogHeader>
 
         {/* Cart Items */}
-        <div id="cart-dialog-content" className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+        <div id="cart-dialog-content" className="flex-1 overflow-y-auto px-4 sm:px-6 py-3 sm:py-4 space-y-2 sm:space-y-3">
           {cart.items.map(item => (
             <CartItem
               key={item.id}
               item={item}
+              onUpdateQuantity={handleUpdateQuantity}
               onRemove={handleRemoveItem}
             />
           ))}
         </div>
 
         {/* Footer with Total and Checkout */}
-        <div className="border-t bg-card px-6 py-4 space-y-4">
+        <div className="border-t bg-card px-4 sm:px-6 py-3 sm:py-4 space-y-3 sm:space-y-4">
           <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">Итого:</span>
-            <span className="font-bold text-foreground text-2xl">
-              {cart.total_amount} ₽
+            <span className="text-sm sm:text-base text-muted-foreground">Итого:</span>
+            <span className="font-bold text-foreground text-xl sm:text-2xl">
+              {cart.total_amount} ₸
             </span>
           </div>
           <Button 

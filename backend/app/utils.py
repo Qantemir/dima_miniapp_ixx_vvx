@@ -1,4 +1,5 @@
 from bson import ObjectId
+from motor.motor_asyncio import AsyncIOMotorDatabase
 
 
 def serialize_doc(doc):
@@ -22,3 +23,25 @@ def as_object_id(value: str) -> ObjectId:
     raise ValueError("Invalid ObjectId")
   return ObjectId(value)
 
+
+async def restore_variant_quantity(
+  db: AsyncIOMotorDatabase,
+  product_id: str,
+  variant_id: str,
+  quantity: int
+):
+  """Возвращает количество товара на склад"""
+  try:
+    product_oid = as_object_id(product_id)
+    product = await db.products.find_one({"_id": product_oid})
+    if product:
+      variants = product.get("variants", [])
+      variant = next((v for v in variants if v.get("id") == variant_id), None)
+      if variant:
+        variant["quantity"] = variant.get("quantity", 0) + quantity
+        await db.products.update_one(
+          {"_id": product_oid},
+          {"$set": {"variants": variants}}
+        )
+  except ValueError:
+    pass  # Игнорируем ошибки парсинга ObjectId

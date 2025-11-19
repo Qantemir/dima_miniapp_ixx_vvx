@@ -11,10 +11,13 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { api } from '@/lib/api';
 import {
+  getUserId,
+  isAdmin,
   hideBackButton,
   showAlert,
   showBackButton,
 } from '@/lib/telegram';
+import { ADMIN_IDS } from '@/types/api';
 import { Seo } from '@/components/Seo';
 import { useStoreStatus } from '@/contexts/StoreStatusContext';
 
@@ -26,11 +29,20 @@ export const AdminStoreSettingsPage = () => {
   const [message, setMessage] = useState('');
 
   useEffect(() => {
+    const userId = getUserId();
+    const isUserAdmin = userId ? isAdmin(userId, ADMIN_IDS) : false;
+    
+    if (!isUserAdmin) {
+      showAlert('Доступ запрещён. Требуются права администратора.');
+      navigate('/');
+      return;
+    }
+
     showBackButton(() => navigate('/'));
     return () => {
       hideBackButton();
     };
-  }, []);
+  }, [navigate]);
 
   useEffect(() => {
     if (status) {

@@ -1,12 +1,24 @@
 from datetime import datetime
+from pathlib import Path
+from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
+from fastapi import (
+  APIRouter,
+  Depends,
+  File,
+  Form,
+  HTTPException,
+  Path,
+  Query,
+  UploadFile,
+  status,
+)
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
+from ..config import settings
 from ..database import get_db
 from ..schemas import (
   Cart,
-  CreateOrderRequest,
   Order,
   OrderStatus,
   UpdateAddressRequest,
@@ -23,28 +35,115 @@ async def get_cart(db: AsyncIOMotorDatabase, user_id: int) -> Cart | None:
   return Cart(**serialize_doc(cart) | {"id": str(cart["_id"])})
 
 
+ALLOWED_RECEIPT_MIME_TYPES = {
+  "application/pdf": ".pdf",
+  "image/jpeg": ".jpg",
+  "image/jpg": ".jpg",
+  "image/png": ".png",
+  "image/webp": ".webp",
+  "image/heic": ".heic",
+  "image/heif": ".heif",
+}
+MAX_RECEIPT_SIZE_BYTES = settings.max_receipt_size_mb * 1024 * 1024
+
+
+def _save_payment_receipt(file: UploadFile) -> tuple[str, str | None]:
+  content_type = (file.content_type or "").lower()
+  extension = ALLOWED_RECEIPT_MIME_TYPES.get(content_type)
+  if not extension:
+    original_suffix = Path(file.filename or "").suffix.lower()
+    if original_suffix in {".jpg", ".jpeg", ".png", ".webp", ".pdf", ".heic", ".heif"}:
+      extension = original_suffix
+    else:
+      raise HTTPException(
+        status_code=400,
+        detail="Поддерживаются только изображения (JPG, PNG, WEBP, HEIC) или PDF",
+      )
+
+  file.file.seek(0)
+  file_bytes = file.file.read()
+  if not file_bytes:
+    raise HTTPException(status_code=400, detail="Файл чека пустой")
+  if len(file_bytes) > MAX_RECEIPT_SIZE_BYTES:
+    raise HTTPException(
+      status_code=400,
+      detail=f"Файл слишком большой. Максимум {settings.max_receipt_size_mb} МБ",
+    )
+
+  filename = f"{uuid4().hex}{extension}"
+  target_path = settings.upload_dir / filename
+  target_path.parent.mkdir(parents=True, exist_ok=True)
+  with open(target_path, "wb") as destination:
+    destination.write(file_bytes)
+
+  return f"/uploads/{filename}", file.filename
+
+
 @router.post("/order", response_model=Order, status_code=status.HTTP_201_CREATED)
 async def create_order(
-  payload: CreateOrderRequest, db: AsyncIOMotorDatabase = Depends(get_db)
+  user_id: int = Form(...),
+  name: str = Form(...),
+  phone: str = Form(...),
+  address: str = Form(...),
+  comment: str | None = Form(None),
+  delivery_type: str | None = Form(None),
+  payment_type: str | None = Form(None),
+  payment_receipt: UploadFile = File(...),
+  db: AsyncIOMotorDatabase = Depends(get_db),
 ):
-  cart = await get_cart(db, payload.user_id)
+  cart = await get_cart(db, user_id)
   if not cart:
     raise HTTPException(status_code=400, detail="Корзина пуста")
 
+  # Товары уже списаны при добавлении в корзину, только проверяем наличие
+  # (на случай, если количество изменилось на складе)
+  for cart_item in cart.items:
+    if cart_item.variant_id:
+      try:
+        product_oid = as_object_id(cart_item.product_id)
+        product = await db.products.find_one({"_id": product_oid})
+        if product:
+          variants = product.get("variants", [])
+          variant = next((v for v in variants if v.get("id") == cart_item.variant_id), None)
+          if variant:
+            variant_quantity = variant.get("quantity", 0)
+            # Проверяем, что товар все еще доступен (должен быть >= 0, так как уже списан)
+            if variant_quantity < 0:
+              raise HTTPException(
+                status_code=400,
+                detail=f"Товар '{cart_item.product_name}' ({variant.get('name', '')}) больше не доступен"
+              )
+      except ValueError:
+        pass  # Игнорируем ошибки парсинга ObjectId
+
+  receipt_url, original_filename = _save_payment_receipt(payment_receipt)
+
   order_doc = {
-    "user_id": payload.user_id,
-    "customer_name": payload.name,
-    "customer_phone": payload.phone,
-    "delivery_address": payload.address,
-    "comment": payload.comment,
+    "user_id": user_id,
+    "customer_name": name,
+    "customer_phone": phone,
+    "delivery_address": address,
+    "comment": comment,
     "status": OrderStatus.NEW.value,
     "items": [item.dict() for item in cart.items],
     "total_amount": cart.total_amount,
     "can_edit_address": True,
     "created_at": datetime.utcnow(),
     "updated_at": datetime.utcnow(),
+    "payment_receipt_url": receipt_url,
+    "payment_receipt_filename": original_filename,
+    "delivery_type": delivery_type,
+    "payment_type": payment_type,
   }
-  result = await db.orders.insert_one(order_doc)
+
+  try:
+    result = await db.orders.insert_one(order_doc)
+  except Exception:
+    stored_path = settings.upload_dir / Path(receipt_url).name
+    if stored_path.exists():
+      stored_path.unlink(missing_ok=True)
+    raise
+
   await db.carts.delete_one({"_id": as_object_id(cart.id)})
   doc = await db.orders.find_one({"_id": result.inserted_id})
   return Order(**serialize_doc(doc) | {"id": str(doc["_id"])})
@@ -72,12 +171,12 @@ async def update_order_address(
   doc = await db.orders.find_one({"_id": as_object_id(order_id)})
   if not doc or doc["user_id"] != payload.user_id:
     raise HTTPException(status_code=404, detail="Заказ не найден")
-  if doc["status"] in [
-    OrderStatus.SHIPPED.value,
-    OrderStatus.DONE.value,
-    OrderStatus.CANCELED.value,
-  ]:
-    raise HTTPException(status_code=400, detail="Адрес нельзя изменить для этого статуса")
+  editable_statuses = {
+    OrderStatus.NEW.value,
+    OrderStatus.PROCESSING.value,
+  }
+  if doc["status"] not in editable_statuses:
+    raise HTTPException(status_code=400, detail="Адрес можно менять только для новых заказов или заказов в работе")
 
   updated = await db.orders.find_one_and_update(
     {"_id": as_object_id(order_id)},
@@ -85,6 +184,7 @@ async def update_order_address(
       "$set": {
         "delivery_address": payload.address,
         "updated_at": datetime.utcnow(),
+        "can_edit_address": True,
       }
     },
     return_document=True,

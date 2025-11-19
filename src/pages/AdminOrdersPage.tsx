@@ -4,8 +4,9 @@ import { Package, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { OrderStatusBadge } from '@/components/OrderStatusBadge';
 import { api } from '@/lib/api';
-import { showAlert, showBackButton, hideBackButton } from '@/lib/telegram';
+import { getUserId, isAdmin, showAlert, showBackButton, hideBackButton } from '@/lib/telegram';
 import type { Order, OrderStatus } from '@/types/api';
+import { ADMIN_IDS } from '@/types/api';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AdminHeader } from '@/components/AdminHeader';
 import { Seo } from '@/components/Seo';
@@ -27,13 +28,22 @@ export const AdminOrdersPage = () => {
   const [selectedStatus, setSelectedStatus] = useState<OrderStatus | 'all'>('all');
 
   useEffect(() => {
+    const userId = getUserId();
+    const isUserAdmin = userId ? isAdmin(userId, ADMIN_IDS) : false;
+    
+    if (!isUserAdmin) {
+      showAlert('Доступ запрещён. Требуются права администратора.');
+      navigate('/');
+      return;
+    }
+
     loadOrders();
     showBackButton(() => navigate('/'));
 
     return () => {
       hideBackButton();
     };
-  }, [selectedStatus]);
+  }, [selectedStatus, navigate]);
 
   const loadOrders = async () => {
     setLoading(true);
@@ -156,7 +166,7 @@ export const AdminOrdersPage = () => {
                   {order.items.length} товаров
                 </span>
                 <span className="font-bold text-foreground">
-                  {order.total_amount} ₽
+                  {order.total_amount} ₸
                 </span>
               </div>
             </div>

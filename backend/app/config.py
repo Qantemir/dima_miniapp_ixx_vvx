@@ -15,6 +15,8 @@ class Settings(BaseSettings):
   admin_ids: List[int] = Field(default_factory=list, env="ADMIN_IDS")
   telegram_bot_token: str | None = Field(None, env="TELEGRAM_BOT_TOKEN")
   jwt_secret: str = Field("change-me", env="JWT_SECRET")
+  upload_dir: Path = Field(ROOT_DIR / "uploads", env="UPLOAD_DIR")
+  max_receipt_size_mb: int = Field(10, env="MAX_RECEIPT_SIZE_MB")
 
   @validator("admin_ids", pre=True)
   def split_admin_ids(cls, value):
@@ -24,6 +26,12 @@ class Settings(BaseSettings):
       return [int(v) for v in value]
     return [int(v.strip()) for v in str(value).split(",") if v.strip()]
 
+  @validator("upload_dir", pre=True)
+  def ensure_upload_dir(cls, value):
+    if isinstance(value, Path):
+      return value
+    return Path(value)
+
   class Config:
     env_file = ENV_PATH
     env_file_encoding = "utf-8"
@@ -32,7 +40,9 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-  return Settings()
+  settings = Settings()
+  settings.upload_dir.mkdir(parents=True, exist_ok=True)
+  return settings
 
 
 settings = get_settings()

@@ -46,7 +46,9 @@ async def get_store_status(db: AsyncIOMotorDatabase = Depends(get_db)):
 
 @router.patch("/admin/store/sleep", response_model=StoreStatus)
 async def toggle_store_sleep(
-  payload: StoreSleepRequest, db: AsyncIOMotorDatabase = Depends(get_db)
+  payload: StoreSleepRequest,
+  db: AsyncIOMotorDatabase = Depends(get_db),
+  _admin_id: int = Depends(verify_admin),
 ):
   doc = await get_or_create_store_status(db)
   await db.store_status.update_one(

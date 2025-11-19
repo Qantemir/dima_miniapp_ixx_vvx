@@ -102,12 +102,19 @@ class Cart(BaseModel):
 class AddToCartRequest(BaseModel):
     user_id: int
     product_id: str
+    variant_id: Optional[str] = None
     quantity: int = Field(..., ge=1, le=50)
 
 
 class RemoveFromCartRequest(BaseModel):
     user_id: int
     item_id: str
+
+
+class UpdateCartItemRequest(BaseModel):
+    user_id: int
+    item_id: str
+    quantity: int = Field(..., ge=1, le=50)
 
 
 class OrderStatus(str, Enum):
@@ -139,6 +146,8 @@ class Order(BaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     can_edit_address: bool = True
+    payment_receipt_url: Optional[str] = None
+    payment_receipt_filename: Optional[str] = None
 
     class Config:
         allow_population_by_field_name = True

@@ -9,10 +9,13 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { api } from '@/lib/api';
 import {
+  getUserId,
+  isAdmin,
   hideBackButton,
   showAlert,
   showBackButton,
 } from '@/lib/telegram';
+import { ADMIN_IDS } from '@/types/api';
 import type { BroadcastRequest } from '@/types/api';
 import { Seo } from '@/components/Seo';
 
@@ -25,11 +28,20 @@ export const AdminBroadcastPage = () => {
   });
 
   useEffect(() => {
+    const userId = getUserId();
+    const isUserAdmin = userId ? isAdmin(userId, ADMIN_IDS) : false;
+    
+    if (!isUserAdmin) {
+      showAlert('Доступ запрещён. Требуются права администратора.');
+      navigate('/');
+      return;
+    }
+
     showBackButton(() => navigate('/'));
     return () => {
       hideBackButton();
     };
-  }, []);
+  }, [navigate]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
