@@ -15,38 +15,29 @@ import {
   showAlert,
   showBackButton,
 } from '@/lib/telegram';
-import type { StoreStatus } from '@/types/api';
 import { Seo } from '@/components/Seo';
+import { useStoreStatus } from '@/contexts/StoreStatusContext';
 
 export const AdminStoreSettingsPage = () => {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
+  const { status, loading, refresh } = useStoreStatus();
   const [saving, setSaving] = useState(false);
-  const [status, setStatus] = useState<StoreStatus | null>(null);
   const [sleepEnabled, setSleepEnabled] = useState(false);
   const [message, setMessage] = useState('');
 
   useEffect(() => {
-    loadStatus();
     showBackButton(() => navigate('/'));
     return () => {
       hideBackButton();
     };
   }, []);
 
-  const loadStatus = async () => {
-    setLoading(true);
-    try {
-      const data = await api.getStoreStatus();
-      setStatus(data);
-      setSleepEnabled(data.is_sleep_mode);
-      setMessage(data.sleep_message || '');
-    } catch (error) {
-      showAlert('Не удалось загрузить статус магазина');
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (status) {
+      setSleepEnabled(status.is_sleep_mode);
+      setMessage(status.sleep_message || '');
     }
-  };
+  }, [status]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -55,7 +46,9 @@ export const AdminStoreSettingsPage = () => {
         sleep: sleepEnabled,
         message: message || undefined,
       });
-      setStatus(updated);
+      setSleepEnabled(updated.is_sleep_mode);
+      setMessage(updated.sleep_message || '');
+      await refresh();
       showAlert('Статус магазина обновлён');
     } catch (error) {
       showAlert('Не удалось обновить статус магазина');

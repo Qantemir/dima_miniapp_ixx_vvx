@@ -83,17 +83,17 @@ const AppRouter = () => {
 };
 
 const App = () => (
-  <AdminViewProvider>
-    <StoreStatusProvider>
-      <QueryClientProvider client={queryClient}>
+  <QueryClientProvider client={queryClient}>
+    <AdminViewProvider>
+      <StoreStatusProvider>
         <TooltipProvider>
           <Toaster />
           <Sonner />
           <AppRouter />
         </TooltipProvider>
-      </QueryClientProvider>
-    </StoreStatusProvider>
-  </AdminViewProvider>
+      </StoreStatusProvider>
+    </AdminViewProvider>
+  </QueryClientProvider>
 );
 
 export default App;

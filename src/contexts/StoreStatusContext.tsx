@@ -1,5 +1,5 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import type { ReactNode } from 'react';
+import { createContext, useCallback, useContext, useMemo, type ReactNode } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { StoreStatus } from '@/types/api';
 import { api } from '@/lib/api';
 
@@ -12,33 +12,26 @@ type StoreStatusContextValue = {
 const StoreStatusContext = createContext<StoreStatusContextValue | undefined>(undefined);
 
 export function StoreStatusProvider({ children }: { children: ReactNode }) {
-  const [status, setStatus] = useState<StoreStatus | null>(null);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const { data, isLoading, isFetching } = useQuery({
+    queryKey: ['store-status'],
+    queryFn: () => api.getStoreStatus(),
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: false,
+  });
 
   const refresh = useCallback(async () => {
-    try {
-      const data = await api.getStoreStatus();
-      setStatus(data);
-    } catch (error) {
-      console.error('Failed to load store status', error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    refresh();
-    const interval = setInterval(refresh, 60_000);
-    return () => clearInterval(interval);
-  }, [refresh]);
+    await queryClient.invalidateQueries({ queryKey: ['store-status'] });
+  }, [queryClient]);
 
   const value = useMemo(
     () => ({
-      status,
-      loading,
+      status: data ?? null,
+      loading: !data && (isLoading || isFetching),
       refresh,
     }),
-    [status, loading, refresh],
+    [data, isLoading, isFetching, refresh],
   );
 
   return <StoreStatusContext.Provider value={value}>{children}</StoreStatusContext.Provider>;

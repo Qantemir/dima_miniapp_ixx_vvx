@@ -1,7 +1,9 @@
-from typing import List
+from typing import List, Sequence
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from bson import ObjectId
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
+from pymongo import ReturnDocument
 
 from ..database import get_db
 from ..schemas import (
@@ -36,6 +38,15 @@ async def get_admin_catalog(db: AsyncIOMotorDatabase = Depends(get_db)):
   return await fetch_catalog(db)
 
 
+def _build_id_candidates(raw_id: str) -> Sequence[object]:
+  candidates: set[object] = {raw_id}
+  if ObjectId.is_valid(raw_id):
+    oid = ObjectId(raw_id)
+    candidates.add(oid)
+    candidates.add(str(oid))
+  return list(candidates)
+
+
 @router.post(
   "/admin/category",
   response_model=Category,
@@ -65,13 +76,30 @@ async def update_category(
   payload: CategoryUpdate,
   db: AsyncIOMotorDatabase = Depends(get_db),
 ):
-  if not payload.dict(exclude_unset=True):
+  update_data = payload.dict(exclude_unset=True)
+  if not update_data:
     raise HTTPException(status_code=400, detail="Нет данных для обновления")
-  oid = as_object_id(category_id)
+
+  category_doc = await db.categories.find_one({"_id": {"$in": _build_id_candidates(category_id)}})
+  if not category_doc:
+    raise HTTPException(status_code=404, detail="Категория не найдена")
+
+  if "name" in update_data and update_data["name"] is not None:
+    update_data["name"] = update_data["name"].strip()
+    if not update_data["name"]:
+      raise HTTPException(status_code=400, detail="Название категории не может быть пустым")
+
+    existing = await db.categories.find_one({
+      "name": update_data["name"],
+      "_id": {"$ne": category_doc["_id"]},
+    })
+    if existing:
+      raise HTTPException(status_code=400, detail="Категория с таким названием уже существует")
+
   result = await db.categories.find_one_and_update(
-    {"_id": oid},
-    {"$set": payload.dict(exclude_unset=True)},
-    return_document=True,
+    {"_id": category_doc["_id"]},
+    {"$set": update_data},
+    return_document=ReturnDocument.AFTER,
   )
   if not result:
     raise HTTPException(status_code=404, detail="Категория не найдена")
@@ -83,12 +111,24 @@ async def update_category(
   status_code=status.HTTP_204_NO_CONTENT,
 )
 async def delete_category(category_id: str, db: AsyncIOMotorDatabase = Depends(get_db)):
-  oid = as_object_id(category_id)
-  await db.products.delete_many({"category_id": category_id})
-  result = await db.categories.delete_one({"_id": oid})
-  if result.deleted_count == 0:
+  category_doc = await db.categories.find_one({"_id": {"$in": _build_id_candidates(category_id)}})
+  if not category_doc:
     raise HTTPException(status_code=404, detail="Категория не найдена")
-  return {"status": "ok"}
+
+  cleanup_values: set[object] = {
+    category_id,
+    str(category_doc["_id"]),
+  }
+  if isinstance(category_doc["_id"], ObjectId):
+    cleanup_values.add(category_doc["_id"])
+
+  await db.products.delete_many({"category_id": {"$in": list(cleanup_values)}})
+
+  delete_result = await db.categories.delete_one({"_id": category_doc["_id"]})
+  if delete_result.deleted_count == 0:
+    raise HTTPException(status_code=404, detail="Категория не найдена")
+
+  return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post(

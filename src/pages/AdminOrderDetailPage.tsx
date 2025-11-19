@@ -4,10 +4,27 @@ import { ArrowLeft, MapPin, User, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { OrderStatusBadge } from '@/components/OrderStatusBadge';
 import { api } from '@/lib/api';
-import { getUserId, showAlert, showBackButton, hideBackButton, showPopup } from '@/lib/telegram';
+import { getUserId, showAlert, showBackButton, hideBackButton } from '@/lib/telegram';
 import type { Order, OrderStatus } from '@/types/api';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Seo } from '@/components/Seo';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 const AVAILABLE_STATUSES: OrderStatus[] = [
   'новый',
@@ -18,12 +35,24 @@ const AVAILABLE_STATUSES: OrderStatus[] = [
   'отменён',
 ];
 
+const STATUS_LABELS: Record<OrderStatus, string> = {
+  'новый': 'Новый',
+  'в обработке': 'В обработке',
+  'принят': 'Принят',
+  'выехал': 'Выехал',
+  'завершён': 'Завершён',
+  'отменён': 'Отменён',
+};
+
 export const AdminOrderDetailPage = () => {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [order, setOrder] = useState<Order | null>(null);
   const [updating, setUpdating] = useState(false);
+  const [currentStatus, setCurrentStatus] = useState<OrderStatus | ''>('');
+  const [pendingStatus, setPendingStatus] = useState<OrderStatus | null>(null);
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
 
   useEffect(() => {
     if (orderId) {
@@ -43,6 +72,7 @@ export const AdminOrderDetailPage = () => {
     try {
       const data = await api.getOrder(orderId);
       setOrder(data);
+      setCurrentStatus(data.status);
     } catch (error) {
       showAlert('Ошибка загрузки заказа');
       navigate('/admin');
@@ -51,51 +81,47 @@ export const AdminOrderDetailPage = () => {
     }
   };
 
-  const handleStatusChange = async (newStatus: OrderStatus) => {
-    if (!order) return;
+  const handleStatusSelect = (newStatus: OrderStatus) => {
+    if (!order || newStatus === order.status) {
+      return;
+    }
+    setPendingStatus(newStatus);
+    setStatusDialogOpen(true);
+  };
 
+  const confirmStatusChange = async () => {
+    if (!order || !pendingStatus) {
+      return;
+    }
     const userId = getUserId();
     if (!userId) {
       showAlert('Ошибка: не удалось определить пользователя');
       return;
     }
 
-    const statusLabels: Record<OrderStatus, string> = {
-      'новый': 'Новый',
-      'в обработке': 'В обработке',
-      'принят': 'Принят',
-      'выехал': 'Выехал',
-      'завершён': 'Завершён',
-      'отменён': 'Отменён',
-    };
+    setUpdating(true);
+    try {
+      const updatedOrder = await api.updateOrderStatus(order.id, {
+        user_id: userId,
+        status: pendingStatus,
+      });
+      setOrder(updatedOrder);
+      setCurrentStatus(updatedOrder.status);
+      showAlert('Статус заказа обновлён');
+    } catch (error) {
+      showAlert('Ошибка при обновлении статуса');
+    } finally {
+      setUpdating(false);
+      setPendingStatus(null);
+      setStatusDialogOpen(false);
+    }
+  };
 
-    showPopup(
-      {
-        title: 'Подтверждение',
-        message: `Изменить статус заказа на "${statusLabels[newStatus]}"?`,
-        buttons: [
-          { id: 'cancel', type: 'cancel', text: 'Отмена' },
-          { id: 'confirm', type: 'default', text: 'Изменить' },
-        ],
-      },
-      async (buttonId) => {
-        if (buttonId === 'confirm') {
-          setUpdating(true);
-          try {
-            const updatedOrder = await api.updateOrderStatus(order.id, {
-              user_id: userId,
-              status: newStatus,
-            });
-            setOrder(updatedOrder);
-            showAlert('Статус заказа обновлён');
-          } catch (error) {
-            showAlert('Ошибка при обновлении статуса');
-          } finally {
-            setUpdating(false);
-          }
-        }
-      }
-    );
+  const handleStatusDialogChange = (open: boolean) => {
+    setStatusDialogOpen(open);
+    if (!open && !updating) {
+      setPendingStatus(null);
+    }
   };
 
   const seoPath = orderId ? `/admin/order/${orderId}` : '/admin/order';
@@ -170,20 +196,22 @@ export const AdminOrderDetailPage = () => {
         {/* Change Status */}
         <div className="bg-card rounded-lg p-4 border border-border space-y-3">
           <h3 className="font-semibold text-foreground">Изменить статус</h3>
-          <div className="grid grid-cols-2 gap-2">
-            {AVAILABLE_STATUSES.map(status => (
-              <Button
-                key={status}
-                variant={order.status === status ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => handleStatusChange(status)}
-                disabled={updating || order.status === status}
-                className="justify-start"
-              >
-                <OrderStatusBadge status={status} />
-              </Button>
-            ))}
-          </div>
+          <Select
+            value={currentStatus || order.status}
+            onValueChange={value => handleStatusSelect(value as OrderStatus)}
+            disabled={updating}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Выберите статус" />
+            </SelectTrigger>
+            <SelectContent>
+              {AVAILABLE_STATUSES.map(status => (
+                <SelectItem key={status} value={status}>
+                  {STATUS_LABELS[status]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Customer Info */}
@@ -253,6 +281,31 @@ export const AdminOrderDetailPage = () => {
         )}
       </div>
       </div>
+
+      <AlertDialog open={statusDialogOpen} onOpenChange={handleStatusDialogChange}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Изменить статус заказа?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingStatus
+                ? `Установить статус "${STATUS_LABELS[pendingStatus]}"?`
+                : 'Выберите статус, чтобы изменить его.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={updating}>Отмена</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={!pendingStatus || updating}
+              onClick={(event) => {
+                event.preventDefault();
+                void confirmStatusChange();
+              }}
+            >
+              Изменить
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };

@@ -13,7 +13,7 @@ from typing import ForwardRef
 
 def _patch_forward_ref_for_py313():
     """
-    Python 3.13 changed ``typing.ForwardRef._evaluate`` signature and made the
+    Python 3.12+ changed ``typing.ForwardRef._evaluate`` signature and made the
     ``recursive_guard`` argument mandatory. Pydantic 1.x still calls the method
     without that keyword which breaks FastAPI import.
 
@@ -21,7 +21,7 @@ def _patch_forward_ref_for_py313():
     that provides a default value when FastAPI / pydantic call it.
     """
 
-    if sys.version_info < (3, 13):
+    if sys.version_info < (3, 12):
         return
 
     original_evaluate = getattr(ForwardRef, "_evaluate", None)
@@ -29,7 +29,7 @@ def _patch_forward_ref_for_py313():
         return
 
     # Avoid double patching
-    if getattr(original_evaluate, "__patched_for_py313__", False):
+    if getattr(original_evaluate, "__miniapp_forward_ref_patch__", False):
         return
 
     sentinel = getattr(typing, "_sentinel", object())
@@ -56,7 +56,7 @@ def _patch_forward_ref_for_py313():
             **kwargs,
         )
 
-    setattr(_patched_evaluate, "__patched_for_py313__", True)
+    setattr(_patched_evaluate, "__miniapp_forward_ref_patch__", True)
     ForwardRef._evaluate = _patched_evaluate  # type: ignore[attr-defined]
 
 

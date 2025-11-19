@@ -68,8 +68,14 @@ class ApiClient {
 
       if (!response.ok) {
         if (isJson) {
-          const error = payload as ApiError;
-          throw new Error(error.message || error.error || `API request failed: ${response.status} ${response.statusText}`);
+          const error = payload as Partial<ApiError> & { detail?: string };
+          const errorMessage =
+            error.message ||
+            error.detail ||
+            error.error ||
+            (typeof payload === 'string' ? payload : undefined) ||
+            `API request failed: ${response.status} ${response.statusText}`;
+          throw new Error(errorMessage);
         }
         throw new Error(
           'API request failed: сервер вернул не-JSON ответ. Проверьте адрес API или запущен ли бэкенд.'

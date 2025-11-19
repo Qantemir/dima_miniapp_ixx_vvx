@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import type { MouseEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Boxes, MoreVertical, Plus } from 'lucide-react';
 import { AdminHeader } from '@/components/AdminHeader';
@@ -11,6 +12,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
@@ -26,7 +37,6 @@ import {
   hideBackButton,
   showAlert,
   showBackButton,
-  showPopup,
 } from '@/lib/telegram';
 import type {
   CatalogResponse,
@@ -50,6 +60,9 @@ export const AdminCatalogPage = () => {
   const [categoryDialogMode, setCategoryDialogMode] = useState<DialogMode>('create');
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [categoryForm, setCategoryForm] = useState<CategoryPayload>(createEmptyCategory());
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     loadCatalog();
@@ -114,32 +127,38 @@ export const AdminCatalogPage = () => {
     }
   };
 
-  const handleCategoryDelete = (category: Category, event?: React.MouseEvent) => {
+  const handleCategoryDelete = (category: Category, event?: MouseEvent<HTMLElement>) => {
     if (event) {
       event.stopPropagation();
     }
-    showPopup(
-      {
-        title: 'Удаление категории',
-        message: `Удалить категорию "${category.name}"? Все её товары останутся без категории.`,
-        buttons: [
-          { id: 'cancel', type: 'cancel', text: 'Отмена' },
-          { id: 'confirm', type: 'destructive', text: 'Удалить' },
-        ],
-      },
-      async (buttonId) => {
-        if (buttonId !== 'confirm') return;
-        try {
-          await api.deleteCategory(category.id);
-          showAlert('Категория удалена');
-          await loadCatalog();
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Не удалось удалить категорию';
-          console.error('Category delete error:', error);
-          showAlert(`Ошибка удаления: ${errorMessage}`);
-        }
-      }
-    );
+    setCategoryToDelete(category);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteDialogChange = (open: boolean) => {
+    setDeleteDialogOpen(open);
+    if (!open && !deleting) {
+      setCategoryToDelete(null);
+    }
+  };
+
+  const confirmDeleteCategory = async () => {
+    if (!categoryToDelete) return;
+    setDeleting(true);
+    try {
+      await api.deleteCategory(categoryToDelete.id);
+      showAlert('Категория удалена');
+      setDeleteDialogOpen(false);
+      setCategoryToDelete(null);
+      await loadCatalog();
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Не удалось удалить категорию';
+      console.error('Category delete error:', error);
+      showAlert(`Ошибка удаления: ${errorMessage}`);
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const seoProps = {
@@ -335,6 +354,31 @@ export const AdminCatalogPage = () => {
           </DialogFooter>
         </DialogContent>
         </Dialog>
+
+        <AlertDialog open={deleteDialogOpen} onOpenChange={handleDeleteDialogChange}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Удалить категорию?</AlertDialogTitle>
+              <AlertDialogDescription>
+                {categoryToDelete
+                  ? `Категория "${categoryToDelete.name}" и все её товары будут удалены без возможности восстановления.`
+                  : 'Категория и её товары будут удалены без возможности восстановления.'}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleting}>Отмена</AlertDialogCancel>
+              <AlertDialogAction
+                disabled={deleting || !categoryToDelete}
+                onClick={(event) => {
+                  event.preventDefault();
+                  void confirmDeleteCategory();
+                }}
+              >
+                Удалить
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </>
   );
