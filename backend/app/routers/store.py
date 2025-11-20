@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pymongo.errors import ServerSelectionTimeoutError, ConnectionFailure
 
+from ..auth import verify_admin
 from ..database import get_db
 from ..schemas import StoreSleepRequest, StoreStatus
 
