@@ -1,4 +1,4 @@
-import { Trash2, Plus, Minus } from 'lucide-react';
+import { Trash2, Plus, Minus } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import type { CartItem as CartItemType } from '@/types/api';
 

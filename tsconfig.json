@@ -4,7 +4,10 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@radix-ui/react-slot": [
+        "./node_modules/@radix-ui/react-slot/dist/index.d.ts"
+      ]
     },
     "noImplicitAny": false,
     "noUnusedParameters": false,

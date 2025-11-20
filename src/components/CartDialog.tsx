@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShoppingCart, Trash2 } from 'lucide-react';
+import { ShoppingCart, Trash2 } from '@/components/icons';
 import {
   Dialog,
   DialogContent,

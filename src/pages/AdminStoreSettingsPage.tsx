@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Moon } from 'lucide-react';
+import { Moon } from '@/components/icons';
 import { AdminHeader } from '@/components/AdminHeader';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';

@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useAdminView } from '@/contexts/AdminViewContext';
 import type { LucideIcon } from 'lucide-react';
-import { Boxes, Megaphone, Moon, Package, UserRound } from 'lucide-react';
+import { Boxes, Megaphone, Moon, Package, UserRound } from '@/components/icons';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 interface AdminHeaderProps {

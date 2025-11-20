@@ -1,6 +1,6 @@
 import { ChangeEvent, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Boxes, MoreVertical, Plus, Trash2, X } from 'lucide-react';
+import { Boxes, MoreVertical, Plus, Trash2, X } from '@/components/icons';
 import { AdminHeader } from '@/components/AdminHeader';
 import { Button } from '@/components/ui/button';
 import {

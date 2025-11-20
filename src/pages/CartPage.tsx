@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShoppingCart, ArrowLeft } from 'lucide-react';
+import { ShoppingCart, ArrowLeft } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { CartItem } from '@/components/CartItem';
 import { api } from '@/lib/api';

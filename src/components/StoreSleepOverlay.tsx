@@ -1,4 +1,4 @@
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle } from '@/components/icons';
 import { Card } from '@/components/ui/card';
 import { useStoreStatus } from '@/contexts/StoreStatusContext';
 import { useLocation } from 'react-router-dom';
