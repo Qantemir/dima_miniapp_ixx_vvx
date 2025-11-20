@@ -3,9 +3,9 @@ import json
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import StreamingResponse
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pymongo.errors import ServerSelectionTimeoutError, ConnectionFailure
-from starlette.responses import EventSourceResponse
 
 from ..auth import verify_admin
 from ..database import get_db
@@ -118,14 +118,11 @@ async def stream_store_status(
     try:
       while True:
         data = await queue.get()
-        yield {
-          "event": "status",
-          "data": json.dumps(data, ensure_ascii=False),
-        }
+        yield f"event: status\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
     except asyncio.CancelledError:
       pass
     finally:
       store_status_broadcaster.unregister(queue)
 
-  return EventSourceResponse(event_generator())
+  return StreamingResponse(event_generator(), media_type="text/event-stream")
 
