@@ -6,13 +6,15 @@ import { ProductCard } from '@/components/ProductCard';
 import { CartDialog } from '@/components/CartDialog';
 import { api } from '@/lib/api';
 import { getUserId, isAdmin, showAlert } from '@/lib/telegram';
-import type { Category, Product } from '@/types/api';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAdminView } from '@/contexts/AdminViewContext';
 import { ADMIN_IDS } from '@/types/api';
 import { Seo } from '@/components/Seo';
 import { useStoreStatus } from '@/contexts/StoreStatusContext';
+import { useCatalog } from '@/hooks/useCatalog';
+import { useCart, CART_QUERY_KEY } from '@/hooks/useCart';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   Dialog,
   DialogContent,
@@ -22,11 +24,7 @@ import {
 } from '@/components/ui/dialog';
 
 export const CatalogPage = () => {
-  const [loading, setLoading] = useState(true);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [cartItemsCount, setCartItemsCount] = useState(0);
   const [cartDialogOpen, setCartDialogOpen] = useState(false);
   const [helpDialogOpen, setHelpDialogOpen] = useState(false);
   const [addSuccess, setAddSuccess] = useState(false);
@@ -35,14 +33,24 @@ export const CatalogPage = () => {
   const { forceClientView, setForceClientView } = useAdminView();
   const userId = getUserId();
   const isUserAdmin = userId ? isAdmin(userId, ADMIN_IDS) : false;
+  const queryClient = useQueryClient();
+  const {
+    data: catalog,
+    isLoading: catalogLoading,
+    error: catalogError,
+  } = useCatalog();
+  const categories = catalog?.categories ?? [];
+  const catalogProducts = useMemo(() => catalog?.products ?? [], [catalog]);
+  const { data: cartData } = useCart(Boolean(userId));
+  const cartItemsCount = cartData?.items.length ?? 0;
 
   const catalogJsonLd = useMemo(() => {
-    if (!products.length) return undefined;
+    if (!catalogProducts.length) return undefined;
     return {
       "@context": "https://schema.org",
       "@type": "ItemList",
       name: "Каталог товаров",
-      itemListElement: products.slice(0, 20).map((product, index) => ({
+      itemListElement: catalogProducts.slice(0, 20).map((product, index) => ({
         "@type": "Product",
         name: product.name,
         description: product.description,
@@ -58,38 +66,14 @@ export const CatalogPage = () => {
         position: index + 1,
       })),
     };
-  }, [products]);
+  }, [catalogProducts]);
 
   useEffect(() => {
-    loadCatalog();
-    loadCartCount();
-  }, []);
-
-  const loadCatalog = async () => {
-    try {
-      const data = await api.getCatalog();
-      setCategories(data.categories);
-      setProducts(data.products);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Ошибка загрузки каталога';
-      console.error('Failed to load catalog:', error);
+    if (catalogError) {
+      const errorMessage = catalogError instanceof Error ? catalogError.message : 'Ошибка загрузки каталога';
       showAlert(`Ошибка загрузки каталога: ${errorMessage}`);
-    } finally {
-      setLoading(false);
     }
-  };
-
-  const loadCartCount = async () => {
-    const userId = getUserId();
-    if (!userId) return;
-
-    try {
-      const cart = await api.getCart(userId);
-      setCartItemsCount(cart.items.length);
-    } catch (error) {
-      // Cart might be empty
-    }
-  };
+  }, [catalogError]);
 
   const handleAddToCart = async (
     productId: string,
@@ -109,12 +93,11 @@ export const CatalogPage = () => {
 
     try {
       await api.addToCart({
-        user_id: userId,
         product_id: productId,
         variant_id: variantId,
         quantity,
       });
-      await loadCartCount();
+      await queryClient.invalidateQueries({ queryKey: CART_QUERY_KEY });
       setAddSuccess(true);
       setTimeout(() => setAddSuccess(false), 2000);
     } catch (error) {
@@ -125,10 +108,10 @@ export const CatalogPage = () => {
   const handleHelp = () => setHelpDialogOpen(true);
 
   const filteredProducts = selectedCategory
-    ? products.filter(p => p.category_id === selectedCategory)
-    : products;
+    ? catalogProducts.filter(p => p.category_id === selectedCategory)
+    : catalogProducts;
 
-  if (loading || storeStatusLoading) {
+  if (catalogLoading || !catalog || storeStatusLoading) {
     return (
       <>
         <Seo
@@ -275,7 +258,6 @@ export const CatalogPage = () => {
       <CartDialog 
         open={cartDialogOpen} 
         onOpenChange={setCartDialogOpen}
-        onCartUpdate={loadCartCount}
       />
       <Dialog open={helpDialogOpen} onOpenChange={setHelpDialogOpen}>
         <DialogContent className="sm:max-w-lg">
