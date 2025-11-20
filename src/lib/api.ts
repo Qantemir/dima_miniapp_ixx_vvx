@@ -18,22 +18,60 @@ import {
   type UpdateStoreStatusRequest,
   type ApiError,
 } from '@/types/api';
-import { getUserId } from '@/lib/telegram';
+import { getRequestAuthHeaders } from '@/lib/telegram';
 
 class ApiClient {
   private baseUrl: string;
+  private etagCache = new Map<string, string>();
+  private responseCache = new Map<string, unknown>();
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl;
   }
 
-  private addAdminAuth(endpoint: string): string {
-    const userId = getUserId();
-    if (!userId) {
-      throw new Error('Не удалось определить пользователя');
+  private getCacheKey(method: string, endpoint: string) {
+    return `${method.toUpperCase()} ${endpoint}`;
+  }
+
+  private cacheResponse(method: string, endpoint: string, payload: unknown, etag?: string | null) {
+    const cacheKey = this.getCacheKey(method, endpoint);
+    if (etag) {
+      this.etagCache.set(cacheKey, etag);
     }
-    const separator = endpoint.includes('?') ? '&' : '?';
-    return `${endpoint}${separator}user_id=${userId}`;
+    this.responseCache.set(cacheKey, payload);
+  }
+
+  private getCachedResponse<T>(method: string, endpoint: string): T | null {
+    const cacheKey = this.getCacheKey(method, endpoint);
+    const cached = this.responseCache.get(cacheKey);
+    return (cached as T) ?? null;
+  }
+
+  private getEtag(method: string, endpoint: string): string | undefined {
+    const cacheKey = this.getCacheKey(method, endpoint);
+    return this.etagCache.get(cacheKey);
+  }
+
+  private invalidateCache(endpoint: string) {
+    const cacheKey = this.getCacheKey('GET', endpoint);
+    this.etagCache.delete(cacheKey);
+    this.responseCache.delete(cacheKey);
+  }
+
+  private invalidateCatalogCaches() {
+    this.invalidateCache('/catalog');
+    this.invalidateCache('/admin/catalog');
+  }
+
+  private buildHeaders(existing?: HeadersInit): Headers {
+    const headers = new Headers(existing);
+    const authHeaders = getRequestAuthHeaders();
+    Object.entries(authHeaders).forEach(([key, value]) => {
+      if (value) {
+        headers.set(key, value);
+      }
+    });
+    return headers;
   }
 
   private async request<T>(
@@ -41,7 +79,7 @@ class ApiClient {
     options?: RequestInit
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
-    console.log('[API] Request:', url, options?.method || 'GET');
+    const method = (options?.method || 'GET').toUpperCase();
     
     let timeoutId: NodeJS.Timeout | null = null;
     const controller = new AbortController();
@@ -54,7 +92,13 @@ class ApiClient {
       
       const isFormData =
         typeof FormData !== 'undefined' && options?.body instanceof FormData;
-      const headers = new Headers(options?.headers as HeadersInit);
+      const headers = this.buildHeaders(options?.headers as HeadersInit);
+      if (method === 'GET') {
+        const etag = this.getEtag(method, endpoint);
+        if (etag) {
+          headers.set('If-None-Match', etag);
+        }
+      }
       if (!isFormData && !headers.has('Content-Type')) {
         headers.set('Content-Type', 'application/json');
       }
@@ -70,10 +114,19 @@ class ApiClient {
         timeoutId = null;
       }
 
-      console.log('[API] Response:', response.status, response.statusText, url);
+      if (response.status === 304) {
+        const cached = this.getCachedResponse<T>(method, endpoint);
+        if (cached !== null) {
+          return cached;
+        }
+        throw new Error('Получен 304 от сервера, но кэш отсутствует.');
+      }
 
       // Обработка ответа 204 No Content (нет тела ответа)
       if (response.status === 204) {
+        if (method === 'GET') {
+          this.invalidateCache(endpoint);
+        }
         return undefined as T;
       }
 
@@ -101,6 +154,13 @@ class ApiClient {
         throw new Error(
           'API вернул некорректный ответ (не JSON). Убедитесь, что переменная VITE_API_URL указывает на API.'
         );
+      }
+
+      if (method === 'GET' && isJson) {
+        const etag = response.headers.get('etag');
+        this.cacheResponse(method, endpoint, payload, etag);
+      } else if (method !== 'GET') {
+        this.invalidateCache(endpoint);
       }
 
       return payload as T;
@@ -134,12 +194,11 @@ class ApiClient {
     return this.request<CatalogResponse>('/catalog');
   }
 
-  async getCart(userId: number): Promise<Cart> {
-    return this.request<Cart>(`/cart?user_id=${userId}`);
+  async getCart(): Promise<Cart> {
+    return this.request<Cart>('/cart');
   }
 
   async addToCart(data: {
-    user_id: number;
     product_id: string;
     variant_id?: string;
     quantity: number;
@@ -151,7 +210,6 @@ class ApiClient {
   }
 
   async updateCartItem(data: {
-    user_id: number;
     item_id: string;
     quantity: number;
   }): Promise<Cart> {
@@ -162,7 +220,6 @@ class ApiClient {
   }
 
   async removeFromCart(data: {
-    user_id: number;
     item_id: string;
   }): Promise<Cart> {
     return this.request<Cart>('/cart/item', {
@@ -173,7 +230,6 @@ class ApiClient {
 
   async createOrder(data: CreateOrderRequest): Promise<Order> {
     const formData = new FormData();
-    formData.append('user_id', data.user_id.toString());
     formData.append('name', data.name);
     formData.append('phone', data.phone);
     formData.append('address', data.address);
@@ -194,9 +250,9 @@ class ApiClient {
     });
   }
 
-  async getLastOrder(userId: number): Promise<Order | null> {
+  async getLastOrder(): Promise<Order | null> {
     try {
-      return await this.request<Order>(`/order/last?user_id=${userId}`);
+      return await this.request<Order>('/order/last');
     } catch (error) {
       // If no active order, return null
       return null;
@@ -213,6 +269,10 @@ class ApiClient {
     });
   }
 
+  async getOrder(orderId: string): Promise<Order> {
+    return this.request<Order>(`/order/${orderId}`);
+  }
+
   // ADMIN API
 
   async getOrders(params?: {
@@ -220,8 +280,6 @@ class ApiClient {
     limit?: number;
   }): Promise<Order[]> {
     const queryParams = new URLSearchParams();
-    const userId = getUserId();
-    if (userId) queryParams.append('user_id', userId.toString());
     if (params?.status) queryParams.append('status', params.status);
     if (params?.limit) queryParams.append('limit', params.limit.toString());
     
@@ -229,8 +287,8 @@ class ApiClient {
     return this.request<Order[]>(`/admin/orders?${query}`);
   }
 
-  async getOrder(orderId: string): Promise<Order> {
-    return this.request<Order>(this.addAdminAuth(`/admin/order/${orderId}`));
+  async getAdminOrder(orderId: string): Promise<Order> {
+    return this.request<Order>(`/admin/order/${orderId}`);
   }
 
   async updateOrderStatus(
@@ -244,57 +302,67 @@ class ApiClient {
   }
 
   async getAdminCatalog(): Promise<CatalogResponse> {
-    return this.request<CatalogResponse>(this.addAdminAuth('/admin/catalog'));
+    return this.request<CatalogResponse>('/admin/catalog');
   }
 
   async createProduct(data: ProductPayload): Promise<Product> {
-    return this.request<Product>(this.addAdminAuth('/admin/product'), {
+    const result = await this.request<Product>('/admin/product', {
       method: 'POST',
       body: JSON.stringify(data),
     });
+    this.invalidateCatalogCaches();
+    return result;
   }
 
   async updateProduct(
     productId: string,
     data: Partial<ProductPayload>
   ): Promise<Product> {
-    return this.request<Product>(this.addAdminAuth(`/admin/product/${productId}`), {
+    const result = await this.request<Product>(`/admin/product/${productId}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     });
+    this.invalidateCatalogCaches();
+    return result;
   }
 
   async deleteProduct(productId: string): Promise<void> {
-    await this.request(this.addAdminAuth(`/admin/product/${productId}`), {
+    await this.request(`/admin/product/${productId}`, {
       method: 'DELETE',
     });
+    this.invalidateCatalogCaches();
   }
 
   async createCategory(data: CategoryPayload): Promise<Category> {
-    return this.request<Category>(this.addAdminAuth('/admin/category'), {
+    const result = await this.request<Category>('/admin/category', {
       method: 'POST',
       body: JSON.stringify(data),
     });
+    this.invalidateCatalogCaches();
+    return result;
   }
 
   async updateCategory(
     categoryId: string,
     data: Partial<CategoryPayload>
   ): Promise<Category> {
-    return this.request<Category>(this.addAdminAuth(`/admin/category/${categoryId}`), {
+    const result = await this.request<Category>(`/admin/category/${categoryId}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     });
+    this.invalidateCatalogCaches();
+    return result;
   }
 
   async deleteCategory(categoryId: string) {
-    await this.request(this.addAdminAuth(`/admin/category/${categoryId}`), {
+    await this.request(`/admin/category/${categoryId}`, {
       method: 'DELETE',
     });
+    this.invalidateCatalogCaches();
   }
 
   async sendBroadcast(data: BroadcastRequest): Promise<BroadcastResponse> {
-    return this.request<BroadcastResponse>(this.addAdminAuth('/admin/broadcast'), {
+    return this.request<BroadcastResponse>('/admin/broadcast', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -307,7 +375,7 @@ class ApiClient {
   async setStoreSleepMode(
     data: UpdateStoreStatusRequest
   ): Promise<StoreStatus> {
-    return this.request<StoreStatus>(this.addAdminAuth('/admin/store/sleep'), {
+    return this.request<StoreStatus>('/admin/store/sleep', {
       method: 'PATCH',
       body: JSON.stringify(data),
     });

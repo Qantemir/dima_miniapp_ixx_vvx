@@ -100,19 +100,16 @@ class Cart(BaseModel):
 
 
 class AddToCartRequest(BaseModel):
-    user_id: int
     product_id: str
     variant_id: Optional[str] = None
     quantity: int = Field(..., ge=1, le=50)
 
 
 class RemoveFromCartRequest(BaseModel):
-    user_id: int
     item_id: str
 
 
 class UpdateCartItemRequest(BaseModel):
-    user_id: int
     item_id: str
     quantity: int = Field(..., ge=1, le=50)
 
@@ -154,7 +151,6 @@ class Order(BaseModel):
 
 
 class CreateOrderRequest(BaseModel):
-    user_id: int
     name: str
     phone: str
     address: str
@@ -162,12 +158,10 @@ class CreateOrderRequest(BaseModel):
 
 
 class UpdateAddressRequest(BaseModel):
-    user_id: int
     address: str
 
 
 class UpdateStatusRequest(BaseModel):
-    user_id: int
     status: OrderStatus
 
 

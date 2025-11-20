@@ -1,6 +1,5 @@
-import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShoppingCart, Trash2 } from '@/components/icons';
+import { ShoppingCart } from '@/components/icons';
 import {
   Dialog,
   DialogContent,
@@ -10,74 +9,39 @@ import {
 import { Button } from '@/components/ui/button';
 import { CartItem } from '@/components/CartItem';
 import { api } from '@/lib/api';
-import { getUserId, showAlert } from '@/lib/telegram';
-import type { Cart } from '@/types/api';
+import { showAlert } from '@/lib/telegram';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useCart, CART_QUERY_KEY } from '@/hooks/useCart';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface CartDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onCartUpdate?: () => void;
 }
 
-export const CartDialog = ({ open, onOpenChange, onCartUpdate }: CartDialogProps) => {
+export const CartDialog = ({ open, onOpenChange }: CartDialogProps) => {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [cart, setCart] = useState<Cart | null>(null);
-
-  useEffect(() => {
-    if (open) {
-      loadCart();
-    }
-  }, [open]);
-
-  const loadCart = async () => {
-    const userId = getUserId();
-    if (!userId) {
-      showAlert('Ошибка: не удалось определить пользователя');
-      onOpenChange(false);
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const data = await api.getCart(userId);
-      setCart(data);
-    } catch (error) {
-      showAlert('Ошибка загрузки корзины');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const queryClient = useQueryClient();
+  const { data: cart, isLoading } = useCart(open);
 
   const handleUpdateQuantity = async (itemId: string, quantity: number) => {
-    const userId = getUserId();
-    if (!userId) return;
-
     try {
       const updatedCart = await api.updateCartItem({
-        user_id: userId,
         item_id: itemId,
         quantity,
       });
-      setCart(updatedCart);
-      onCartUpdate?.();
+      queryClient.setQueryData(CART_QUERY_KEY, updatedCart);
     } catch (error) {
       showAlert('Ошибка при обновлении количества');
     }
   };
 
   const handleRemoveItem = async (itemId: string) => {
-    const userId = getUserId();
-    if (!userId) return;
-
     try {
       const updatedCart = await api.removeFromCart({
-        user_id: userId,
         item_id: itemId,
       });
-      setCart(updatedCart);
-      onCartUpdate?.();
+      queryClient.setQueryData(CART_QUERY_KEY, updatedCart);
     } catch (error) {
       showAlert('Ошибка при удалении товара');
     }
@@ -88,7 +52,7 @@ export const CartDialog = ({ open, onOpenChange, onCartUpdate }: CartDialogProps
     navigate('/checkout');
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">

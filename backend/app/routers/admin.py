@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import List, Optional
+import asyncio
 import httpx
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -107,13 +108,9 @@ async def send_broadcast(
       detail="TELEGRAM_BOT_TOKEN не настроен. Добавьте токен бота в .env файл."
     )
 
-  # Получаем всех клиентов из базы данных (до отправки, чтобы знать общее количество)
-  customers_cursor = db.customers.find({})
-  customers = await customers_cursor.to_list(length=None)
-  total_count = len(customers)
-
-  if not customers:
-    return BroadcastResponse(success=True, sent_count=0, total_count=0, failed_count=0)
+  batch_size = max(1, settings.broadcast_batch_size)
+  concurrency = max(1, settings.broadcast_concurrency)
+  customers_cursor = db.customers.find({}, {"telegram_id": 1})
 
   # Формируем текст сообщения
   message_text = f"*{payload.title}*\n\n{payload.message}"
@@ -123,44 +120,71 @@ async def send_broadcast(
   # Отправляем сообщения через Telegram Bot API
   bot_api_url = f"https://api.telegram.org/bot{settings.telegram_bot_token}/sendMessage"
   sent_count = 0
-  invalid_user_ids = []
+  failed_count = 0
+  total_count = 0
+  invalid_user_ids: list[int] = []
+
+  async def send_to_customer(
+    client: httpx.AsyncClient,
+    telegram_id: int,
+  ) -> tuple[bool, bool]:
+    try:
+      response = await client.post(
+        bot_api_url,
+        json={
+          "chat_id": telegram_id,
+          "text": message_text,
+          "parse_mode": "Markdown",
+        },
+      )
+      payload = response.json()
+      if payload.get("ok"):
+        return True, False
+      error_code = payload.get("error_code")
+      description = (payload.get("description") or "").lower()
+      is_invalid = error_code in {400, 403, 404} or any(
+        phrase in description for phrase in ("chat not found", "user not found", "blocked")
+      )
+      return False, is_invalid
+    except httpx.HTTPStatusError as exc:
+      return False, exc.response.status_code in {400, 403, 404}
+    except Exception:
+      return False, False
+
+  async def flush_invalids():
+    nonlocal failed_count, invalid_user_ids
+    if not invalid_user_ids:
+      return
+    chunk = invalid_user_ids
+    invalid_user_ids = []
+    failed_count += len(chunk)
+    await db.customers.delete_many({"telegram_id": {"$in": chunk}})
 
   async with httpx.AsyncClient(timeout=10.0) as client:
-    for customer in customers:
-      telegram_id = customer["telegram_id"]
-      try:
-        response = await client.post(
-          bot_api_url,
-          json={
-            "chat_id": telegram_id,
-            "text": message_text,
-            "parse_mode": "Markdown",
-          }
-        )
-        result = response.json()
-        if result.get("ok"):
-          sent_count += 1
-        else:
-          # Если Telegram вернул ошибку, проверяем код
-          error_code = result.get("error_code")
-          error_description = result.get("description", "").lower()
-          # Коды ошибок, когда пользователь недоступен
-          if error_code in [403, 400] or "chat not found" in error_description or "user not found" in error_description or "blocked" in error_description:
-            invalid_user_ids.append(telegram_id)
-      except httpx.HTTPStatusError as e:
-        # Обрабатываем HTTP ошибки
-        if e.response.status_code in [403, 400, 404]:
-          invalid_user_ids.append(telegram_id)
-        # Для других ошибок просто пропускаем
-        continue
-      except Exception:
-        # Для любых других ошибок (таймаут, сеть и т.д.) пропускаем
-        continue
+    while True:
+      batch = await customers_cursor.to_list(length=batch_size)
+      if not batch:
+        break
+      total_count += len(batch)
+      telegram_ids = [customer["telegram_id"] for customer in batch]
 
-  # Удаляем невалидных пользователей из базы данных
-  failed_count = len(invalid_user_ids)
-  if invalid_user_ids:
-    await db.customers.delete_many({"telegram_id": {"$in": invalid_user_ids}})
+      # Ограничиваем конкуренцию, разбивая на подгруппы
+      for i in range(0, len(telegram_ids), concurrency):
+        chunk = telegram_ids[i:i + concurrency]
+        results = await asyncio.gather(
+          *[send_to_customer(client, telegram_id) for telegram_id in chunk],
+          return_exceptions=False,
+        )
+        for telegram_id, (sent, invalid) in zip(chunk, results):
+          if sent:
+            sent_count += 1
+          if invalid:
+            invalid_user_ids.append(telegram_id)
+
+      if len(invalid_user_ids) >= 500:
+        await flush_invalids()
+
+  await flush_invalids()
 
   # Сохраняем запись о рассылке с статистикой
   entry = {

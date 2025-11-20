@@ -127,7 +127,6 @@ export interface UpdateStoreStatusRequest {
 }
 
 export interface CreateOrderRequest {
-  user_id: number;
   name: string;
   phone: string;
   address: string;
@@ -138,12 +137,10 @@ export interface CreateOrderRequest {
 }
 
 export interface UpdateAddressRequest {
-  user_id: number;
   address: string;
 }
 
 export interface UpdateStatusRequest {
-  user_id: number;
   status: OrderStatus;
 }
 

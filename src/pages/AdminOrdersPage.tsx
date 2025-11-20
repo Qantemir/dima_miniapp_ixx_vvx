@@ -5,11 +5,12 @@ import { Button } from '@/components/ui/button';
 import { OrderStatusBadge } from '@/components/OrderStatusBadge';
 import { api } from '@/lib/api';
 import { getUserId, isAdmin, showAlert, showBackButton, hideBackButton } from '@/lib/telegram';
-import type { Order, OrderStatus } from '@/types/api';
+import type { OrderStatus } from '@/types/api';
 import { ADMIN_IDS } from '@/types/api';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AdminHeader } from '@/components/AdminHeader';
 import { Seo } from '@/components/Seo';
+import { useQuery } from '@tanstack/react-query';
 
 const STATUS_FILTERS: Array<{ value: OrderStatus | 'all'; label: string }> = [
   { value: 'all', label: 'Все' },
@@ -23,9 +24,8 @@ const STATUS_FILTERS: Array<{ value: OrderStatus | 'all'; label: string }> = [
 
 export const AdminOrdersPage = () => {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [orders, setOrders] = useState<Order[]>([]);
   const [selectedStatus, setSelectedStatus] = useState<OrderStatus | 'all'>('all');
+  const [isAuthorized, setIsAuthorized] = useState(false);
 
   useEffect(() => {
     const userId = getUserId();
@@ -37,28 +37,37 @@ export const AdminOrdersPage = () => {
       return;
     }
 
-    loadOrders();
+    setIsAuthorized(true);
     showBackButton(() => navigate('/'));
 
     return () => {
       hideBackButton();
     };
-  }, [selectedStatus, navigate]);
+  }, [navigate]);
 
-  const loadOrders = async () => {
-    setLoading(true);
-    try {
+  const {
+    data: orders = [],
+    isLoading: ordersLoading,
+    isFetching,
+    error: ordersError,
+  } = useQuery({
+    queryKey: ['admin-orders', selectedStatus],
+    queryFn: () => {
       const params = selectedStatus !== 'all' ? { status: selectedStatus } : undefined;
-      const data = await api.getOrders(params);
-      setOrders(data);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Ошибка загрузки заказов';
-      console.error('Failed to load orders:', error);
-      showAlert(`Ошибка загрузки заказов: ${errorMessage}`);
-    } finally {
-      setLoading(false);
+      return api.getOrders(params);
+    },
+    enabled: isAuthorized,
+    staleTime: 60_000,
+    gcTime: 5 * 60 * 1000,
+    keepPreviousData: true,
+  });
+
+  useEffect(() => {
+    if (ordersError) {
+      const message = ordersError instanceof Error ? ordersError.message : 'Ошибка загрузки заказов';
+      showAlert(`Ошибка загрузки заказов: ${message}`);
     }
-  };
+  }, [ordersError]);
 
   const seoProps = {
     title: "Админ: Заказы",
@@ -67,7 +76,7 @@ export const AdminOrdersPage = () => {
     noIndex: true,
   };
 
-  if (loading) {
+  if (!isAuthorized || ordersLoading) {
     return (
       <>
         <Seo {...seoProps} />
@@ -119,7 +128,7 @@ export const AdminOrdersPage = () => {
 
       {/* Orders List */}
       <div className="p-4 space-y-3">
-        {orders.length === 0 ? (
+        {orders.length === 0 && !isFetching ? (
           <div className="text-center py-12">
             <Package className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
             <p className="text-muted-foreground">Заказы не найдены</p>

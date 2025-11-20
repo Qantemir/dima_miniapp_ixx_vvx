@@ -81,7 +81,7 @@ export const AdminOrderDetailPage = () => {
     if (!orderId) return;
 
     try {
-      const data = await api.getOrder(orderId);
+      const data = await api.getAdminOrder(orderId);
       setOrder(data);
       setCurrentStatus(data.status);
     } catch (error) {
@@ -104,16 +104,9 @@ export const AdminOrderDetailPage = () => {
     if (!order || !pendingStatus) {
       return;
     }
-    const userId = getUserId();
-    if (!userId) {
-      showAlert('Ошибка: не удалось определить пользователя');
-      return;
-    }
-
     setUpdating(true);
     try {
       const updatedOrder = await api.updateOrderStatus(order.id, {
-        user_id: userId,
         status: pendingStatus,
       });
       setOrder(updatedOrder);

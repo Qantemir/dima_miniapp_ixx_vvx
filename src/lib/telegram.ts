@@ -46,7 +46,17 @@ export const initTelegram = () => {
   return tg;
 };
 
-export const applyTelegramTheme = (themeParams: any) => {
+type TelegramThemeParams = Partial<{
+  bg_color: string;
+  secondary_bg_color: string;
+  text_color: string;
+  hint_color: string;
+  link_color: string;
+  button_color: string;
+  button_text_color: string;
+}>;
+
+export const applyTelegramTheme = (themeParams: TelegramThemeParams) => {
   const root = document.documentElement;
   
   if (themeParams.bg_color) {
@@ -235,4 +245,17 @@ export const closeMiniApp = () => {
   if (tg) {
     tg.close();
   }
+};
+
+export const getRequestAuthHeaders = (): Record<string, string> => {
+  const tg = getTelegram();
+  if (tg?.initData) {
+    return { 'X-Telegram-Init-Data': tg.initData };
+  }
+
+  const devUserId = getDevFallbackUserId();
+  if (devUserId) {
+    return { 'X-Dev-User-Id': devUserId.toString() };
+  }
+  return {};
 };

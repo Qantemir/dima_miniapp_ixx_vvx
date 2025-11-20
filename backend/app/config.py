@@ -17,6 +17,12 @@ class Settings(BaseSettings):
   jwt_secret: str = Field("change-me", env="JWT_SECRET")
   upload_dir: Path = Field(ROOT_DIR / "uploads", env="UPLOAD_DIR")
   max_receipt_size_mb: int = Field(10, env="MAX_RECEIPT_SIZE_MB")
+  telegram_data_ttl_seconds: int = Field(300, env="TELEGRAM_DATA_TTL_SECONDS")
+  allow_dev_requests: bool = Field(False, env="ALLOW_DEV_REQUESTS")
+  dev_allowed_user_ids: List[int] = Field(default_factory=list, env="DEV_ALLOWED_USER_IDS")
+  catalog_cache_ttl_seconds: int = Field(30, env="CATALOG_CACHE_TTL_SECONDS")
+  broadcast_batch_size: int = Field(25, env="BROADCAST_BATCH_SIZE")
+  broadcast_concurrency: int = Field(10, env="BROADCAST_CONCURRENCY")
 
   @validator("admin_ids", pre=True)
   def split_admin_ids(cls, value):
@@ -31,6 +37,14 @@ class Settings(BaseSettings):
     if isinstance(value, Path):
       return value
     return Path(value)
+
+  @validator("dev_allowed_user_ids", pre=True)
+  def split_dev_ids(cls, value):
+    if not value:
+      return []
+    if isinstance(value, list):
+      return [int(v) for v in value]
+    return [int(v.strip()) for v in str(value).split(",") if v.strip()]
 
   class Config:
     env_file = ENV_PATH

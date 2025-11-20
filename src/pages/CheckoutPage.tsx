@@ -10,9 +10,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { api } from '@/lib/api';
 import { Seo } from '@/components/Seo';
 import { buildCanonicalUrl } from '@/lib/seo';
-import { getUser, getUserId, showAlert, showMainButton, hideMainButton, showBackButton, hideBackButton } from '@/lib/telegram';
-import type { Cart } from '@/types/api';
+import { getUser, showAlert, showMainButton, hideMainButton, showBackButton, hideBackButton } from '@/lib/telegram';
 import { useStoreStatus } from '@/contexts/StoreStatusContext';
+import { useCart } from '@/hooks/useCart';
 
 const RECEIPT_MAX_SIZE = 10 * 1024 * 1024; // 10 MB
 const RECEIPT_ALLOWED_TYPES = [
@@ -44,8 +44,7 @@ export const CheckoutPage = () => {
     address: '',
     comment: '',
   });
-  const [cartSummary, setCartSummary] = useState<Cart | null>(null);
-  const [cartLoading, setCartLoading] = useState(true);
+  const { data: cartSummary, isFetching: cartLoading, refetch: refetchCart } = useCart(true);
   const { status: storeStatus } = useStoreStatus();
   const [paymentReceipt, setPaymentReceipt] = useState<File | null>(null);
   const [receiptError, setReceiptError] = useState<string | null>(null);
@@ -61,30 +60,11 @@ export const CheckoutPage = () => {
 
     showBackButton(() => navigate('/cart'));
     showMainButton('Подтвердить заказ', handleSubmit);
-    loadCartSummary();
-
     return () => {
       hideMainButton();
       hideBackButton();
     };
   }, []);
-
-  const loadCartSummary = async () => {
-    const userId = getUserId();
-    if (!userId) {
-      showAlert('Ошибка: не удалось определить пользователя');
-      return;
-    }
-    setCartLoading(true);
-    try {
-      const cart = await api.getCart(userId);
-      setCartSummary(cart);
-    } catch (error) {
-      showAlert('Не удалось загрузить корзину');
-    } finally {
-      setCartLoading(false);
-    }
-  };
 
   const handleReceiptChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -123,12 +103,6 @@ export const CheckoutPage = () => {
       return;
     }
 
-    const userId = getUserId();
-    if (!userId) {
-      showAlert('Ошибка: не удалось определить пользователя');
-      return;
-    }
-
     if (storeStatus?.is_sleep_mode) {
       showAlert(storeStatus.sleep_message || 'Магазин временно не принимает заказы');
       return;
@@ -143,7 +117,6 @@ export const CheckoutPage = () => {
 
     try {
       const order = await api.createOrder({
-        user_id: userId,
         name: formData.name,
         phone: formData.phone,
         address: formData.address,
@@ -288,7 +261,7 @@ export const CheckoutPage = () => {
               <p className="font-semibold">Состав заказа</p>
               <p className="text-sm text-muted-foreground">Проверьте товары перед оплатой</p>
             </div>
-            <Button variant="ghost" size="sm" onClick={loadCartSummary} disabled={cartLoading}>
+            <Button variant="ghost" size="sm" onClick={() => refetchCart()} disabled={cartLoading}>
               Обновить
             </Button>
           </div>

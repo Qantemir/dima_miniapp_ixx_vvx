@@ -1,0 +1,160 @@
+from __future__ import annotations
+
+import hmac
+import json
+import time
+from dataclasses import dataclass
+from hashlib import sha256
+from typing import Any, Mapping
+from urllib.parse import parse_qsl
+
+from fastapi import Header, HTTPException, status
+
+from .config import settings
+
+_cached_secret_key: bytes | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class TelegramUser:
+  id: int
+  first_name: str | None = None
+  last_name: str | None = None
+  username: str | None = None
+  language_code: str | None = None
+  is_premium: bool | None = None
+
+
+def _get_secret_key() -> bytes:
+  """
+  Telegram recommends using SHA256("WebAppData" + bot_token) as secret key.
+  We cache it to avoid re-computing on every request.
+  """
+  global _cached_secret_key
+  if _cached_secret_key is not None:
+    return _cached_secret_key
+  if not settings.telegram_bot_token:
+    raise HTTPException(
+      status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+      detail="TELEGRAM_BOT_TOKEN не настроен на сервере",
+    )
+  raw = "WebAppData" + settings.telegram_bot_token
+  _cached_secret_key = sha256(raw.encode()).digest()
+  return _cached_secret_key
+
+
+def _build_check_string(data: Mapping[str, str]) -> str:
+  parts = [f"{key}={value}" for key, value in sorted(data.items())]
+  return "\n".join(parts)
+
+
+def _parse_init_data(init_data: str) -> dict[str, str]:
+  """
+  Telegram init data is passed as query string, but values can be URL-encoded.
+  parse_qsl already handles decoding.
+  """
+  parsed = parse_qsl(init_data, keep_blank_values=True)
+  return {key: value for key, value in parsed}
+
+
+def _validate_hash(parsed_data: dict[str, str]) -> dict[str, Any]:
+  data = dict(parsed_data)
+  received_hash = data.pop("hash", None)
+  if not received_hash:
+    raise HTTPException(
+      status_code=status.HTTP_401_UNAUTHORIZED,
+      detail="Отсутствует hash параметр Telegram initData",
+    )
+
+  check_string = _build_check_string(data)
+  secret_key = _get_secret_key()
+  calculated_hash = hmac.new(secret_key, check_string.encode(), sha256).hexdigest()
+
+  if not hmac.compare_digest(received_hash, calculated_hash):
+    raise HTTPException(
+      status_code=status.HTTP_401_UNAUTHORIZED,
+      detail="Недействительная подпись Telegram",
+    )
+
+  if settings.telegram_data_ttl_seconds > 0:
+    auth_date_raw = data.get("auth_date")
+    if not auth_date_raw:
+      raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Отсутствует auth_date в Telegram initData",
+      )
+    try:
+      auth_date = int(auth_date_raw)
+    except ValueError:
+      raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Некорректное значение auth_date",
+      ) from None
+    if time.time() - auth_date > settings.telegram_data_ttl_seconds:
+      raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Данные Telegram устарели. Перезапустите Mini App из Telegram.",
+      )
+
+  user_raw = data.get("user")
+  if not user_raw:
+    raise HTTPException(
+      status_code=status.HTTP_401_UNAUTHORIZED,
+      detail="Отсутствуют данные пользователя Telegram",
+    )
+
+  try:
+    user_payload = json.loads(user_raw)
+  except json.JSONDecodeError:
+    raise HTTPException(
+      status_code=status.HTTP_401_UNAUTHORIZED,
+      detail="Некорректные данные пользователя Telegram",
+    ) from None
+
+  return user_payload
+
+
+async def get_current_user(
+  telegram_init_data: str | None = Header(None, alias="X-Telegram-Init-Data"),
+  dev_user_id: int | None = Header(None, convert_underscores=False, alias="X-Dev-User-Id"),
+) -> TelegramUser:
+  """
+  Extracts the Telegram user from signed initData or, if allowed, from a dev header.
+  """
+  if telegram_init_data:
+    parsed = _parse_init_data(telegram_init_data)
+    user_payload = _validate_hash(parsed)
+    if "id" not in user_payload:
+      raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="В Telegram initData отсутствует идентификатор пользователя",
+      )
+    try:
+      user_id = int(user_payload["id"])
+    except (ValueError, TypeError):
+      raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Некорректный идентификатор пользователя Telegram",
+      ) from None
+    return TelegramUser(
+      id=user_id,
+      first_name=user_payload.get("first_name"),
+      last_name=user_payload.get("last_name"),
+      username=user_payload.get("username"),
+      language_code=user_payload.get("language_code"),
+      is_premium=user_payload.get("is_premium"),
+    )
+
+  if settings.allow_dev_requests and dev_user_id:
+    if settings.dev_allowed_user_ids and dev_user_id not in settings.dev_allowed_user_ids:
+      raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Dev user не разрешён для текущей конфигурации",
+      )
+    return TelegramUser(id=dev_user_id)
+
+  raise HTTPException(
+    status_code=status.HTTP_401_UNAUTHORIZED,
+    detail="Требуется действительная подпись Telegram (X-Telegram-Init-Data)",
+  )
+

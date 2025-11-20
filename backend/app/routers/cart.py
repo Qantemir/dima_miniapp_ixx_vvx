@@ -1,12 +1,18 @@
 from uuid import uuid4
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from ..database import get_db
 from ..schemas import AddToCartRequest, Cart, RemoveFromCartRequest, UpdateCartItemRequest
-from ..utils import as_object_id, serialize_doc, restore_variant_quantity
+from ..utils import (
+  as_object_id,
+  decrement_variant_quantity,
+  serialize_doc,
+  restore_variant_quantity,
+)
+from ..security import TelegramUser, get_current_user
 
 # Время жизни корзины в минутах
 CART_EXPIRY_MINUTES = 10
@@ -81,43 +87,18 @@ async def get_cart_document(db: AsyncIOMotorDatabase, user_id: int):
   return cart
 
 
-async def deduct_variant_quantity(
-  db: AsyncIOMotorDatabase,
-  product_id: str,
-  variant_id: str,
-  quantity: int
-):
-  """Списывает количество товара со склада"""
-  try:
-    product_oid = as_object_id(product_id)
-    product = await db.products.find_one({"_id": product_oid})
-    if product:
-      variants = product.get("variants", [])
-      variant = next((v for v in variants if v.get("id") == variant_id), None)
-      if variant:
-        variant_quantity = variant.get("quantity", 0)
-        if variant_quantity < quantity:
-          raise HTTPException(
-            status_code=400,
-            detail=f"Недостаточно товара. В наличии: {variant_quantity}"
-          )
-        variant["quantity"] = variant_quantity - quantity
-        await db.products.update_one(
-          {"_id": product_oid},
-          {"$set": {"variants": variants}}
-        )
-  except ValueError:
-    pass  # Игнорируем ошибки парсинга ObjectId
-
-
 def recalculate_total(cart):
   cart["total_amount"] = round(sum(item["price"] * item["quantity"] for item in cart["items"]), 2)
   return cart
 
 
 @router.get("/cart", response_model=Cart)
-async def get_cart(user_id: int = Query(...), db: AsyncIOMotorDatabase = Depends(get_db)):
+async def get_cart(
+  current_user: TelegramUser = Depends(get_current_user),
+  db: AsyncIOMotorDatabase = Depends(get_db),
+):
   # Проверяем и очищаем просроченные корзины перед получением
+  user_id = current_user.id
   cart_doc = await db.carts.find_one({"user_id": user_id})
   if cart_doc:
     await cleanup_expired_cart(db, cart_doc)
@@ -128,8 +109,11 @@ async def get_cart(user_id: int = Query(...), db: AsyncIOMotorDatabase = Depends
 
 @router.post("/cart", response_model=Cart)
 async def add_to_cart(
-  payload: AddToCartRequest, db: AsyncIOMotorDatabase = Depends(get_db)
+  payload: AddToCartRequest,
+  db: AsyncIOMotorDatabase = Depends(get_db),
+  current_user: TelegramUser = Depends(get_current_user),
 ):
+  user_id = current_user.id
   try:
     product_oid = as_object_id(payload.product_id)
   except ValueError:
@@ -170,7 +154,7 @@ async def add_to_cart(
       detail=f"Недостаточно товара. В наличии: {variant_quantity}"
     )
 
-  cart = await get_cart_document(db, payload.user_id)
+  cart = await get_cart_document(db, user_id)
   
   # Ищем существующий товар с такой же вариацией
   existing = next(
@@ -198,12 +182,17 @@ async def add_to_cart(
     )
 
   # Списываем товар со склада сразу при добавлении в корзину
-  await deduct_variant_quantity(
+  success = await decrement_variant_quantity(
     db,
     payload.product_id,
     payload.variant_id,
     payload.quantity
   )
+  if not success:
+    raise HTTPException(
+      status_code=400,
+      detail=f"Недостаточно товара. В наличии: {variant_quantity}"
+    )
 
   cart["updated_at"] = datetime.utcnow()
   cart = recalculate_total(cart)
@@ -211,15 +200,15 @@ async def add_to_cart(
   
   # Сохраняем или обновляем клиента в базе данных
   now = datetime.utcnow()
-  existing_customer = await db.customers.find_one({"telegram_id": payload.user_id})
+  existing_customer = await db.customers.find_one({"telegram_id": user_id})
   if existing_customer:
     await db.customers.update_one(
-      {"telegram_id": payload.user_id},
+      {"telegram_id": user_id},
       {"$set": {"last_cart_activity": now}}
     )
   else:
     await db.customers.insert_one({
-      "telegram_id": payload.user_id,
+      "telegram_id": user_id,
       "added_at": now,
       "last_cart_activity": now,
     })
@@ -229,9 +218,11 @@ async def add_to_cart(
 
 @router.patch("/cart/item", response_model=Cart)
 async def update_cart_item(
-  payload: UpdateCartItemRequest, db: AsyncIOMotorDatabase = Depends(get_db)
+  payload: UpdateCartItemRequest,
+  db: AsyncIOMotorDatabase = Depends(get_db),
+  current_user: TelegramUser = Depends(get_current_user),
 ):
-  cart = await get_cart_document(db, payload.user_id)
+  cart = await get_cart_document(db, current_user.id)
   item = next((item for item in cart["items"] if item["id"] == payload.item_id), None)
   if not item:
     raise HTTPException(status_code=404, detail="Товар не найден в корзине")
@@ -257,12 +248,17 @@ async def update_cart_item(
                 status_code=400,
                 detail=f"Недостаточно товара. В наличии: {variant_quantity}"
               )
-            await deduct_variant_quantity(
+            success = await decrement_variant_quantity(
               db,
               item["product_id"],
               item.get("variant_id"),
               quantity_diff
             )
+            if not success:
+              raise HTTPException(
+                status_code=400,
+                detail=f"Недостаточно товара. В наличии: {variant_quantity}"
+              )
           else:
             # Уменьшаем количество - возвращаем на склад
             await restore_variant_quantity(
@@ -283,9 +279,11 @@ async def update_cart_item(
 
 @router.delete("/cart/item", response_model=Cart)
 async def remove_from_cart(
-  payload: RemoveFromCartRequest, db: AsyncIOMotorDatabase = Depends(get_db)
+  payload: RemoveFromCartRequest,
+  db: AsyncIOMotorDatabase = Depends(get_db),
+  current_user: TelegramUser = Depends(get_current_user),
 ):
-  cart = await get_cart_document(db, payload.user_id)
+  cart = await get_cart_document(db, current_user.id)
   item_to_remove = next((item for item in cart["items"] if item["id"] == payload.item_id), None)
   if not item_to_remove:
     raise HTTPException(status_code=404, detail="Товар не найден в корзине")

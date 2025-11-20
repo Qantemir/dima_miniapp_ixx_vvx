@@ -24,6 +24,58 @@ def as_object_id(value: str) -> ObjectId:
   return ObjectId(value)
 
 
+async def _update_variant_quantity(
+  db: AsyncIOMotorDatabase,
+  product_id: str,
+  variant_id: str,
+  quantity_diff: int,
+  require_available: bool = False,
+) -> bool:
+  if quantity_diff == 0:
+    return True
+
+  try:
+    product_oid = as_object_id(product_id)
+  except ValueError:
+    return False
+
+  base_filter = {
+    "_id": product_oid,
+    "variants": {
+      "$elemMatch": {
+        "id": variant_id,
+      }
+    }
+  }
+
+  if quantity_diff < 0 and require_available:
+    base_filter["variants"]["$elemMatch"]["quantity"] = {"$gte": abs(quantity_diff)}
+
+  result = await db.products.update_one(
+    base_filter,
+    {"$inc": {"variants.$.quantity": quantity_diff}},
+  )
+  return result.modified_count == 1
+
+
+async def decrement_variant_quantity(
+  db: AsyncIOMotorDatabase,
+  product_id: str,
+  variant_id: str,
+  quantity: int,
+) -> bool:
+  """Списывает товары со склада с проверкой достаточного количества."""
+  if quantity <= 0:
+    return True
+  return await _update_variant_quantity(
+    db,
+    product_id,
+    variant_id,
+    quantity_diff=-quantity,
+    require_available=True,
+  )
+
+
 async def restore_variant_quantity(
   db: AsyncIOMotorDatabase,
   product_id: str,
@@ -31,17 +83,12 @@ async def restore_variant_quantity(
   quantity: int
 ):
   """Возвращает количество товара на склад"""
-  try:
-    product_oid = as_object_id(product_id)
-    product = await db.products.find_one({"_id": product_oid})
-    if product:
-      variants = product.get("variants", [])
-      variant = next((v for v in variants if v.get("id") == variant_id), None)
-      if variant:
-        variant["quantity"] = variant.get("quantity", 0) + quantity
-        await db.products.update_one(
-          {"_id": product_oid},
-          {"$set": {"variants": variants}}
-        )
-  except ValueError:
-    pass  # Игнорируем ошибки парсинга ObjectId
+  if quantity <= 0:
+    return
+  await _update_variant_quantity(
+    db,
+    product_id,
+    variant_id,
+    quantity_diff=quantity,
+    require_available=False,
+  )

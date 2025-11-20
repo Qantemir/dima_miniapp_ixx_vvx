@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { OrderStatusBadge } from '@/components/OrderStatusBadge';
 import { api } from '@/lib/api';
 import { buildApiAssetUrl } from '@/lib/utils';
-import { getUserId, showAlert, showMainButton, hideMainButton, showBackButton, hideBackButton } from '@/lib/telegram';
+import { showAlert, hideMainButton, showBackButton, hideBackButton } from '@/lib/telegram';
 import type { Order } from '@/types/api';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Seo } from '@/components/Seo';
@@ -38,8 +38,7 @@ export const OrderPage = () => {
   }, [orderId]);
 
   const loadOrder = async () => {
-    const userId = getUserId();
-    if (!userId || !orderId) return;
+    if (!orderId) return;
 
     try {
       const data = await api.getOrder(orderId);
@@ -53,11 +52,8 @@ export const OrderPage = () => {
   };
 
   const loadLastOrder = async () => {
-    const userId = getUserId();
-    if (!userId) return;
-
     try {
-      const data = await api.getLastOrder(userId);
+      const data = await api.getLastOrder();
       if (data) {
         setOrder(data);
         setNewAddress(data.delivery_address);
@@ -79,22 +75,19 @@ export const OrderPage = () => {
       return;
     }
 
-    const userId = getUserId();
-    if (!userId) return;
-
     setSaving(true);
 
     try {
       const updatedOrder = await api.updateOrderAddress(order.id, {
-        user_id: userId,
         address: newAddress,
       });
       
       setOrder(updatedOrder);
       setEditingAddress(false);
       showAlert('Адрес успешно обновлён');
-    } catch (error: any) {
-      showAlert(error.message || 'Ошибка при изменении адреса');
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Ошибка при изменении адреса';
+      showAlert(message);
     } finally {
       setSaving(false);
     }

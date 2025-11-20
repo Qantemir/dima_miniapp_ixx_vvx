@@ -1,23 +1,22 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShoppingCart, ArrowLeft } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { CartItem } from '@/components/CartItem';
 import { api } from '@/lib/api';
-import { getUserId, showAlert, showMainButton, hideMainButton, showBackButton, hideBackButton } from '@/lib/telegram';
-import type { Cart } from '@/types/api';
+import { showAlert, showMainButton, hideMainButton, showBackButton, hideBackButton } from '@/lib/telegram';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Seo } from '@/components/Seo';
 import { buildCanonicalUrl } from '@/lib/seo';
+import { useCart, CART_QUERY_KEY } from '@/hooks/useCart';
+import { useQueryClient } from '@tanstack/react-query';
 
 export const CartPage = () => {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [cart, setCart] = useState<Cart | null>(null);
+  const queryClient = useQueryClient();
+  const { data: cart, isLoading } = useCart(true);
 
   useEffect(() => {
-    loadCart();
-    
     // Setup Telegram buttons
     showBackButton(() => navigate('/'));
     
@@ -25,7 +24,7 @@ export const CartPage = () => {
       hideMainButton();
       hideBackButton();
     };
-  }, []);
+  }, [navigate]);
 
   useEffect(() => {
     if (cart && cart.items.length > 0) {
@@ -38,50 +37,24 @@ export const CartPage = () => {
     }
   }, [cart, navigate]);
 
-  const loadCart = async () => {
-    const userId = getUserId();
-    if (!userId) {
-      showAlert('Ошибка: не удалось определить пользователя');
-      navigate('/');
-      return;
-    }
-
-    try {
-      const data = await api.getCart(userId);
-      setCart(data);
-    } catch (error) {
-      showAlert('Ошибка загрузки корзины');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleUpdateQuantity = async (itemId: string, quantity: number) => {
-    const userId = getUserId();
-    if (!userId) return;
-
     try {
       const updatedCart = await api.updateCartItem({
-        user_id: userId,
         item_id: itemId,
         quantity,
       });
-      setCart(updatedCart);
+      queryClient.setQueryData(CART_QUERY_KEY, updatedCart);
     } catch (error) {
       showAlert('Ошибка при обновлении количества');
     }
   };
 
   const handleRemoveItem = async (itemId: string) => {
-    const userId = getUserId();
-    if (!userId) return;
-
     try {
       const updatedCart = await api.removeFromCart({
-        user_id: userId,
         item_id: itemId,
       });
-      setCart(updatedCart);
+      queryClient.setQueryData(CART_QUERY_KEY, updatedCart);
     } catch (error) {
       showAlert('Ошибка при удалении товара');
     }
@@ -95,7 +68,7 @@ export const CartPage = () => {
     url: buildCanonicalUrl("/cart"),
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <>
         <Seo title="Корзина" description="Проверьте товары перед оформлением заказа." path="/cart" jsonLd={cartJsonLd} />

@@ -8,8 +8,6 @@ from fastapi import (
   File,
   Form,
   HTTPException,
-  Path,
-  Query,
   UploadFile,
   status,
 )
@@ -24,6 +22,7 @@ from ..schemas import (
   UpdateAddressRequest,
 )
 from ..utils import as_object_id, serialize_doc
+from ..security import TelegramUser, get_current_user
 
 router = APIRouter(tags=["orders"])
 
@@ -81,7 +80,6 @@ def _save_payment_receipt(file: UploadFile) -> tuple[str, str | None]:
 
 @router.post("/order", response_model=Order, status_code=status.HTTP_201_CREATED)
 async def create_order(
-  user_id: int = Form(...),
   name: str = Form(...),
   phone: str = Form(...),
   address: str = Form(...),
@@ -90,7 +88,9 @@ async def create_order(
   payment_type: str | None = Form(None),
   payment_receipt: UploadFile = File(...),
   db: AsyncIOMotorDatabase = Depends(get_db),
+  current_user: TelegramUser = Depends(get_current_user),
 ):
+  user_id = current_user.id
   cart = await get_cart(db, user_id)
   if not cart:
     raise HTTPException(status_code=400, detail="Корзина пуста")
@@ -151,14 +151,29 @@ async def create_order(
 
 @router.get("/order/last", response_model=Order | None)
 async def get_last_order(
-  user_id: int = Query(...), db: AsyncIOMotorDatabase = Depends(get_db)
+  current_user: TelegramUser = Depends(get_current_user),
+  db: AsyncIOMotorDatabase = Depends(get_db),
 ):
   doc = await db.orders.find_one(
-    {"user_id": user_id},
+    {"user_id": current_user.id},
     sort=[("created_at", -1)],
   )
   if not doc:
     return None
+  return Order(**serialize_doc(doc) | {"id": str(doc["_id"])})
+
+
+@router.get("/order/{order_id}", response_model=Order)
+async def get_order_by_id(
+  order_id: str,
+  current_user: TelegramUser = Depends(get_current_user),
+  db: AsyncIOMotorDatabase = Depends(get_db),
+):
+  doc = await db.orders.find_one(
+    {"_id": as_object_id(order_id), "user_id": current_user.id},
+  )
+  if not doc:
+    raise HTTPException(status_code=404, detail="Заказ не найден")
   return Order(**serialize_doc(doc) | {"id": str(doc["_id"])})
 
 
@@ -167,9 +182,10 @@ async def update_order_address(
   order_id: str,
   payload: UpdateAddressRequest,
   db: AsyncIOMotorDatabase = Depends(get_db),
+  current_user: TelegramUser = Depends(get_current_user),
 ):
   doc = await db.orders.find_one({"_id": as_object_id(order_id)})
-  if not doc or doc["user_id"] != payload.user_id:
+  if not doc or doc["user_id"] != current_user.id:
     raise HTTPException(status_code=404, detail="Заказ не найден")
   editable_statuses = {
     OrderStatus.NEW.value,
