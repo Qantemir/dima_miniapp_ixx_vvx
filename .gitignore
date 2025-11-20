@@ -28,3 +28,4 @@ backend/.venv/
 *.sln
 *.sw?
 .env
+.yarn/install-state.gz
