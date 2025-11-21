@@ -14,9 +14,9 @@ import {
   getUserId,
   isAdmin,
   hideBackButton,
-  showAlert,
   showBackButton,
 } from '@/lib/telegram';
+import { toast } from '@/lib/toast';
 import { ADMIN_IDS } from '@/types/api';
 import { Seo } from '@/components/Seo';
 import { useStoreStatus } from '@/contexts/StoreStatusContext';
@@ -33,7 +33,7 @@ export const AdminStoreSettingsPage = () => {
     const isUserAdmin = userId ? isAdmin(userId, ADMIN_IDS) : false;
     
     if (!isUserAdmin) {
-      showAlert('Доступ запрещён. Требуются права администратора.');
+      toast.error('Доступ запрещён. Требуются права администратора.');
       navigate('/');
       return;
     }
@@ -61,9 +61,9 @@ export const AdminStoreSettingsPage = () => {
       setSleepEnabled(updated.is_sleep_mode);
       setMessage(updated.sleep_message || '');
       await refresh();
-      showAlert('Статус магазина обновлён');
+      toast.success('Статус магазина обновлён');
     } catch (error) {
-      showAlert('Не удалось обновить статус магазина');
+      toast.error('Не удалось обновить статус магазина');
     } finally {
       setSaving(false);
     }

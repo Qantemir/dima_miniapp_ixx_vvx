@@ -10,7 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { CartItem } from '@/components/CartItem';
 import { api } from '@/lib/api';
-import { showAlert } from '@/lib/telegram';
+import { toast } from '@/lib/toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCart, CART_QUERY_KEY } from '@/hooks/useCart';
 import { useQueryClient } from '@tanstack/react-query';
@@ -33,7 +33,7 @@ export const CartDialog = ({ open, onOpenChange }: CartDialogProps) => {
       });
       queryClient.setQueryData(CART_QUERY_KEY, updatedCart);
     } catch (error) {
-      showAlert('Ошибка при обновлении количества');
+      toast.error('Ошибка при обновлении количества');
     }
   };
 
@@ -44,7 +44,7 @@ export const CartDialog = ({ open, onOpenChange }: CartDialogProps) => {
       });
       queryClient.setQueryData(CART_QUERY_KEY, updatedCart);
     } catch (error) {
-      showAlert('Ошибка при удалении товара');
+      toast.error('Ошибка при удалении товара');
     }
   };
 

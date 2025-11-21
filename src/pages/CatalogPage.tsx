@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { ProductCard } from '@/components/ProductCard';
 import { CartDialog } from '@/components/CartDialog';
 import { api } from '@/lib/api';
-import { getUserId, isAdmin, showAlert } from '@/lib/telegram';
+import { getUserId, isAdmin } from '@/lib/telegram';
+import { toast } from '@/lib/toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAdminView } from '@/contexts/AdminViewContext';
@@ -71,7 +72,7 @@ export const CatalogPage = () => {
   useEffect(() => {
     if (catalogError) {
       const errorMessage = catalogError instanceof Error ? catalogError.message : 'Ошибка загрузки каталога';
-      showAlert(`Ошибка загрузки каталога: ${errorMessage}`);
+      toast.error(`Ошибка загрузки каталога: ${errorMessage}`);
     }
   }, [catalogError]);
 
@@ -81,13 +82,13 @@ export const CatalogPage = () => {
     quantity: number
   ) => {
     if (storeStatus?.is_sleep_mode) {
-      showAlert(storeStatus.sleep_message || 'Магазин временно не принимает заказы');
+      toast.warning(storeStatus.sleep_message || 'Магазин временно не принимает заказы');
       return;
     }
 
     const userId = getUserId();
     if (!userId) {
-      showAlert('Ошибка: не удалось определить пользователя');
+      toast.error('Ошибка: не удалось определить пользователя');
       return;
     }
 
@@ -101,7 +102,7 @@ export const CatalogPage = () => {
       setAddSuccess(true);
       setTimeout(() => setAddSuccess(false), 2000);
     } catch (error) {
-      showAlert('Ошибка при добавлении в корзину');
+      toast.error('Ошибка при добавлении в корзину');
     }
   };
 
@@ -275,7 +276,7 @@ export const CatalogPage = () => {
         onOpenChange={setCartDialogOpen}
       />
       <Dialog open={helpDialogOpen} onOpenChange={setHelpDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>Помощь</DialogTitle>
             <DialogDescription>
@@ -283,7 +284,7 @@ export const CatalogPage = () => {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="space-y-4 overflow-y-auto flex-1 pr-1" style={{ scrollbarWidth: 'thin' }}>
             <section>
               <h3 className="text-sm font-semibold text-foreground">Как сделать заказ</h3>
               <p className="text-sm text-muted-foreground mt-1">
@@ -325,6 +326,12 @@ export const CatalogPage = () => {
                 Нужна помощь? Напишите в чат мини‑приложения или напрямую в Telegram @your_support_bot. Мы отвечаем ежедневно с 9:00 до 22:00.
               </p>
             </section>
+          </div>
+
+          <div className="flex justify-end pt-4 border-t mt-4">
+            <Button variant="outline" onClick={() => setHelpDialogOpen(false)}>
+              Закрыть
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

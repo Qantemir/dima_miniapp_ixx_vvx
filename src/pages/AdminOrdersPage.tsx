@@ -4,7 +4,8 @@ import { Package, Filter } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { OrderStatusBadge } from '@/components/OrderStatusBadge';
 import { api } from '@/lib/api';
-import { getUserId, isAdmin, showAlert, showBackButton, hideBackButton } from '@/lib/telegram';
+import { getUserId, isAdmin, showBackButton, hideBackButton } from '@/lib/telegram';
+import { toast } from '@/lib/toast';
 import type { OrderStatus } from '@/types/api';
 import { ADMIN_IDS } from '@/types/api';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -32,7 +33,7 @@ export const AdminOrdersPage = () => {
     const isUserAdmin = userId ? isAdmin(userId, ADMIN_IDS) : false;
     
     if (!isUserAdmin) {
-      showAlert('Доступ запрещён. Требуются права администратора.');
+      toast.error('Доступ запрещён. Требуются права администратора.');
       navigate('/');
       return;
     }
@@ -65,7 +66,7 @@ export const AdminOrdersPage = () => {
   useEffect(() => {
     if (ordersError) {
       const message = ordersError instanceof Error ? ordersError.message : 'Ошибка загрузки заказов';
-      showAlert(`Ошибка загрузки заказов: ${message}`);
+      toast.error(`Ошибка загрузки заказов: ${message}`);
     }
   }, [ordersError]);
 

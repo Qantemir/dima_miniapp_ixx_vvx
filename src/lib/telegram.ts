@@ -323,21 +323,12 @@ export const hideBackButton = () => {
   tg.BackButton.offClick(() => {});
 };
 
+// Deprecated: используйте toast из '@/lib/toast' вместо showAlert
 export const showAlert = (message: string) => {
-  const tg = getTelegram();
-  const canUseAlert =
-    !!tg && typeof tg.showAlert === 'function' && isVersionSupported('6.1');
-
-  if (canUseAlert) {
-    try {
-      tg.showAlert(message);
-      return;
-    } catch (error) {
-      console.warn('Telegram showAlert not supported, fallback to window.alert', error);
-    }
-  }
-
-  window.alert(message);
+  // Импортируем динамически, чтобы избежать циклических зависимостей
+  import('@/lib/toast').then(({ toast }) => {
+    toast.show(message);
+  });
 };
 
 export const showPopup = (

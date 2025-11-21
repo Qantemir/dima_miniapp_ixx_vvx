@@ -10,7 +10,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { api } from '@/lib/api';
 import { Seo } from '@/components/Seo';
 import { buildCanonicalUrl } from '@/lib/seo';
-import { showAlert, showMainButton, hideMainButton, showBackButton, hideBackButton } from '@/lib/telegram';
+import { showMainButton, hideMainButton, showBackButton, hideBackButton } from '@/lib/telegram';
+import { toast } from '@/lib/toast';
 import { useStoreStatus } from '@/contexts/StoreStatusContext';
 import { useCart } from '@/hooks/useCart';
 
@@ -86,22 +87,22 @@ export const CheckoutPage = () => {
 
   const handleSubmit = async () => {
     if (!formData.name || !formData.phone || !formData.address) {
-      showAlert('Пожалуйста, заполните все обязательные поля');
+      toast.warning('Пожалуйста, заполните все обязательные поля');
       return;
     }
 
     if (!paymentReceipt) {
-      showAlert('Пожалуйста, прикрепите чек об оплате');
+      toast.warning('Пожалуйста, прикрепите чек об оплате');
       return;
     }
 
     if (storeStatus?.is_sleep_mode) {
-      showAlert(storeStatus.sleep_message || 'Магазин временно не принимает заказы');
+      toast.warning(storeStatus.sleep_message || 'Магазин временно не принимает заказы');
       return;
     }
 
     if (!cartSummary || cartSummary.items.length === 0) {
-      showAlert('В корзине нет товаров');
+      toast.warning('В корзине нет товаров');
       return;
     }
 
@@ -116,11 +117,11 @@ export const CheckoutPage = () => {
         payment_receipt: paymentReceipt,
       });
 
-      showAlert('Заказ успешно оформлен!');
+      toast.success('Заказ успешно оформлен!');
       navigate(`/order/${order.id}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Ошибка при оформлении заказа';
-      showAlert(message);
+      toast.error(message);
     } finally {
       setSubmitting(false);
     }

@@ -12,9 +12,9 @@ import {
   getUserId,
   isAdmin,
   hideBackButton,
-  showAlert,
   showBackButton,
 } from '@/lib/telegram';
+import { toast } from '@/lib/toast';
 import { ADMIN_IDS } from '@/types/api';
 import type { BroadcastRequest } from '@/types/api';
 import { Seo } from '@/components/Seo';
@@ -32,7 +32,7 @@ export const AdminBroadcastPage = () => {
     const isUserAdmin = userId ? isAdmin(userId, ADMIN_IDS) : false;
     
     if (!isUserAdmin) {
-      showAlert('Доступ запрещён. Требуются права администратора.');
+      toast.error('Доступ запрещён. Требуются права администратора.');
       navigate('/');
       return;
     }
@@ -47,7 +47,7 @@ export const AdminBroadcastPage = () => {
     event.preventDefault();
 
     if (!formData.title || !formData.message) {
-      showAlert('Заполните заголовок и текст сообщения');
+      toast.warning('Заполните заголовок и текст сообщения');
       return;
     }
 
@@ -67,13 +67,13 @@ export const AdminBroadcastPage = () => {
         message += `❌ Ошибок: ${result.failed_count} (недоступные клиенты удалены из базы)`;
       }
       
-      showAlert(message);
+      toast.success(message);
       setFormData({
         title: '',
         message: '',
       });
     } catch (error) {
-      showAlert('Не удалось отправить рассылку');
+      toast.error('Не удалось отправить рассылку');
     } finally {
       setSending(false);
     }

@@ -7,11 +7,13 @@ import { Label } from '@/components/ui/label';
 import { OrderStatusBadge } from '@/components/OrderStatusBadge';
 import { api } from '@/lib/api';
 import { buildApiAssetUrl } from '@/lib/utils';
-import { showAlert, hideMainButton, showBackButton, hideBackButton } from '@/lib/telegram';
+import { hideMainButton, showBackButton, hideBackButton } from '@/lib/telegram';
+import { toast } from '@/lib/toast';
 import type { Order } from '@/types/api';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Seo } from '@/components/Seo';
 import { buildCanonicalUrl } from '@/lib/seo';
+import { ReceiptDialog } from '@/components/ReceiptDialog';
 
 export const OrderPage = () => {
   const { orderId } = useParams<{ orderId: string }>();
@@ -45,7 +47,7 @@ export const OrderPage = () => {
       setOrder(data);
       setNewAddress(data.delivery_address);
     } catch (error) {
-      showAlert('Ошибка загрузки заказа');
+      toast.error('Ошибка загрузки заказа');
     } finally {
       setLoading(false);
     }
@@ -58,11 +60,11 @@ export const OrderPage = () => {
         setOrder(data);
         setNewAddress(data.delivery_address);
       } else {
-        showAlert('У вас пока нет активных заказов');
+        toast.info('У вас пока нет активных заказов');
         navigate('/');
       }
     } catch (error) {
-      showAlert('Ошибка загрузки заказа');
+      toast.error('Ошибка загрузки заказа');
       navigate('/');
     } finally {
       setLoading(false);
@@ -71,7 +73,7 @@ export const OrderPage = () => {
 
   const handleSaveAddress = async () => {
     if (!order || !newAddress.trim()) {
-      showAlert('Пожалуйста, укажите адрес');
+      toast.warning('Пожалуйста, укажите адрес');
       return;
     }
 
@@ -84,10 +86,10 @@ export const OrderPage = () => {
       
       setOrder(updatedOrder);
       setEditingAddress(false);
-      showAlert('Адрес успешно обновлён');
+      toast.success('Адрес успешно обновлён');
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Ошибка при изменении адреса';
-      showAlert(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -290,16 +292,17 @@ export const OrderPage = () => {
           <div className="bg-card rounded-lg p-3 sm:p-4 border border-border space-y-2">
             <h3 className="font-semibold text-foreground text-sm sm:text-base">Чек об оплате</h3>
             <p className="text-sm text-muted-foreground">
-              {order.payment_receipt_filename || 'Файл чека'} доступен для скачивания
+              {order.payment_receipt_filename || 'Файл чека'} доступен для просмотра
             </p>
-            <a
-              href={receiptUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex w-full items-center justify-center rounded-md border border-border px-4 py-2 text-sm font-medium text-primary hover:bg-primary/10 transition-colors"
-            >
-              Открыть чек
-            </a>
+            <ReceiptDialog
+              receiptUrl={receiptUrl}
+              filename={order.payment_receipt_filename}
+              trigger={
+                <Button className="w-full" variant="outline">
+                  Открыть чек
+                </Button>
+              }
+            />
           </div>
         )}
       </div>

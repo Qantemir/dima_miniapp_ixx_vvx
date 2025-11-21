@@ -37,9 +37,9 @@ import {
   getUserId,
   isAdmin,
   hideBackButton,
-  showAlert,
   showBackButton,
 } from '@/lib/telegram';
+import { toast } from '@/lib/toast';
 import { ADMIN_IDS } from '@/types/api';
 import type {
   CatalogResponse,
@@ -72,7 +72,7 @@ export const AdminCatalogPage = () => {
     const isUserAdmin = userId ? isAdmin(userId, ADMIN_IDS) : false;
     
     if (!isUserAdmin) {
-      showAlert('Доступ запрещён. Требуются права администратора.');
+      toast.error('Доступ запрещён. Требуются права администратора.');
       navigate('/');
       return;
     }
@@ -90,7 +90,7 @@ export const AdminCatalogPage = () => {
       const data = await api.getAdminCatalog();
       setCatalog(data);
     } catch (error) {
-      showAlert('Ошибка загрузки каталога');
+      toast.error('Ошибка загрузки каталога');
     } finally {
       setLoading(false);
     }
@@ -114,7 +114,7 @@ export const AdminCatalogPage = () => {
   const handleCategorySubmit = async () => {
     const trimmedName = categoryForm.name?.trim();
     if (!trimmedName) {
-      showAlert('Укажите название категории');
+      toast.warning('Укажите название категории');
       return;
     }
 
@@ -122,17 +122,17 @@ export const AdminCatalogPage = () => {
     try {
       if (categoryDialogMode === 'create') {
         await api.createCategory({ name: trimmedName });
-        showAlert('Категория создана');
+        toast.success('Категория создана');
       } else if (selectedCategory) {
         await api.updateCategory(selectedCategory.id, { name: trimmedName });
-        showAlert('Категория обновлена');
+        toast.success('Категория обновлена');
       }
       setCategoryDialogOpen(false);
       setCategoryForm(createEmptyCategory());
       await loadCatalog();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Ошибка сохранения категории';
-      showAlert(errorMessage);
+      toast.error(errorMessage);
       console.error('Category save error:', error);
     } finally {
       setSaving(false);
@@ -159,7 +159,7 @@ export const AdminCatalogPage = () => {
     setDeleting(true);
     try {
       await api.deleteCategory(categoryToDelete.id);
-      showAlert('Категория удалена');
+      toast.success('Категория удалена');
       setDeleteDialogOpen(false);
       setCategoryToDelete(null);
       await loadCatalog();
@@ -167,7 +167,7 @@ export const AdminCatalogPage = () => {
       const errorMessage =
         error instanceof Error ? error.message : 'Не удалось удалить категорию';
       console.error('Category delete error:', error);
-      showAlert(`Ошибка удаления: ${errorMessage}`);
+      toast.error(`Ошибка удаления: ${errorMessage}`);
     } finally {
       setDeleting(false);
     }

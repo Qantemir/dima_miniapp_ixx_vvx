@@ -28,10 +28,10 @@ import {
   getUserId,
   isAdmin,
   hideBackButton,
-  showAlert,
   showBackButton,
   showPopup,
 } from '@/lib/telegram';
+import { toast } from '@/lib/toast';
 import { ADMIN_IDS } from '@/types/api';
 import type { Category, Product, ProductPayload, ProductVariant } from '@/types/api';
 import { Seo } from '@/components/Seo';
@@ -66,7 +66,7 @@ export const AdminCategoryPage = () => {
     const isUserAdmin = userId ? isAdmin(userId, ADMIN_IDS) : false;
     
     if (!isUserAdmin) {
-      showAlert('Доступ запрещён. Требуются права администратора.');
+      toast.error('Доступ запрещён. Требуются права администратора.');
       navigate('/');
       return;
     }
@@ -89,7 +89,7 @@ export const AdminCategoryPage = () => {
       const data = await api.getAdminCatalog();
       const current = data.categories.find(cat => cat.id === categoryId);
       if (!current) {
-        showAlert('Категория не найдена');
+        toast.error('Категория не найдена');
         navigate('/admin/catalog');
         return;
       }
@@ -97,7 +97,7 @@ export const AdminCategoryPage = () => {
       setProducts(data.products.filter(product => product.category_id === categoryId));
       setFormData(createEmptyProduct(categoryId));
     } catch (error) {
-      showAlert('Не удалось загрузить категорию');
+      toast.error('Не удалось загрузить категорию');
       navigate('/admin/catalog');
     } finally {
       setLoading(false);
@@ -144,10 +144,10 @@ export const AdminCategoryPage = () => {
         if (buttonId !== 'confirm') return;
         try {
           await api.deleteProduct(product.id);
-          showAlert('Товар удалён');
+          toast.success('Товар удалён');
           await loadCategory();
         } catch {
-          showAlert('Не удалось удалить товар');
+          toast.error('Не удалось удалить товар');
         }
       }
     );
@@ -175,7 +175,7 @@ export const AdminCategoryPage = () => {
         };
       });
     } catch (error) {
-      showAlert('Не удалось загрузить изображения');
+      toast.error('Не удалось загрузить изображения');
       console.error(error);
     }
   };
@@ -222,13 +222,13 @@ export const AdminCategoryPage = () => {
   const handleSubmit = async () => {
     if (!formData || !category) return;
     if (!formData.name || !formData.price) {
-      showAlert('Заполните обязательные поля');
+      toast.warning('Заполните обязательные поля');
       return;
     }
 
     // Вариации обязательны для всех товаров
     if (variants.length === 0) {
-      showAlert('Необходимо добавить хотя бы одну вариацию (вкус)');
+      toast.warning('Необходимо добавить хотя бы одну вариацию (вкус)');
       return;
     }
 
@@ -237,7 +237,7 @@ export const AdminCategoryPage = () => {
       v => !v.name.trim() || v.quantity < 0
     );
     if (invalidVariants.length > 0) {
-      showAlert('Заполните все поля вариаций корректно');
+      toast.warning('Заполните все поля вариаций корректно');
       return;
     }
 
@@ -253,15 +253,15 @@ export const AdminCategoryPage = () => {
     try {
       if (dialogMode === 'create') {
         await api.createProduct(payload);
-        showAlert('Товар создан');
+        toast.success('Товар создан');
       } else if (selectedProduct) {
         await api.updateProduct(selectedProduct.id, payload);
-        showAlert('Товар обновлён');
+        toast.success('Товар обновлён');
       }
       setDialogOpen(false);
       await loadCategory();
     } catch (error) {
-      showAlert('Ошибка сохранения товара');
+      toast.error('Ошибка сохранения товара');
     } finally {
       setSaving(false);
     }

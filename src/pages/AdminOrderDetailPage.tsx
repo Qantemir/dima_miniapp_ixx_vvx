@@ -5,11 +5,13 @@ import { Button } from '@/components/ui/button';
 import { OrderStatusBadge } from '@/components/OrderStatusBadge';
 import { api } from '@/lib/api';
 import { buildApiAssetUrl } from '@/lib/utils';
-import { getUserId, isAdmin, showAlert, showBackButton, hideBackButton } from '@/lib/telegram';
+import { getUserId, isAdmin, showBackButton, hideBackButton } from '@/lib/telegram';
+import { toast } from '@/lib/toast';
 import type { Order, OrderStatus } from '@/types/api';
 import { ADMIN_IDS } from '@/types/api';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Seo } from '@/components/Seo';
+import { ReceiptDialog } from '@/components/ReceiptDialog';
 import {
   Select,
   SelectContent,
@@ -61,7 +63,7 @@ export const AdminOrderDetailPage = () => {
     const isUserAdmin = userId ? isAdmin(userId, ADMIN_IDS) : false;
     
     if (!isUserAdmin) {
-      showAlert('Доступ запрещён. Требуются права администратора.');
+      toast.error('Доступ запрещён. Требуются права администратора.');
       navigate('/');
       return;
     }
@@ -85,7 +87,7 @@ export const AdminOrderDetailPage = () => {
       setOrder(data);
       setCurrentStatus(data.status);
     } catch (error) {
-      showAlert('Ошибка загрузки заказа');
+      toast.error('Ошибка загрузки заказа');
       navigate('/admin');
     } finally {
       setLoading(false);
@@ -111,9 +113,9 @@ export const AdminOrderDetailPage = () => {
       });
       setOrder(updatedOrder);
       setCurrentStatus(updatedOrder.status);
-      showAlert('Статус заказа обновлён');
+      toast.success('Статус заказа обновлён');
     } catch (error) {
-      showAlert('Ошибка при обновлении статуса');
+      toast.error('Ошибка при обновлении статуса');
     } finally {
       setUpdating(false);
       setPendingStatus(null);
@@ -284,14 +286,15 @@ export const AdminOrderDetailPage = () => {
             <p className="text-sm text-muted-foreground">
               {order.payment_receipt_filename || 'Файл чека'} приложен к заказу
             </p>
-            <a
-              href={receiptUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex w-full items-center justify-center rounded-md border border-border px-4 py-2 text-sm font-medium text-primary hover:bg-primary/10 transition-colors"
-            >
-              Открыть чек
-            </a>
+            <ReceiptDialog
+              receiptUrl={receiptUrl}
+              filename={order.payment_receipt_filename}
+              trigger={
+                <Button className="w-full" variant="outline">
+                  Открыть чек
+                </Button>
+              }
+            />
           </div>
         )}
 

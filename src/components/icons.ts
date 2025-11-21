@@ -9,6 +9,7 @@ export { default as ChevronLeft } from 'lucide-react/dist/esm/icons/chevron-left
 export { default as ChevronRight } from 'lucide-react/dist/esm/icons/chevron-right.js';
 export { default as ChevronUp } from 'lucide-react/dist/esm/icons/chevron-up.js';
 export { default as Circle } from 'lucide-react/dist/esm/icons/circle.js';
+export { default as Download } from 'lucide-react/dist/esm/icons/download.js';
 export { default as ClipboardList } from 'lucide-react/dist/esm/icons/clipboard-list.js';
 export { default as Dot } from 'lucide-react/dist/esm/icons/dot.js';
 export { default as Filter } from 'lucide-react/dist/esm/icons/filter.js';

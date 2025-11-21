@@ -4,7 +4,8 @@ import { ShoppingCart, ArrowLeft } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { CartItem } from '@/components/CartItem';
 import { api } from '@/lib/api';
-import { showAlert, showMainButton, hideMainButton, showBackButton, hideBackButton } from '@/lib/telegram';
+import { showMainButton, hideMainButton, showBackButton, hideBackButton } from '@/lib/telegram';
+import { toast } from '@/lib/toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Seo } from '@/components/Seo';
 import { buildCanonicalUrl } from '@/lib/seo';
@@ -45,7 +46,7 @@ export const CartPage = () => {
       });
       queryClient.setQueryData(CART_QUERY_KEY, updatedCart);
     } catch (error) {
-      showAlert('Ошибка при обновлении количества');
+      toast.error('Ошибка при обновлении количества');
     }
   };
 
@@ -56,7 +57,7 @@ export const CartPage = () => {
       });
       queryClient.setQueryData(CART_QUERY_KEY, updatedCart);
     } catch (error) {
-      showAlert('Ошибка при удалении товара');
+      toast.error('Ошибка при удалении товара');
     }
   };
 
