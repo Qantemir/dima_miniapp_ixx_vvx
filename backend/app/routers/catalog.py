@@ -41,8 +41,9 @@ _catalog_cache_lock = asyncio.Lock()
 
 
 async def _load_catalog_from_db(db: AsyncIOMotorDatabase) -> CatalogResponse:
-  categories_cursor = db.categories.find({}, {"name": 1})
-  products_cursor = db.products.find(
+  # Параллельная загрузка категорий и товаров для ускорения
+  categories_task = db.categories.find({}, {"name": 1}).to_list(length=None)
+  products_task = db.products.find(
     {},
     {
       "name": 1,
@@ -54,9 +55,13 @@ async def _load_catalog_from_db(db: AsyncIOMotorDatabase) -> CatalogResponse:
       "available": 1,
       "variants": 1,
     },
-  )
-  categories = [Category(**serialize_doc(doc) | {"id": str(doc["_id"])}) async for doc in categories_cursor]
-  products = [Product(**serialize_doc(doc) | {"id": str(doc["_id"])}) async for doc in products_cursor]
+  ).to_list(length=None)
+  
+  # Выполняем запросы параллельно
+  categories_docs, products_docs = await asyncio.gather(categories_task, products_task)
+  
+  categories = [Category(**serialize_doc(doc) | {"id": str(doc["_id"])}) for doc in categories_docs]
+  products = [Product(**serialize_doc(doc) | {"id": str(doc["_id"])}) for doc in products_docs]
   return CatalogResponse(categories=categories, products=products)
 
 

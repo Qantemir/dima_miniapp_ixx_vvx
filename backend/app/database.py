@@ -16,7 +16,16 @@ async def connect_to_mongo():
   global client, db
   if client is None:
     try:
-      client = AsyncIOMotorClient(settings.mongo_uri, serverSelectionTimeoutMS=5000)
+      # Оптимизация connection pool для быстрой работы
+      client = AsyncIOMotorClient(
+        settings.mongo_uri,
+        serverSelectionTimeoutMS=5000,
+        maxPoolSize=50,  # Больше соединений для параллельных запросов
+        minPoolSize=10,  # Минимум соединений всегда готовы
+        maxIdleTimeMS=45000,  # Время жизни неактивных соединений
+        connectTimeoutMS=5000,
+        socketTimeoutMS=30000,
+      )
       db = client[settings.mongo_db]
       await ensure_indexes(db)
       # Проверяем подключение
@@ -26,7 +35,15 @@ async def connect_to_mongo():
       logger.error(f"Failed to connect to MongoDB: {e}")
       logger.error("Server will start but database operations will fail. Please start MongoDB.")
       # Создаем клиент даже если подключение не удалось, чтобы не падать при каждом запросе
-      client = AsyncIOMotorClient(settings.mongo_uri, serverSelectionTimeoutMS=5000)
+      client = AsyncIOMotorClient(
+        settings.mongo_uri,
+        serverSelectionTimeoutMS=5000,
+        maxPoolSize=50,
+        minPoolSize=10,
+        maxIdleTimeMS=45000,
+        connectTimeoutMS=5000,
+        socketTimeoutMS=30000,
+      )
       db = client[settings.mongo_db]
       await ensure_indexes(db)
 
@@ -57,13 +74,30 @@ async def ensure_indexes(database: AsyncIOMotorDatabase):
   global _indexes_initialized
   if _indexes_initialized:
     return
+  
+  # Оптимизированные индексы для быстрых запросов
+  # Категории
   await database.categories.create_index("name", unique=True)
-  await database.products.create_index([("category_id", ASCENDING)])
+  
+  # Товары - составной индекс для фильтрации по категории и доступности
+  await database.products.create_index([("category_id", ASCENDING), ("available", ASCENDING)])
+  await database.products.create_index("available")  # Для быстрой фильтрации доступных товаров
+  
+  # Корзины - уникальный индекс для быстрого поиска
   await database.carts.create_index("user_id", unique=True)
+  await database.carts.create_index("updated_at")  # Для очистки просроченных корзин
+  
+  # Заказы - составные индексы для разных запросов
   await database.orders.create_index([("user_id", ASCENDING), ("created_at", DESCENDING)])
   await database.orders.create_index([("created_at", DESCENDING)])
   await database.orders.create_index("status")
+  await database.orders.create_index([("status", ASCENDING), ("created_at", DESCENDING)])  # Для админки
+  
+  # Клиенты
   await database.customers.create_index("telegram_id", unique=True)
+  
+  # Статус магазина
   await database.store_status.create_index("updated_at")
+  
   _indexes_initialized = True
 

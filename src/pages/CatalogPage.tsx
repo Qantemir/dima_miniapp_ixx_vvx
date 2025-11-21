@@ -10,7 +10,7 @@ import { toast } from '@/lib/toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAdminView } from '@/contexts/AdminViewContext';
-import { ADMIN_IDS } from '@/types/api';
+import { ADMIN_IDS, type Cart } from '@/types/api';
 import { Seo } from '@/components/Seo';
 import { useStoreStatus } from '@/contexts/StoreStatusContext';
 import { useCatalog } from '@/hooks/useCatalog';
@@ -95,16 +95,23 @@ export const CatalogPage = () => {
     }
 
     try {
-      await api.addToCart({
+      const updatedCart = await api.addToCart({
         product_id: productId,
         variant_id: variantId,
         quantity,
       });
-      await queryClient.invalidateQueries({ queryKey: CART_QUERY_KEY });
+      
+      // Обновляем корзину с реальными данными и принудительно обновляем
+      queryClient.setQueryData(CART_QUERY_KEY, updatedCart);
+      // Принудительно обновляем данные для немедленного отображения
+      await queryClient.refetchQueries({ queryKey: CART_QUERY_KEY });
       setAddSuccess(true);
       setTimeout(() => setAddSuccess(false), 2000);
     } catch (error) {
-      toast.error('Ошибка при добавлении в корзину');
+      // Обновляем корзину при ошибке, чтобы показать актуальное состояние
+      await queryClient.invalidateQueries({ queryKey: CART_QUERY_KEY });
+      const errorMessage = error instanceof Error ? error.message : 'Ошибка при добавлении в корзину';
+      toast.error(errorMessage);
     }
   };
 

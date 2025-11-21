@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from .config import settings
@@ -7,6 +8,9 @@ from .database import close_mongo_connection, connect_to_mongo
 from .routers import admin, cart, catalog, orders, store
 
 app = FastAPI(title="Mini Shop Telegram Backend", version="1.0.0")
+
+# Добавляем сжатие ответов для ускорения передачи данных (уменьшает размер на 70-80%)
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 app.add_middleware(
   CORSMiddleware,
@@ -28,9 +32,8 @@ async def apply_security_headers(request, call_next):
 
 @app.on_event("startup")
 async def startup():
-  # Не блокируем старт сервера подключением к MongoDB
-  # Подключение произойдет лениво при первом запросе
-  pass
+  # Подключаемся к MongoDB при старте для быстрого первого запроса
+  await connect_to_mongo()
 
 
 @app.on_event("shutdown")

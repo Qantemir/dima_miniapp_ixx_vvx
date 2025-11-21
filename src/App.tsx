@@ -9,16 +9,18 @@ import {
   RouterProvider,
   createBrowserRouter,
 } from "react-router-dom";
-import { CatalogPage } from "./pages/CatalogPage";
-import { CartPage } from "./pages/CartPage";
-import { CheckoutPage } from "./pages/CheckoutPage";
-import { OrderPage } from "./pages/OrderPage";
-import { AdminOrdersPage } from "./pages/AdminOrdersPage";
-import { AdminOrderDetailPage } from "./pages/AdminOrderDetailPage";
-import { AdminCatalogPage } from "./pages/AdminCatalogPage";
-import { AdminCategoryPage } from "./pages/AdminCategoryPage";
-import { AdminBroadcastPage } from "./pages/AdminBroadcastPage";
-import { AdminStoreSettingsPage } from "./pages/AdminStoreSettingsPage";
+// Lazy loading для code splitting и быстрой загрузки
+import { lazy, Suspense } from "react";
+import { CatalogPage } from "./pages/CatalogPage"; // Главная страница - загружаем сразу
+const CartPage = lazy(() => import("./pages/CartPage").then(m => ({ default: m.CartPage })));
+const CheckoutPage = lazy(() => import("./pages/CheckoutPage").then(m => ({ default: m.CheckoutPage })));
+const OrderPage = lazy(() => import("./pages/OrderPage").then(m => ({ default: m.OrderPage })));
+const AdminOrdersPage = lazy(() => import("./pages/AdminOrdersPage").then(m => ({ default: m.AdminOrdersPage })));
+const AdminOrderDetailPage = lazy(() => import("./pages/AdminOrderDetailPage").then(m => ({ default: m.AdminOrderDetailPage })));
+const AdminCatalogPage = lazy(() => import("./pages/AdminCatalogPage").then(m => ({ default: m.AdminCatalogPage })));
+const AdminCategoryPage = lazy(() => import("./pages/AdminCategoryPage").then(m => ({ default: m.AdminCategoryPage })));
+const AdminBroadcastPage = lazy(() => import("./pages/AdminBroadcastPage").then(m => ({ default: m.AdminBroadcastPage })));
+const AdminStoreSettingsPage = lazy(() => import("./pages/AdminStoreSettingsPage").then(m => ({ default: m.AdminStoreSettingsPage })));
 import { initTelegram, getUserId, isAdmin } from "./lib/telegram";
 import { ADMIN_IDS } from "./types/api";
 import NotFound from "./pages/NotFound";
@@ -26,7 +28,19 @@ import { AdminViewProvider, useAdminView } from "./contexts/AdminViewContext";
 import { StoreStatusProvider } from "./contexts/StoreStatusContext";
 import { StoreSleepOverlay } from "./components/StoreSleepOverlay";
 
-const queryClient = new QueryClient();
+// Оптимизированный QueryClient для быстрой работы
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30 * 1000, // 30 секунд - данные считаются свежими
+      cacheTime: 5 * 60 * 1000, // 5 минут кэш
+      refetchOnWindowFocus: false, // Не перезапрашивать при фокусе
+      refetchOnReconnect: true, // Перезапрашивать при переподключении
+      retry: 1, // Только 1 попытка повтора
+      retryDelay: 1000, // Задержка 1 секунда
+    },
+  },
+});
 
 const RootRoute = () => {
   const { forceClientView } = useAdminView();
@@ -53,22 +67,99 @@ const RootLayoutWithProviders = () => (
   </StoreStatusProvider>
 );
 
+// Компонент для загрузки с fallback
+const PageLoader = () => (
+  <div className="flex items-center justify-center min-h-screen">
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+  </div>
+);
+
 const router = createBrowserRouter(
   [
     {
       element: <RootLayoutWithProviders />,
       children: [
         { path: "/", element: <RootRoute /> },
-        { path: "/cart", element: <CartPage /> },
-        { path: "/checkout", element: <CheckoutPage /> },
-        { path: "/order/:orderId?", element: <OrderPage /> },
-        { path: "/admin", element: <AdminOrdersPage /> },
-        { path: "/admin/orders", element: <AdminOrdersPage /> },
-        { path: "/admin/catalog", element: <AdminCatalogPage /> },
-        { path: "/admin/catalog/:categoryId", element: <AdminCategoryPage /> },
-        { path: "/admin/broadcast", element: <AdminBroadcastPage /> },
-        { path: "/admin/store", element: <AdminStoreSettingsPage /> },
-        { path: "/admin/order/:orderId", element: <AdminOrderDetailPage /> },
+        { 
+          path: "/cart", 
+          element: (
+            <Suspense fallback={<PageLoader />}>
+              <CartPage />
+            </Suspense>
+          )
+        },
+        { 
+          path: "/checkout", 
+          element: (
+            <Suspense fallback={<PageLoader />}>
+              <CheckoutPage />
+            </Suspense>
+          )
+        },
+        { 
+          path: "/order/:orderId?", 
+          element: (
+            <Suspense fallback={<PageLoader />}>
+              <OrderPage />
+            </Suspense>
+          )
+        },
+        { 
+          path: "/admin", 
+          element: (
+            <Suspense fallback={<PageLoader />}>
+              <AdminOrdersPage />
+            </Suspense>
+          )
+        },
+        { 
+          path: "/admin/orders", 
+          element: (
+            <Suspense fallback={<PageLoader />}>
+              <AdminOrdersPage />
+            </Suspense>
+          )
+        },
+        { 
+          path: "/admin/catalog", 
+          element: (
+            <Suspense fallback={<PageLoader />}>
+              <AdminCatalogPage />
+            </Suspense>
+          )
+        },
+        { 
+          path: "/admin/catalog/:categoryId", 
+          element: (
+            <Suspense fallback={<PageLoader />}>
+              <AdminCategoryPage />
+            </Suspense>
+          )
+        },
+        { 
+          path: "/admin/broadcast", 
+          element: (
+            <Suspense fallback={<PageLoader />}>
+              <AdminBroadcastPage />
+            </Suspense>
+          )
+        },
+        { 
+          path: "/admin/store", 
+          element: (
+            <Suspense fallback={<PageLoader />}>
+              <AdminStoreSettingsPage />
+            </Suspense>
+          )
+        },
+        { 
+          path: "/admin/order/:orderId", 
+          element: (
+            <Suspense fallback={<PageLoader />}>
+              <AdminOrderDetailPage />
+            </Suspense>
+          )
+        },
         { path: "*", element: <NotFound /> },
       ],
     },

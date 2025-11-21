@@ -97,12 +97,8 @@ async def get_cart(
   current_user: TelegramUser = Depends(get_current_user),
   db: AsyncIOMotorDatabase = Depends(get_db),
 ):
-  # Проверяем и очищаем просроченные корзины перед получением
+  # Упрощенная логика: get_cart_document сам обрабатывает все случаи
   user_id = current_user.id
-  cart_doc = await db.carts.find_one({"user_id": user_id})
-  if cart_doc:
-    await cleanup_expired_cart(db, cart_doc)
-  
   cart = await get_cart_document(db, user_id)
   return Cart(**serialize_doc(cart) | {"id": str(cart["_id"])})
 
@@ -147,13 +143,7 @@ async def add_to_cart(
   variant_price = product.get("price", 0)  # Используем цену товара
   variant_quantity = variant.get("quantity", 0)
   
-  # Проверяем количество на складе
-  if variant_quantity < payload.quantity:
-    raise HTTPException(
-      status_code=400,
-      detail=f"Недостаточно товара. В наличии: {variant_quantity}"
-    )
-
+  # Получаем корзину ПЕРЕД проверкой количества, чтобы учесть уже добавленное
   cart = await get_cart_document(db, user_id)
   
   # Ищем существующий товар с такой же вариацией
@@ -163,6 +153,21 @@ async def add_to_cart(
      and item.get("variant_id") == payload.variant_id),
     None
   )
+  
+  already_in_cart = existing["quantity"] if existing else 0
+  if variant_quantity < payload.quantity:
+    # Показываем сколько реально доступно для добавления
+    can_add = max(0, variant_quantity)
+    if can_add == 0:
+      raise HTTPException(
+        status_code=400,
+        detail=f"Недостаточно товара. В наличии: 0"
+      )
+    else:
+      raise HTTPException(
+        status_code=400,
+        detail=f"Недостаточно товара. Доступно для добавления: {can_add}, уже в корзине: {already_in_cart}"
+      )
   
   if existing:
     # Увеличиваем количество в корзине
@@ -189,6 +194,11 @@ async def add_to_cart(
     payload.quantity
   )
   if not success:
+    # Если списание не удалось, откатываем изменения в корзине
+    if existing:
+      existing["quantity"] = existing["quantity"] - payload.quantity
+    else:
+      cart["items"] = [item for item in cart["items"] if item.get("id") != cart["items"][-1].get("id")]
     raise HTTPException(
       status_code=400,
       detail=f"Недостаточно товара. В наличии: {variant_quantity}"
