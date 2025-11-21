@@ -63,9 +63,9 @@ class ApiClient {
     this.invalidateCache('/admin/catalog');
   }
 
-  private async buildHeaders(existing?: HeadersInit): Promise<Headers> {
+  private buildHeaders(existing?: HeadersInit): Headers {
     const headers = new Headers(existing);
-    const authHeaders = await getRequestAuthHeaders();
+    const authHeaders = getRequestAuthHeaders();
     Object.entries(authHeaders).forEach(([key, value]) => {
       if (value) {
         headers.set(key, value);
@@ -92,7 +92,7 @@ class ApiClient {
       
       const isFormData =
         typeof FormData !== 'undefined' && options?.body instanceof FormData;
-      const headers = await this.buildHeaders(options?.headers as HeadersInit);
+      const headers = this.buildHeaders(options?.headers as HeadersInit);
       if (method === 'GET') {
         const etag = this.getEtag(method, endpoint);
         if (etag) {

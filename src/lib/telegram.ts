@@ -394,8 +394,8 @@ export const closeMiniApp = () => {
   }
 };
 
-export const getRequestAuthHeaders = async (): Promise<Record<string, string>> => {
-  const initData = await waitForTelegramInitData();
+export const getRequestAuthHeaders = (): Record<string, string> => {
+  const initData = getTelegramInitData();
   if (initData) {
     return { 'X-Telegram-Init-Data': initData };
   }
