@@ -137,7 +137,9 @@ async def get_current_user(
   Extracts the Telegram user from signed initData or, if allowed, from a dev header.
   """
   if not settings.enforce_telegram_signature:
-    return _build_dev_user(dev_user_id)
+    # Если проверка отключена, просто возвращаем пользователя без проверок
+    user_id = dev_user_id or settings.default_dev_user_id or 1
+    return TelegramUser(id=user_id)
 
   if telegram_init_data:
     parsed = _parse_init_data(telegram_init_data)
