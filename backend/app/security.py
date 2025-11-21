@@ -134,42 +134,9 @@ async def get_current_user(
   dev_user_id: int | None = Header(None, convert_underscores=False, alias="X-Dev-User-Id"),
 ) -> TelegramUser:
   """
-  Extracts the Telegram user from signed initData or, if allowed, from a dev header.
+  Returns a user without signature validation - simplified for development.
   """
-  if not settings.enforce_telegram_signature:
-    # Если проверка отключена, просто возвращаем пользователя без проверок
-    user_id = dev_user_id or settings.default_dev_user_id or 1
-    return TelegramUser(id=user_id)
-
-  if telegram_init_data:
-    parsed = _parse_init_data(telegram_init_data)
-    user_payload = _validate_hash(parsed)
-    if "id" not in user_payload:
-      raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="В Telegram initData отсутствует идентификатор пользователя",
-      )
-    try:
-      user_id = int(user_payload["id"])
-    except (ValueError, TypeError):
-      raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Некорректный идентификатор пользователя Telegram",
-      ) from None
-    return TelegramUser(
-      id=user_id,
-      first_name=user_payload.get("first_name"),
-      last_name=user_payload.get("last_name"),
-      username=user_payload.get("username"),
-      language_code=user_payload.get("language_code"),
-      is_premium=user_payload.get("is_premium"),
-    )
-
-  if settings.allow_dev_requests:
-    return _build_dev_user(dev_user_id)
-
-  raise HTTPException(
-    status_code=status.HTTP_401_UNAUTHORIZED,
-    detail="Требуется действительная подпись Telegram (X-Telegram-Init-Data)",
-  )
+  # Просто возвращаем пользователя без всяких проверок
+  user_id = dev_user_id or settings.default_dev_user_id or 1
+  return TelegramUser(id=user_id)
 
