@@ -19,6 +19,13 @@ app.add_middleware(
 app.mount("/uploads", StaticFiles(directory=settings.upload_dir), name="uploads")
 
 
+@app.middleware("http")
+async def apply_security_headers(request, call_next):
+  response = await call_next(request)
+  response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+  return response
+
+
 @app.on_event("startup")
 async def startup():
   # Не блокируем старт сервера подключением к MongoDB
