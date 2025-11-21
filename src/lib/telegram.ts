@@ -400,9 +400,7 @@ export const getRequestAuthHeaders = (): Record<string, string> => {
     return { 'X-Telegram-Init-Data': initData };
   }
 
+  // Всегда отправляем dev user ID, даже если нет Telegram данных
   const devUserId = getDevFallbackUserId();
-  if (devUserId) {
-    return { 'X-Dev-User-Id': devUserId.toString() };
-  }
-  return {};
+  return { 'X-Dev-User-Id': (devUserId || 1).toString() };
 };
