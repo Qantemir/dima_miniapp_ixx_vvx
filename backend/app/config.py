@@ -21,6 +21,7 @@ class Settings(BaseSettings):
   allow_dev_requests: bool = Field(True, env="ALLOW_DEV_REQUESTS")
   dev_allowed_user_ids: List[int] = Field(default_factory=list, env="DEV_ALLOWED_USER_IDS")
   default_dev_user_id: int | None = Field(1, env="DEFAULT_DEV_USER_ID")
+  enforce_telegram_signature: bool = Field(False, env="ENFORCE_TELEGRAM_SIGNATURE")
   catalog_cache_ttl_seconds: int = Field(30, env="CATALOG_CACHE_TTL_SECONDS")
   broadcast_batch_size: int = Field(25, env="BROADCAST_BATCH_SIZE")
   broadcast_concurrency: int = Field(10, env="BROADCAST_CONCURRENCY")
