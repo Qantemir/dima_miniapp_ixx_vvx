@@ -93,12 +93,13 @@ class ApiClient {
       const isFormData =
         typeof FormData !== 'undefined' && options?.body instanceof FormData;
       const headers = this.buildHeaders(options?.headers as HeadersInit);
-      if (method === 'GET') {
-        const etag = this.getEtag(method, endpoint);
-        if (etag) {
-          headers.set('If-None-Match', etag);
-        }
-      }
+      // Временно отключаем ETag кэширование для упрощения
+      // if (method === 'GET') {
+      //   const etag = this.getEtag(method, endpoint);
+      //   if (etag) {
+      //     headers.set('If-None-Match', etag);
+      //   }
+      // }
       if (!isFormData && !headers.has('Content-Type')) {
         headers.set('Content-Type', 'application/json');
       }
@@ -114,12 +115,31 @@ class ApiClient {
         timeoutId = null;
       }
 
+      // Обработка 304 Not Modified
       if (response.status === 304) {
         const cached = this.getCachedResponse<T>(method, endpoint);
         if (cached !== null) {
           return cached;
         }
-        throw new Error('Получен 304 от сервера, но кэш отсутствует.');
+        // Если кэша нет, делаем повторный запрос без If-None-Match
+        const retryHeaders = this.buildHeaders(options?.headers as HeadersInit);
+        retryHeaders.delete('If-None-Match');
+        const retryResponse = await fetch(url, {
+          ...(options || {}),
+          signal: controller.signal,
+          headers: retryHeaders,
+        });
+        if (!retryResponse.ok) {
+          throw new Error(`API request failed: ${retryResponse.status} ${retryResponse.statusText}`);
+        }
+        const retryContentType = retryResponse.headers.get('content-type') || '';
+        const retryIsJson = retryContentType.includes('application/json');
+        const retryPayload = retryIsJson ? await retryResponse.json() : await retryResponse.text();
+        if (method === 'GET' && retryIsJson) {
+          const etag = retryResponse.headers.get('etag');
+          this.cacheResponse(method, endpoint, retryPayload, etag);
+        }
+        return retryPayload as T;
       }
 
       // Обработка ответа 204 No Content (нет тела ответа)
