@@ -1,8 +1,10 @@
 // Telegram WebApp utilities
 
 const INIT_DATA_PARAM = 'tgWebAppData';
+const INIT_DATA_STORAGE_KEY = 'miniapp_init_data';
 
 let cachedInitData: string | null = null;
+let waitForInitDataPromise: Promise<string | null> | null = null;
 
 export const getTelegram = () => {
   if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
@@ -45,7 +47,7 @@ const serializeInitDataUnsafe = (
   }
 
   const params = new URLSearchParams();
-  Object.entries(initData as Record<string, unknown>).forEach(([key, value]) => {
+  Object.entries(initData as unknown as Record<string, unknown>).forEach(([key, value]) => {
     if (value === undefined || value === null) {
       return;
     }
@@ -57,6 +59,36 @@ const serializeInitDataUnsafe = (
   });
 
   return params.toString();
+};
+
+const persistInitData = (value: string) => {
+  cachedInitData = value;
+  if (typeof window !== 'undefined') {
+    try {
+      window.sessionStorage.setItem(INIT_DATA_STORAGE_KEY, value);
+    } catch (error) {
+      console.warn('Failed to store Telegram init data in sessionStorage', error);
+    }
+  }
+};
+
+const readStoredInitData = (): string | null => {
+  if (cachedInitData) {
+    return cachedInitData;
+  }
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  try {
+    const stored = window.sessionStorage.getItem(INIT_DATA_STORAGE_KEY);
+    if (stored) {
+      cachedInitData = stored;
+      return stored;
+    }
+  } catch (error) {
+    console.warn('Failed to read Telegram init data from sessionStorage', error);
+  }
+  return null;
 };
 
 const resolveTelegramInitData = (): string | null => {
@@ -77,10 +109,48 @@ const resolveTelegramInitData = (): string | null => {
 const getTelegramInitData = (): string | null => {
   const resolved = resolveTelegramInitData();
   if (resolved) {
-    cachedInitData = resolved;
+    persistInitData(resolved);
     return resolved;
   }
-  return cachedInitData;
+  return readStoredInitData();
+};
+
+const delay = (ms: number) =>
+  new Promise(resolve => {
+    setTimeout(resolve, ms);
+  });
+
+const waitForTelegramInitDataInternal = async (
+  timeoutMs = 2000,
+  intervalMs = 50
+): Promise<string | null> => {
+  const deadline = Date.now() + timeoutMs;
+  let initData = getTelegramInitData();
+
+  while (!initData && Date.now() < deadline) {
+    await delay(intervalMs);
+    initData = getTelegramInitData();
+  }
+
+  return initData;
+};
+
+export const waitForTelegramInitData = async (
+  timeoutMs = 2000
+): Promise<string | null> => {
+  if (!waitForInitDataPromise) {
+    waitForInitDataPromise = waitForTelegramInitDataInternal(timeoutMs);
+  }
+
+  try {
+    const result = await waitForInitDataPromise;
+    if (!result) {
+      waitForInitDataPromise = null;
+    }
+    return result;
+  } finally {
+    waitForInitDataPromise = null;
+  }
 };
 
 const compareVersions = (current: string, min: string) => {
@@ -108,6 +178,7 @@ export const initTelegram = () => {
   if (tg) {
     tg.ready();
     tg.expand();
+    getTelegramInitData();
     
     // Apply Telegram theme
     if (tg.themeParams) {
@@ -323,8 +394,8 @@ export const closeMiniApp = () => {
   }
 };
 
-export const getRequestAuthHeaders = (): Record<string, string> => {
-  const initData = getTelegramInitData();
+export const getRequestAuthHeaders = async (): Promise<Record<string, string>> => {
+  const initData = await waitForTelegramInitData();
   if (initData) {
     return { 'X-Telegram-Init-Data': initData };
   }
