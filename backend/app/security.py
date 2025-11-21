@@ -135,8 +135,10 @@ async def get_current_user(
 ) -> TelegramUser:
   """
   Returns a user without signature validation - simplified for development.
+  Always returns user with ID 1 or from X-Dev-User-Id header if provided.
   """
   # Просто возвращаем пользователя без всяких проверок
-  user_id = dev_user_id or settings.default_dev_user_id or 1
+  # Если есть заголовок X-Dev-User-Id, используем его, иначе дефолтный ID
+  user_id = dev_user_id if dev_user_id is not None else (settings.default_dev_user_id or 1)
   return TelegramUser(id=user_id)
 
