@@ -26,7 +26,7 @@ export const CartItem = ({ item, onUpdateQuantity, onRemove }: CartItemProps) =>
   };
 
   return (
-    <div className="flex gap-3 p-4 bg-card rounded-lg border border-border">
+    <div className="flex gap-2 sm:gap-3 p-3 sm:p-4 bg-card rounded-lg border border-border">
       {item.image && (
         <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden bg-muted flex-shrink-0">
           <img

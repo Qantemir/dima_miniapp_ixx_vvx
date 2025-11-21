@@ -165,22 +165,23 @@ export const OrderPage = () => {
       />
       <div className="min-h-screen bg-background pb-24">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-card border-b border-border p-4">
-        <div className="flex items-center gap-3">
+      <div className="sticky top-0 z-10 bg-card border-b border-border px-3 py-2.5 sm:px-4 sm:py-4">
+        <div className="flex items-center gap-2 sm:gap-3">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => navigate('/')}
+            className="h-9 w-9 sm:h-10 sm:w-10"
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-xl font-bold text-foreground">Заказ #{order.id.slice(-6)}</h1>
+          <h1 className="text-lg sm:text-xl font-bold text-foreground truncate">Заказ #{order.id.slice(-6)}</h1>
         </div>
       </div>
 
-      <div className="p-4 space-y-6">
+      <div className="px-3 py-4 sm:px-4 sm:py-6 space-y-4 sm:space-y-6">
         {/* Status */}
-        <div className="bg-card rounded-lg p-4 border border-border">
+        <div className="bg-card rounded-lg p-3 sm:p-4 border border-border">
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">Статус заказа:</span>
             <OrderStatusBadge status={order.status} />
@@ -188,7 +189,7 @@ export const OrderPage = () => {
         </div>
 
         {/* Address */}
-        <div className="bg-card rounded-lg p-4 border border-border space-y-3">
+        <div className="bg-card rounded-lg p-3 sm:p-4 border border-border space-y-3">
           <div className="flex items-center gap-2">
             <MapPin className="h-5 w-5 text-primary" />
             <Label className="text-base font-semibold">Адрес доставки</Label>
@@ -245,8 +246,8 @@ export const OrderPage = () => {
         </div>
 
         {/* Order Items */}
-        <div className="bg-card rounded-lg p-4 border border-border space-y-3">
-          <h3 className="font-semibold text-foreground">Состав заказа</h3>
+        <div className="bg-card rounded-lg p-3 sm:p-4 border border-border space-y-3">
+          <h3 className="font-semibold text-foreground text-sm sm:text-base">Состав заказа</h3>
           <div className="space-y-2">
             {order.items.map((item, index) => (
               <div key={index} className="flex justify-between text-sm">
@@ -274,8 +275,8 @@ export const OrderPage = () => {
         </div>
 
         {/* Customer Info */}
-        <div className="bg-card rounded-lg p-4 border border-border space-y-2">
-          <h3 className="font-semibold text-foreground">Контактная информация</h3>
+        <div className="bg-card rounded-lg p-3 sm:p-4 border border-border space-y-2">
+          <h3 className="font-semibold text-foreground text-sm sm:text-base">Контактная информация</h3>
           <div className="space-y-1 text-sm">
             <p className="text-muted-foreground">Имя: <span className="text-foreground">{order.customer_name}</span></p>
             <p className="text-muted-foreground">Телефон: <span className="text-foreground">{order.customer_phone}</span></p>
@@ -286,8 +287,8 @@ export const OrderPage = () => {
         </div>
 
         {receiptUrl && (
-          <div className="bg-card rounded-lg p-4 border border-border space-y-2">
-            <h3 className="font-semibold text-foreground">Чек об оплате</h3>
+          <div className="bg-card rounded-lg p-3 sm:p-4 border border-border space-y-2">
+            <h3 className="font-semibold text-foreground text-sm sm:text-base">Чек об оплате</h3>
             <p className="text-sm text-muted-foreground">
               {order.payment_receipt_filename || 'Файл чека'} доступен для скачивания
             </p>

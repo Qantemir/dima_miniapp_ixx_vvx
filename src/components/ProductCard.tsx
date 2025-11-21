@@ -143,39 +143,39 @@ export const ProductCard = ({
             )}
           </div>
 
-        <div className="flex items-end justify-between pt-2 gap-2">
-          <div className="text-xl font-bold text-foreground">
+        <div className="flex items-end justify-between pt-2 gap-2 flex-wrap">
+          <div className="text-lg sm:text-xl font-bold text-foreground">
             {currentPrice} ₸
           </div>
 
           {isAvailable && !purchasesDisabled && selectedVariant ? (
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1 bg-secondary rounded-xl px-2 py-1">
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="flex items-center gap-0.5 sm:gap-1 bg-secondary rounded-xl px-1.5 sm:px-2 py-1">
                 <Button
                   size="icon"
                   variant="ghost"
                   onClick={decrement}
-                  className="h-7 w-7"
+                  className="h-7 w-7 sm:h-8 sm:w-8"
                   disabled={quantity <= 1}
                 >
-                  <Minus className="h-4 w-4" />
+                  <Minus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 </Button>
-                <span className="w-6 text-center font-medium">{quantity}</span>
+                <span className="w-6 sm:w-7 text-center font-medium text-sm sm:text-base">{quantity}</span>
                 <Button
                   size="icon"
                   variant="ghost"
                   onClick={increment}
-                  className="h-7 w-7"
+                  className="h-7 w-7 sm:h-8 sm:w-8"
                   disabled={hasVariants && quantity >= availableQuantity}
                 >
-                  <Plus className="h-4 w-4" />
+                  <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 </Button>
               </div>
               
               <Button 
                 onClick={handleAddToCart} 
                 size="sm" 
-                className="px-4"
+                className="px-3 sm:px-4 text-sm h-9 sm:h-10"
                 disabled={quantity > availableQuantity}
               >
                 В корзину

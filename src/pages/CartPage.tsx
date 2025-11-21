@@ -87,16 +87,17 @@ export const CartPage = () => {
       <>
         <Seo title="Корзина пуста" description="Добавьте товары в корзину, чтобы оформить заказ." path="/cart" jsonLd={cartJsonLd} />
         <div className="min-h-screen bg-background flex flex-col">
-        <div className="p-4 border-b border-border bg-card">
-          <div className="flex items-center gap-3">
+        <div className="px-3 py-2.5 sm:px-4 sm:py-4 border-b border-border bg-card">
+          <div className="flex items-center gap-2 sm:gap-3">
             <Button
               variant="ghost"
               size="icon"
               onClick={() => navigate('/')}
+              className="h-9 w-9 sm:h-10 sm:w-10"
             >
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <h1 className="text-xl font-bold text-foreground">Корзина</h1>
+            <h1 className="text-lg sm:text-xl font-bold text-foreground">Корзина</h1>
           </div>
         </div>
         
@@ -120,21 +121,22 @@ export const CartPage = () => {
       <Seo title="Корзина" description="Редактируйте корзину и переходите к оформлению заказа." path="/cart" jsonLd={cartJsonLd} />
       <div className="min-h-screen bg-background pb-24">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-card border-b border-border p-4">
-        <div className="flex items-center gap-3">
+      <div className="sticky top-0 z-10 bg-card border-b border-border px-3 py-2.5 sm:px-4 sm:py-4">
+        <div className="flex items-center gap-2 sm:gap-3">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => navigate('/')}
+            className="h-9 w-9 sm:h-10 sm:w-10"
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-xl font-bold text-foreground">Корзина</h1>
+          <h1 className="text-lg sm:text-xl font-bold text-foreground">Корзина</h1>
         </div>
       </div>
 
       {/* Cart Items */}
-      <div className="p-4 space-y-3">
+      <div className="px-3 py-4 sm:px-4 sm:py-6 space-y-3">
         {cart.items.map(item => (
           <CartItem
             key={item.id}
@@ -146,10 +148,10 @@ export const CartPage = () => {
       </div>
 
       {/* Total */}
-      <div className="p-4 bg-card border-t border-border">
-        <div className="flex items-center justify-between text-lg">
+      <div className="px-3 py-4 sm:px-4 sm:py-5 bg-card border-t border-border">
+        <div className="flex items-center justify-between text-base sm:text-lg">
           <span className="text-muted-foreground">Итого:</span>
-          <span className="font-bold text-foreground text-2xl">
+          <span className="font-bold text-foreground text-xl sm:text-2xl">
             {cart.total_amount} ₸
           </span>
         </div>

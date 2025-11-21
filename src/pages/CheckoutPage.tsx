@@ -139,21 +139,22 @@ export const CheckoutPage = () => {
       <Seo title="Оформление заказа" description="Введите контактные данные для подтверждения заказа." path="/checkout" jsonLd={checkoutJsonLd} />
       <div className="min-h-screen bg-background pb-24">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-card border-b border-border p-4">
-        <div className="flex items-center gap-3">
+      <div className="sticky top-0 z-10 bg-card border-b border-border px-3 py-2.5 sm:px-4 sm:py-4">
+        <div className="flex items-center gap-2 sm:gap-3">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => navigate('/cart')}
+            className="h-9 w-9 sm:h-10 sm:w-10"
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-xl font-bold text-foreground">Оформление заказа</h1>
+          <h1 className="text-lg sm:text-xl font-bold text-foreground truncate">Оформление заказа</h1>
         </div>
       </div>
 
       {/* Form */}
-      <div className="p-4 space-y-6">
+      <div className="px-3 py-4 sm:px-4 sm:py-6 space-y-5 sm:space-y-6">
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name">Имя *</Label>
@@ -247,13 +248,13 @@ export const CheckoutPage = () => {
           * Обязательные поля
         </div>
 
-        <Card className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-semibold">Состав заказа</p>
-              <p className="text-sm text-muted-foreground">Проверьте товары перед оплатой</p>
+        <Card className="p-3 sm:p-4 space-y-3 sm:space-y-4">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold text-sm sm:text-base">Состав заказа</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">Проверьте товары перед оплатой</p>
             </div>
-            <Button variant="ghost" size="sm" onClick={() => refetchCart()} disabled={cartLoading}>
+            <Button variant="ghost" size="sm" onClick={() => refetchCart()} disabled={cartLoading} className="flex-shrink-0 h-8 sm:h-9 text-xs sm:text-sm">
               Обновить
             </Button>
           </div>
@@ -265,23 +266,23 @@ export const CheckoutPage = () => {
               ))}
             </div>
           ) : !cartSummary || cartSummary.items.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs sm:text-sm text-muted-foreground">
               Корзина пуста. Вернитесь в каталог и добавьте товары.
             </p>
           ) : (
             <>
-              <div className="space-y-3">
+              <div className="space-y-2 sm:space-y-3">
                 {cartSummary.items.map(item => (
-                  <div key={item.id} className="flex justify-between text-sm">
-                    <p className="text-foreground">
+                  <div key={item.id} className="flex justify-between text-xs sm:text-sm gap-2">
+                    <p className="text-foreground truncate min-w-0 flex-1">
                       {item.product_name}
                       <span className="text-muted-foreground"> × {item.quantity}</span>
                     </p>
-                    <p className="font-semibold text-foreground">{item.quantity * item.price} ₸</p>
+                    <p className="font-semibold text-foreground flex-shrink-0">{item.quantity * item.price} ₸</p>
                   </div>
                 ))}
               </div>
-              <div className="flex justify-between border-t pt-3 font-semibold text-lg">
+              <div className="flex justify-between border-t pt-2 sm:pt-3 font-semibold text-base sm:text-lg">
                 <span>Итого</span>
                 <span>{cartSummary.total_amount} ₸</span>
               </div>

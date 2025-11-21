@@ -146,14 +146,14 @@ export const CatalogPage = () => {
       />
     <div className="min-h-screen bg-background pb-20">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-card border-b border-border p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Package className="h-6 w-6 text-primary" />
-            <h1 className="text-xl font-bold text-foreground">Магазин</h1>
+      <div className="sticky top-0 z-10 bg-card border-b border-border px-3 py-2.5 sm:px-4 sm:py-4">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0 flex-shrink">
+            <Package className="h-5 w-5 sm:h-6 sm:w-6 text-primary flex-shrink-0" />
+            <h1 className="text-lg sm:text-xl font-bold text-foreground truncate">Магазин</h1>
           </div>
           
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
             {isUserAdmin && forceClientView && (
             <Button
                 variant="secondary"
@@ -162,34 +162,49 @@ export const CatalogPage = () => {
                   setForceClientView(false);
                   navigate('/admin');
                 }}
-                className="gap-2"
+                className="h-9 px-2 sm:px-3 gap-1 sm:gap-2"
               >
-                <ShieldCheck className="h-4 w-4" />
-                Админ-режим
+                <ShieldCheck className="h-4 w-4 flex-shrink-0" />
+                <span className="hidden sm:inline">Админ-режим</span>
               </Button>
             )}
-            <Button variant="outline" size="sm" onClick={() => navigate('/order')}>
-              <ClipboardList className="h-4 w-4 mr-2" />
-              Мои заказы
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => navigate('/order')}
+              className="h-9 px-2 sm:px-3"
+            >
+              <ClipboardList className="h-4 w-4 sm:mr-2 flex-shrink-0" />
+              <span className="hidden sm:inline">Мои заказы</span>
             </Button>
-            <Button variant="outline" size="sm" onClick={handleHelp}>
-              <HelpCircle className="h-4 w-4 mr-2" />
-              Помощь
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleHelp}
+              className="h-9 px-2 sm:px-3"
+            >
+              <HelpCircle className="h-4 w-4 sm:mr-2 flex-shrink-0" />
+              <span className="hidden sm:inline">Помощь</span>
             </Button>
             
             <div className="relative">
-              <Button variant="default" size="sm" onClick={() => setCartDialogOpen(true)} className="relative">
-                <ShoppingCart className="h-4 w-4 mr-2" />
-                Корзина
+              <Button 
+                variant="default" 
+                size="sm" 
+                onClick={() => setCartDialogOpen(true)} 
+                className="relative h-9 px-2 sm:px-3"
+              >
+                <ShoppingCart className="h-4 w-4 sm:mr-2 flex-shrink-0" />
+                <span className="hidden sm:inline">Корзина</span>
               {cartItemsCount > 0 && (
-                  <span className="ml-2 bg-primary-foreground/90 text-primary text-xxs font-bold rounded-full h-5 px-2 flex items-center justify-center">
+                  <span className="absolute -top-1 -right-1 sm:relative sm:top-0 sm:right-0 sm:ml-2 bg-primary-foreground/90 text-primary text-[10px] sm:text-xxs font-bold rounded-full h-4 w-4 sm:h-5 sm:px-2 sm:w-auto flex items-center justify-center">
                   {cartItemsCount}
                   </span>
                 )}
               </Button>
               {addSuccess && (
-                <span className="absolute -right-1 -top-7 flex items-center gap-1 text-xs text-primary bg-card/95 px-2 py-1 rounded-full shadow">
-                  <CheckCircle2 className="h-4 w-4" /> Добавлено
+                <span className="absolute -right-1 -top-8 sm:-top-7 flex items-center gap-1 text-[10px] sm:text-xs text-primary bg-card/95 px-2 py-1 rounded-full shadow whitespace-nowrap">
+                  <CheckCircle2 className="h-3 w-3 sm:h-4 sm:w-4" /> <span className="hidden sm:inline">Добавлено</span>
                 </span>
               )}
             </div>
@@ -210,12 +225,12 @@ export const CatalogPage = () => {
 
       {/* Categories */}
       {categories.length > 0 && (
-        <div className="p-4 border-b border-border bg-card">
-          <div className="flex gap-2 overflow-x-auto pb-2">
+        <div className="px-3 py-3 sm:px-4 sm:py-4 border-b border-border bg-card">
+          <div className="flex gap-2 overflow-x-auto pb-2 -mx-3 sm:-mx-4 px-3 sm:px-4 scrollbar-hide">
             <Button
               variant={selectedCategory === null ? 'default' : 'outline'}
               onClick={() => setSelectedCategory(null)}
-              className="flex-shrink-0"
+              className="flex-shrink-0 h-9 px-4 text-sm"
             >
               Все
             </Button>
@@ -224,7 +239,7 @@ export const CatalogPage = () => {
                 key={category.id}
                 variant={selectedCategory === category.id ? 'default' : 'outline'}
                 onClick={() => setSelectedCategory(category.id)}
-                className="flex-shrink-0"
+                className="flex-shrink-0 h-9 px-4 text-sm whitespace-nowrap"
               >
                 {category.name}
               </Button>
@@ -234,14 +249,14 @@ export const CatalogPage = () => {
       )}
 
       {/* Products */}
-      <div className="p-4">
+      <div className="px-3 py-4 sm:px-4 sm:py-6">
         {filteredProducts.length === 0 ? (
           <div className="text-center py-12">
             <Package className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
             <p className="text-muted-foreground">Товары не найдены</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             {filteredProducts.map(product => (
               <ProductCard
                 key={product.id}
