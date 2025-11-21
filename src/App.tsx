@@ -47,10 +47,16 @@ const RootLayout = () => (
   </>
 );
 
+const RootLayoutWithProviders = () => (
+  <StoreStatusProvider>
+    <RootLayout />
+  </StoreStatusProvider>
+);
+
 const router = createBrowserRouter(
   [
     {
-      element: <RootLayout />,
+      element: <RootLayoutWithProviders />,
       children: [
         { path: "/", element: <RootRoute /> },
         { path: "/cart", element: <CartPage /> },
@@ -85,13 +91,11 @@ const AppRouter = () => {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AdminViewProvider>
-      <StoreStatusProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <AppRouter />
-        </TooltipProvider>
-      </StoreStatusProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <AppRouter />
+      </TooltipProvider>
     </AdminViewProvider>
   </QueryClientProvider>
 );

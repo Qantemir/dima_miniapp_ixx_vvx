@@ -104,11 +104,27 @@ class ApiClient {
         headers.set('Content-Type', 'application/json');
       }
 
+      // Логирование для отладки
+      const headersObj = Object.fromEntries(headers.entries());
+      if (import.meta.env.DEV) {
+        console.log(`[API] ${method} ${url}`, {
+          headers: headersObj,
+        });
+      }
+
       const response = await fetch(url, {
         ...(options || {}),
         signal: controller.signal,
         headers,
       });
+
+      if (import.meta.env.DEV) {
+        console.log(`[API] ${method} ${url} Response:`, {
+          status: response.status,
+          statusText: response.statusText,
+          headers: Object.fromEntries(response.headers.entries()),
+        });
+      }
       
       if (timeoutId) {
         clearTimeout(timeoutId);
@@ -143,22 +159,25 @@ class ApiClient {
 
       const contentType = response.headers.get('content-type') || '';
       const isJson = contentType.includes('application/json');
-      const payload = isJson ? await response.json() : await response.text();
+      
+      let payload: any;
+      try {
+        payload = isJson ? await response.json() : await response.text();
+      } catch (parseError) {
+        console.error('Failed to parse response:', parseError);
+        throw new Error(`Failed to parse API response: ${response.status} ${response.statusText}`);
+      }
 
       if (!response.ok) {
-        if (isJson) {
-          const error = payload as Partial<ApiError> & { detail?: string };
-          const errorMessage =
-            error.message ||
-            error.detail ||
-            error.error ||
-            (typeof payload === 'string' ? payload : undefined) ||
-            `API request failed: ${response.status} ${response.statusText}`;
-          throw new Error(errorMessage);
+        let errorMessage = `API request failed: ${response.status} ${response.statusText}`;
+        if (isJson && payload) {
+          const error = payload as Partial<ApiError> & { detail?: string; message?: string };
+          errorMessage = error.detail || error.message || error.error || JSON.stringify(payload) || errorMessage;
+        } else if (typeof payload === 'string') {
+          errorMessage = payload;
         }
-        throw new Error(
-          'API request failed: сервер вернул не-JSON ответ. Проверьте адрес API или запущен ли бэкенд.'
-        );
+        console.error('API Error Response:', { status: response.status, payload });
+        throw new Error(errorMessage);
       }
 
       if (!isJson) {
@@ -175,18 +194,37 @@ class ApiClient {
       //   this.invalidateCache(endpoint);
       // }
 
+      if (import.meta.env.DEV) {
+        console.log(`[API] ${method} ${url} Success:`, payload);
+      }
+
       return payload as T;
     } catch (error) {
-      // Очищаем таймаут в случае ошибки
+      // Обработка прерванных запросов (отмена React Query или таймаут)
+      if (error instanceof Error && error.name === 'AbortError') {
+        // Если таймаут ещё активен, значит это был таймаут, а не отмена запроса
+        const wasTimeout = timeoutId !== null;
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+        // Игнорируем отмену запросов (React Query может отменять при размонтировании)
+        // Показываем ошибку только если это был таймаут
+        if (wasTimeout) {
+          throw new Error('Превышено время ожидания ответа от сервера. Проверьте, что бэкенд запущен и отвечает на запросы.');
+        }
+        // Для отмененных запросов просто пробрасываем AbortError, React Query его обработает
+        // Не логируем, так как это нормальное поведение
+        throw error;
+      }
+      
+      // Очищаем таймаут в случае других ошибок
       if (timeoutId) {
         clearTimeout(timeoutId);
       }
       
-      console.error('API Error:', error);
-      
-      // Обработка прерванных запросов (таймаут или отмена)
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error('Превышено время ожидания ответа от сервера. Проверьте, что бэкенд запущен на http://localhost:8000 и отвечает на запросы.');
+      // Логируем только реальные ошибки, не отмененные запросы
+      if (!(error instanceof Error && error.name === 'AbortError')) {
+        console.error('API Error:', error);
       }
       
       // Обработка ошибок сети

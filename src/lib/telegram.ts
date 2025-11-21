@@ -395,12 +395,7 @@ export const closeMiniApp = () => {
 };
 
 export const getRequestAuthHeaders = (): Record<string, string> => {
-  const initData = getTelegramInitData();
-  if (initData) {
-    return { 'X-Telegram-Init-Data': initData };
-  }
-
-  // Всегда отправляем dev user ID, даже если нет Telegram данных
+  // Всегда отправляем dev user ID - подпись Telegram не требуется
   const devUserId = getDevFallbackUserId();
   return { 'X-Dev-User-Id': (devUserId || 1).toString() };
 };

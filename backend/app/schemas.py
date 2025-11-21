@@ -87,6 +87,7 @@ class CartItem(BaseModel):
     quantity: int = Field(..., ge=1)
     price: float
     image: Optional[str] = None
+    variant_id: Optional[str] = None
 
 
 class Cart(BaseModel):

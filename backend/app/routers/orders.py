@@ -125,7 +125,7 @@ async def create_order(
     "delivery_address": address,
     "comment": comment,
     "status": OrderStatus.NEW.value,
-    "items": [item.dict() for item in cart.items],
+    "items": [item.model_dump() for item in cart.items],  # Преобразуем CartItem объекты в словари
     "total_amount": cart.total_amount,
     "can_edit_address": True,
     "created_at": datetime.utcnow(),

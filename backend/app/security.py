@@ -131,7 +131,7 @@ def _build_dev_user(dev_user_id: int | None) -> TelegramUser:
 
 async def get_current_user(
   telegram_init_data: str | None = Header(None, alias="X-Telegram-Init-Data"),
-  dev_user_id: int | None = Header(None, convert_underscores=False, alias="X-Dev-User-Id"),
+  dev_user_id: str | None = Header(None, convert_underscores=False, alias="X-Dev-User-Id"),
 ) -> TelegramUser:
   """
   Returns a user without signature validation - simplified for development.
@@ -139,6 +139,13 @@ async def get_current_user(
   """
   # Просто возвращаем пользователя без всяких проверок
   # Если есть заголовок X-Dev-User-Id, используем его, иначе дефолтный ID
-  user_id = dev_user_id if dev_user_id is not None else (settings.default_dev_user_id or 1)
+  user_id = 1
+  if dev_user_id:
+    try:
+      user_id = int(dev_user_id)
+    except (ValueError, TypeError):
+      user_id = settings.default_dev_user_id or 1
+  else:
+    user_id = settings.default_dev_user_id or 1
   return TelegramUser(id=user_id)
 

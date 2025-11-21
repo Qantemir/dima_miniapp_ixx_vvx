@@ -3,6 +3,7 @@ import { ShoppingCart } from '@/components/icons';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -58,6 +59,7 @@ export const CartDialog = ({ open, onOpenChange }: CartDialogProps) => {
         <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Корзина</DialogTitle>
+            <DialogDescription className="sr-only">Загрузка корзины</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             {[1, 2, 3].map(i => (

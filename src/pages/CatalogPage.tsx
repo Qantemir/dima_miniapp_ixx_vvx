@@ -111,7 +111,7 @@ export const CatalogPage = () => {
     ? catalogProducts.filter(p => p.category_id === selectedCategory)
     : catalogProducts;
 
-  if (catalogLoading || !catalog || storeStatusLoading) {
+  if (catalogLoading || !catalog) {
     return (
       <>
         <Seo

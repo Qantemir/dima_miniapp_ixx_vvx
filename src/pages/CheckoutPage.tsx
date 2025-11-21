@@ -10,7 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { api } from '@/lib/api';
 import { Seo } from '@/components/Seo';
 import { buildCanonicalUrl } from '@/lib/seo';
-import { getUser, showAlert, showMainButton, hideMainButton, showBackButton, hideBackButton } from '@/lib/telegram';
+import { showAlert, showMainButton, hideMainButton, showBackButton, hideBackButton } from '@/lib/telegram';
 import { useStoreStatus } from '@/contexts/StoreStatusContext';
 import { useCart } from '@/hooks/useCart';
 
@@ -50,14 +50,6 @@ export const CheckoutPage = () => {
   const [receiptError, setReceiptError] = useState<string | null>(null);
 
   useEffect(() => {
-    const user = getUser();
-    if (user) {
-      setFormData(prev => ({
-        ...prev,
-        name: `${user.first_name}${user.last_name ? ' ' + user.last_name : ''}`,
-      }));
-    }
-
     showBackButton(() => navigate('/cart'));
     showMainButton('Подтвердить заказ', handleSubmit);
     return () => {
