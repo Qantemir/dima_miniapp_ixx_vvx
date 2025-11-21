@@ -145,13 +145,19 @@ async def get_current_user(
       is_premium=user_payload.get("is_premium"),
     )
 
-  if settings.allow_dev_requests and dev_user_id:
-    if settings.dev_allowed_user_ids and dev_user_id not in settings.dev_allowed_user_ids:
+  if settings.allow_dev_requests:
+    fallback_dev_id = dev_user_id or settings.default_dev_user_id
+    if fallback_dev_id is None:
+      raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Dev user недоступен: отсутствует идентификатор",
+      )
+    if settings.dev_allowed_user_ids and fallback_dev_id not in settings.dev_allowed_user_ids:
       raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
         detail="Dev user не разрешён для текущей конфигурации",
       )
-    return TelegramUser(id=dev_user_id)
+    return TelegramUser(id=fallback_dev_id)
 
   raise HTTPException(
     status_code=status.HTTP_401_UNAUTHORIZED,
