@@ -37,6 +37,50 @@
     </script>
 
     <!-- Telegram WebApp Script -->
+    <script>
+      // Фильтруем логи Telegram WebView перед загрузкой скрипта
+      (function() {
+        const originalLog = console.log;
+        const originalWarn = console.warn;
+        const originalInfo = console.info;
+        const originalError = console.error;
+        
+        const filterTelegramLogs = (...args) => {
+          // Проверяем все аргументы на наличие Telegram логов
+          for (const arg of args) {
+            const str = typeof arg === 'string' ? arg : (arg?.toString?.() || JSON.stringify(arg) || '');
+            if (str.includes('[Telegram.WebView]') || str.includes('postEvent')) {
+              return false;
+            }
+          }
+          return true;
+        };
+        
+        console.log = function(...args) {
+          if (filterTelegramLogs(...args)) {
+            originalLog.apply(console, args);
+          }
+        };
+        
+        console.warn = function(...args) {
+          if (filterTelegramLogs(...args)) {
+            originalWarn.apply(console, args);
+          }
+        };
+        
+        console.info = function(...args) {
+          if (filterTelegramLogs(...args)) {
+            originalInfo.apply(console, args);
+          }
+        };
+        
+        console.error = function(...args) {
+          if (filterTelegramLogs(...args)) {
+            originalError.apply(console, args);
+          }
+        };
+      })();
+    </script>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
   </head>
 

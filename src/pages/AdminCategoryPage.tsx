@@ -176,7 +176,6 @@ export const AdminCategoryPage = () => {
       });
     } catch (error) {
       toast.error('Не удалось загрузить изображения');
-      console.error(error);
     }
   };
 

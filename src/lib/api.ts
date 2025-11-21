@@ -104,27 +104,11 @@ class ApiClient {
         headers.set('Content-Type', 'application/json');
       }
 
-      // Логирование для отладки
-      const headersObj = Object.fromEntries(headers.entries());
-      if (import.meta.env.DEV) {
-        console.log(`[API] ${method} ${url}`, {
-          headers: headersObj,
-        });
-      }
-
       const response = await fetch(url, {
         ...(options || {}),
         signal: controller.signal,
         headers,
       });
-
-      if (import.meta.env.DEV) {
-        console.log(`[API] ${method} ${url} Response:`, {
-          status: response.status,
-          statusText: response.statusText,
-          headers: Object.fromEntries(response.headers.entries()),
-        });
-      }
       
       if (timeoutId) {
         clearTimeout(timeoutId);
@@ -164,7 +148,6 @@ class ApiClient {
       try {
         payload = isJson ? await response.json() : await response.text();
       } catch (parseError) {
-        console.error('Failed to parse response:', parseError);
         throw new Error(`Failed to parse API response: ${response.status} ${response.statusText}`);
       }
 
@@ -176,7 +159,6 @@ class ApiClient {
         } else if (typeof payload === 'string') {
           errorMessage = payload;
         }
-        console.error('API Error Response:', { status: response.status, payload });
         throw new Error(errorMessage);
       }
 
@@ -193,10 +175,6 @@ class ApiClient {
       // } else if (method !== 'GET') {
       //   this.invalidateCache(endpoint);
       // }
-
-      if (import.meta.env.DEV) {
-        console.log(`[API] ${method} ${url} Success:`, payload);
-      }
 
       return payload as T;
     } catch (error) {
@@ -220,11 +198,6 @@ class ApiClient {
       // Очищаем таймаут в случае других ошибок
       if (timeoutId) {
         clearTimeout(timeoutId);
-      }
-      
-      // Логируем только реальные ошибки, не отмененные запросы
-      if (!(error instanceof Error && error.name === 'AbortError')) {
-        console.error('API Error:', error);
       }
       
       // Обработка ошибок сети

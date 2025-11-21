@@ -28,9 +28,9 @@ export const ReceiptDialog = ({ receiptUrl, filename, trigger }: ReceiptDialogPr
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>Чек об оплате</DialogTitle>
-          {filename && (
-            <DialogDescription>{filename}</DialogDescription>
-          )}
+          <DialogDescription>
+            {filename || 'Просмотр чека об оплате'}
+          </DialogDescription>
         </DialogHeader>
         <div className="flex-1 overflow-auto flex items-center justify-center bg-muted/50 rounded-lg p-4">
           <AnimatePresence mode="wait">

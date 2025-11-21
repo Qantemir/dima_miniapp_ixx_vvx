@@ -133,7 +133,6 @@ export const AdminCatalogPage = () => {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Ошибка сохранения категории';
       toast.error(errorMessage);
-      console.error('Category save error:', error);
     } finally {
       setSaving(false);
     }
@@ -166,7 +165,6 @@ export const AdminCatalogPage = () => {
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Не удалось удалить категорию';
-      console.error('Category delete error:', error);
       toast.error(`Ошибка удаления: ${errorMessage}`);
     } finally {
       setDeleting(false);

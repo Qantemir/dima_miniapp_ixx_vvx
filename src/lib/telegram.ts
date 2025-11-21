@@ -23,7 +23,6 @@ const extractInitDataFromString = (raw?: string | null) => {
   try {
     return decodeURIComponent(encoded);
   } catch (error) {
-    console.warn('Failed to decode Telegram init data from URL:', error);
     return encoded;
   }
 };
@@ -67,7 +66,7 @@ const persistInitData = (value: string) => {
     try {
       window.sessionStorage.setItem(INIT_DATA_STORAGE_KEY, value);
     } catch (error) {
-      console.warn('Failed to store Telegram init data in sessionStorage', error);
+      // Ignore storage errors
     }
   }
 };
@@ -86,7 +85,7 @@ const readStoredInitData = (): string | null => {
       return stored;
     }
   } catch (error) {
-    console.warn('Failed to read Telegram init data from sessionStorage', error);
+    // Ignore storage errors
   }
   return null;
 };
@@ -348,7 +347,7 @@ export const showPopup = (
     tg.showPopup(params, callback);
       return;
     } catch (error) {
-      console.warn('Telegram showPopup not supported, fallback to confirm', error);
+      // Fallback to window.confirm
     }
   }
 
@@ -370,7 +369,7 @@ export const showConfirm = (message: string, callback?: (ok: boolean) => void) =
       tg.showConfirm(message, callback);
       return;
     } catch (error) {
-      console.warn('Telegram showConfirm not supported, fallback to window.confirm', error);
+      // Fallback to window.confirm
     }
   }
 

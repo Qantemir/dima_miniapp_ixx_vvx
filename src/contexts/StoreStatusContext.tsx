@@ -48,7 +48,7 @@ export function StoreStatusProvider({ children }: { children: ReactNode }) {
           setStatus(parsed);
           setLoading(false);
         } catch (err) {
-          console.error('Failed to parse store status event', err);
+          // Ignore parsing errors
         }
       };
 

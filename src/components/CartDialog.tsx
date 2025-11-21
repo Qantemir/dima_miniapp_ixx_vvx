@@ -79,6 +79,7 @@ export const CartDialog = ({ open, onOpenChange }: CartDialogProps) => {
         <DialogContent className="max-w-md" aria-describedby="empty-cart-description">
           <DialogHeader>
             <DialogTitle>Корзина</DialogTitle>
+            <DialogDescription className="sr-only">Корзина пуста</DialogDescription>
           </DialogHeader>
           <div className="flex flex-col items-center justify-center py-8">
             <ShoppingCart className="h-16 w-16 text-muted-foreground mb-4" />
@@ -103,6 +104,7 @@ export const CartDialog = ({ open, onOpenChange }: CartDialogProps) => {
         >
         <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 border-b">
           <DialogTitle className="text-lg sm:text-xl">Корзина</DialogTitle>
+          <DialogDescription className="sr-only">Содержимое корзины</DialogDescription>
         </DialogHeader>
 
         {/* Cart Items */}
