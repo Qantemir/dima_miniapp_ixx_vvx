@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingCart } from '@/components/icons';
 import {
   Dialog,
@@ -14,6 +15,7 @@ import { toast } from '@/lib/toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCart, CART_QUERY_KEY } from '@/hooks/useCart';
 import { useQueryClient } from '@tanstack/react-query';
+import { AnimatedList } from '@/components/animations';
 
 interface CartDialogProps {
   open: boolean;
@@ -104,15 +106,27 @@ export const CartDialog = ({ open, onOpenChange }: CartDialogProps) => {
         </DialogHeader>
 
         {/* Cart Items */}
-        <div id="cart-dialog-content" className="flex-1 overflow-y-auto px-4 sm:px-6 py-3 sm:py-4 space-y-2 sm:space-y-3">
-          {cart.items.map(item => (
-            <CartItem
-              key={item.id}
-              item={item}
-              onUpdateQuantity={handleUpdateQuantity}
-              onRemove={handleRemoveItem}
-            />
-          ))}
+        <div id="cart-dialog-content" className="flex-1 overflow-y-auto px-4 sm:px-6 py-3 sm:py-4">
+          <AnimatedList className="space-y-2 sm:space-y-3">
+            <AnimatePresence mode="popLayout">
+              {cart.items.map((item, index) => (
+                <motion.div
+                  key={item.id}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20, scale: 0.95 }}
+                  transition={{ duration: 0.2, delay: index * 0.05 }}
+                  layout
+                >
+                  <CartItem
+                    item={item}
+                    onUpdateQuantity={handleUpdateQuantity}
+                    onRemove={handleRemoveItem}
+                  />
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </AnimatedList>
         </div>
 
         {/* Footer with Total and Checkout */}

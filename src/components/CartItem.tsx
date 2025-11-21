@@ -1,3 +1,4 @@
+import { motion } from 'framer-motion';
 import { Trash2, Plus, Minus } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import type { CartItem as CartItemType } from '@/types/api';
@@ -26,7 +27,11 @@ export const CartItem = ({ item, onUpdateQuantity, onRemove }: CartItemProps) =>
   };
 
   return (
-    <div className="flex gap-2 sm:gap-3 p-3 sm:p-4 bg-card rounded-lg border border-border">
+    <motion.div 
+      className="flex gap-2 sm:gap-3 p-3 sm:p-4 bg-card rounded-lg border border-border"
+      whileHover={{ scale: 1.01 }}
+      transition={{ duration: 0.2 }}
+    >
       {item.image && (
         <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden bg-muted flex-shrink-0">
           <img
@@ -95,6 +100,6 @@ export const CartItem = ({ item, onUpdateQuantity, onRemove }: CartItemProps) =>
           </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 };

@@ -14,6 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Seo } from '@/components/Seo';
 import { buildCanonicalUrl } from '@/lib/seo';
 import { ReceiptDialog } from '@/components/ReceiptDialog';
+import { PageTransition } from '@/components/animations';
 
 export const OrderPage = () => {
   const { orderId } = useParams<{ orderId: string }>();
@@ -165,6 +166,7 @@ export const OrderPage = () => {
         path={orderId ? `/order/${orderId}` : '/order'}
         jsonLd={orderJsonLd}
       />
+      <PageTransition>
       <div className="min-h-screen bg-background pb-24">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-card border-b border-border px-3 py-2.5 sm:px-4 sm:py-4">
@@ -307,6 +309,7 @@ export const OrderPage = () => {
         )}
       </div>
       </div>
+      </PageTransition>
     </>
   );
 };

@@ -14,6 +14,7 @@ import { showMainButton, hideMainButton, showBackButton, hideBackButton } from '
 import { toast } from '@/lib/toast';
 import { useStoreStatus } from '@/contexts/StoreStatusContext';
 import { useCart } from '@/hooks/useCart';
+import { PageTransition } from '@/components/animations';
 
 const RECEIPT_MAX_SIZE = 10 * 1024 * 1024; // 10 MB
 const RECEIPT_ALLOWED_TYPES = [
@@ -138,6 +139,7 @@ export const CheckoutPage = () => {
   return (
     <>
       <Seo title="Оформление заказа" description="Введите контактные данные для подтверждения заказа." path="/checkout" jsonLd={checkoutJsonLd} />
+      <PageTransition>
       <div className="min-h-screen bg-background pb-24">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-card border-b border-border px-3 py-2.5 sm:px-4 sm:py-4">
@@ -306,8 +308,9 @@ export const CheckoutPage = () => {
         >
           {submitting ? 'Отправка...' : 'Подтвердить заказ'}
         </Button>
+        </div>
       </div>
-      </div>
+      </PageTransition>
     </>
   );
 };

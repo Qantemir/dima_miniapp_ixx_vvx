@@ -1,7 +1,9 @@
 import { useState } from 'react';
+import { motion } from 'framer-motion';
 import { Plus, Minus } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { HoverScale } from '@/components/animations';
 import type { Product, ProductVariant } from '@/types/api';
 
 interface ProductCardProps {
@@ -87,16 +89,21 @@ export const ProductCard = ({
   const displayImage = product.images?.[0] ?? product.image;
 
   return (
-    <Card className="w-full overflow-hidden border-border bg-card rounded-2xl shadow-sm h-full">
-      {displayImage && (
-        <div className="aspect-[4/3] w-full overflow-hidden bg-muted">
-          <img
-            src={displayImage}
-            alt={product.name}
-            className="h-full w-full object-cover"
-          />
-        </div>
-      )}
+    <HoverScale>
+      <Card className="w-full overflow-hidden border-border bg-card rounded-2xl shadow-sm h-full transition-shadow hover:shadow-md">
+        {displayImage && (
+          <motion.div 
+            className="aspect-[4/3] w-full overflow-hidden bg-muted"
+            whileHover={{ scale: 1.05 }}
+            transition={{ duration: 0.3 }}
+          >
+            <img
+              src={displayImage}
+              alt={product.name}
+              className="h-full w-full object-cover"
+            />
+          </motion.div>
+        )}
       
       <div className="p-3 space-y-3">
         <div>
@@ -195,5 +202,6 @@ export const ProductCard = ({
         </div>
       </div>
     </Card>
+    </HoverScale>
   );
 };

@@ -23,6 +23,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { AnimatedList, AnimatedItem } from '@/components/animations';
+import { motion } from 'framer-motion';
 
 export const CatalogPage = () => {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -226,27 +228,44 @@ export const CatalogPage = () => {
 
       {/* Categories */}
       {categories.length > 0 && (
-        <div className="px-3 py-3 sm:px-4 sm:py-4 border-b border-border bg-card">
+        <motion.div 
+          className="px-3 py-3 sm:px-4 sm:py-4 border-b border-border bg-card"
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
           <div className="flex gap-2 overflow-x-auto pb-2 -mx-3 sm:-mx-4 px-3 sm:px-4 scrollbar-hide">
-            <Button
-              variant={selectedCategory === null ? 'default' : 'outline'}
-              onClick={() => setSelectedCategory(null)}
-              className="flex-shrink-0 h-9 px-4 text-sm"
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.2 }}
             >
-              Все
-            </Button>
-            {categories.map(category => (
               <Button
-                key={category.id}
-                variant={selectedCategory === category.id ? 'default' : 'outline'}
-                onClick={() => setSelectedCategory(category.id)}
-                className="flex-shrink-0 h-9 px-4 text-sm whitespace-nowrap"
+                variant={selectedCategory === null ? 'default' : 'outline'}
+                onClick={() => setSelectedCategory(null)}
+                className="flex-shrink-0 h-9 px-4 text-sm"
               >
-                {category.name}
+                Все
               </Button>
+            </motion.div>
+            {categories.map((category, index) => (
+              <motion.div
+                key={category.id}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.2, delay: index * 0.05 }}
+              >
+                <Button
+                  variant={selectedCategory === category.id ? 'default' : 'outline'}
+                  onClick={() => setSelectedCategory(category.id)}
+                  className="flex-shrink-0 h-9 px-4 text-sm whitespace-nowrap"
+                >
+                  {category.name}
+                </Button>
+              </motion.div>
             ))}
           </div>
-        </div>
+        </motion.div>
       )}
 
       {/* Products */}
@@ -257,16 +276,17 @@ export const CatalogPage = () => {
             <p className="text-muted-foreground">Товары не найдены</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-            {filteredProducts.map(product => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                onAddToCart={handleAddToCart}
-                purchasesDisabled={storeStatus?.is_sleep_mode}
-              />
+          <AnimatedList className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+            {filteredProducts.map((product, index) => (
+              <AnimatedItem key={product.id} delay={index * 0.05}>
+                <ProductCard
+                  product={product}
+                  onAddToCart={handleAddToCart}
+                  purchasesDisabled={storeStatus?.is_sleep_mode}
+                />
+              </AnimatedItem>
             ))}
-          </div>
+          </AnimatedList>
         )}
       </div>
 

@@ -11,6 +11,7 @@ import { Seo } from '@/components/Seo';
 import { buildCanonicalUrl } from '@/lib/seo';
 import { useCart, CART_QUERY_KEY } from '@/hooks/useCart';
 import { useQueryClient } from '@tanstack/react-query';
+import { PageTransition, AnimatedList, AnimatedItem } from '@/components/animations';
 
 export const CartPage = () => {
   const navigate = useNavigate();
@@ -120,6 +121,7 @@ export const CartPage = () => {
   return (
     <>
       <Seo title="Корзина" description="Редактируйте корзину и переходите к оформлению заказа." path="/cart" jsonLd={cartJsonLd} />
+      <PageTransition>
       <div className="min-h-screen bg-background pb-24">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-card border-b border-border px-3 py-2.5 sm:px-4 sm:py-4">
@@ -137,15 +139,18 @@ export const CartPage = () => {
       </div>
 
       {/* Cart Items */}
-      <div className="px-3 py-4 sm:px-4 sm:py-6 space-y-3">
-        {cart.items.map(item => (
-          <CartItem
-            key={item.id}
-            item={item}
-            onUpdateQuantity={handleUpdateQuantity}
-            onRemove={handleRemoveItem}
-          />
-        ))}
+      <div className="px-3 py-4 sm:px-4 sm:py-6">
+        <AnimatedList className="space-y-3">
+          {cart.items.map((item, index) => (
+            <AnimatedItem key={item.id} delay={index * 0.05}>
+              <CartItem
+                item={item}
+                onUpdateQuantity={handleUpdateQuantity}
+                onRemove={handleRemoveItem}
+              />
+            </AnimatedItem>
+          ))}
+        </AnimatedList>
       </div>
 
       {/* Total */}
@@ -156,8 +161,9 @@ export const CartPage = () => {
             {cart.total_amount} ₸
           </span>
         </div>
+        </div>
       </div>
-      </div>
+      </PageTransition>
     </>
   );
 };
