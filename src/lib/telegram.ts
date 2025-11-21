@@ -1,10 +1,86 @@
 // Telegram WebApp utilities
 
+const INIT_DATA_PARAM = 'tgWebAppData';
+
+let cachedInitData: string | null = null;
+
 export const getTelegram = () => {
   if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
     return window.Telegram.WebApp;
   }
   return null;
+};
+
+const extractInitDataFromString = (raw?: string | null) => {
+  if (!raw) return null;
+  const match = raw.match(new RegExp(`${INIT_DATA_PARAM}=([^&]+)`));
+  if (!match || match.length < 2) {
+    return null;
+  }
+  const encoded = match[1];
+  try {
+    return decodeURIComponent(encoded);
+  } catch (error) {
+    console.warn('Failed to decode Telegram init data from URL:', error);
+    return encoded;
+  }
+};
+
+const getInitDataFromLocation = (): string | null => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  const fromHash = extractInitDataFromString(window.location.hash);
+  if (fromHash) {
+    return fromHash;
+  }
+  return extractInitDataFromString(window.location.search);
+};
+
+const serializeInitDataUnsafe = (
+  initData?: TelegramWebAppInitData
+): string | null => {
+  if (!initData?.hash || !initData.auth_date) {
+    return null;
+  }
+
+  const params = new URLSearchParams();
+  Object.entries(initData as Record<string, unknown>).forEach(([key, value]) => {
+    if (value === undefined || value === null) {
+      return;
+    }
+    if (typeof value === 'object') {
+      params.set(key, JSON.stringify(value));
+      return;
+    }
+    params.set(key, String(value));
+  });
+
+  return params.toString();
+};
+
+const resolveTelegramInitData = (): string | null => {
+  const tg = getTelegram();
+  const direct = tg?.initData?.trim();
+  if (direct) {
+    return direct;
+  }
+
+  const fromLocation = getInitDataFromLocation();
+  if (fromLocation) {
+    return fromLocation;
+  }
+
+  return serializeInitDataUnsafe(tg?.initDataUnsafe);
+};
+
+const getTelegramInitData = (): string | null => {
+  const resolved = resolveTelegramInitData();
+  if (resolved) {
+    cachedInitData = resolved;
+    return resolved;
+  }
+  return cachedInitData;
 };
 
 const compareVersions = (current: string, min: string) => {
@@ -248,9 +324,9 @@ export const closeMiniApp = () => {
 };
 
 export const getRequestAuthHeaders = (): Record<string, string> => {
-  const tg = getTelegram();
-  if (tg?.initData) {
-    return { 'X-Telegram-Init-Data': tg.initData };
+  const initData = getTelegramInitData();
+  if (initData) {
+    return { 'X-Telegram-Init-Data': initData };
   }
 
   const devUserId = getDevFallbackUserId();
