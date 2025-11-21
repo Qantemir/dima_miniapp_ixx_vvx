@@ -115,31 +115,22 @@ class ApiClient {
         timeoutId = null;
       }
 
-      // Обработка 304 Not Modified
+      // Обработка 304 Not Modified - просто делаем повторный запрос
       if (response.status === 304) {
-        const cached = this.getCachedResponse<T>(method, endpoint);
-        if (cached !== null) {
-          return cached;
-        }
-        // Если кэша нет, делаем повторный запрос без If-None-Match
-        const retryHeaders = this.buildHeaders(options?.headers as HeadersInit);
-        retryHeaders.delete('If-None-Match');
-        const retryResponse = await fetch(url, {
+        // Игнорируем 304 и делаем обычный запрос без кэширования
+        const freshHeaders = this.buildHeaders(options?.headers as HeadersInit);
+        freshHeaders.delete('If-None-Match');
+        const freshResponse = await fetch(url, {
           ...(options || {}),
-          signal: controller.signal,
-          headers: retryHeaders,
+          headers: freshHeaders,
         });
-        if (!retryResponse.ok) {
-          throw new Error(`API request failed: ${retryResponse.status} ${retryResponse.statusText}`);
+        if (!freshResponse.ok) {
+          throw new Error(`API request failed: ${freshResponse.status} ${freshResponse.statusText}`);
         }
-        const retryContentType = retryResponse.headers.get('content-type') || '';
-        const retryIsJson = retryContentType.includes('application/json');
-        const retryPayload = retryIsJson ? await retryResponse.json() : await retryResponse.text();
-        if (method === 'GET' && retryIsJson) {
-          const etag = retryResponse.headers.get('etag');
-          this.cacheResponse(method, endpoint, retryPayload, etag);
-        }
-        return retryPayload as T;
+        const freshContentType = freshResponse.headers.get('content-type') || '';
+        const freshIsJson = freshContentType.includes('application/json');
+        const freshPayload = freshIsJson ? await freshResponse.json() : await freshResponse.text();
+        return freshPayload as T;
       }
 
       // Обработка ответа 204 No Content (нет тела ответа)
@@ -176,12 +167,13 @@ class ApiClient {
         );
       }
 
-      if (method === 'GET' && isJson) {
-        const etag = response.headers.get('etag');
-        this.cacheResponse(method, endpoint, payload, etag);
-      } else if (method !== 'GET') {
-        this.invalidateCache(endpoint);
-      }
+      // Временно отключаем кэширование
+      // if (method === 'GET' && isJson) {
+      //   const etag = response.headers.get('etag');
+      //   this.cacheResponse(method, endpoint, payload, etag);
+      // } else if (method !== 'GET') {
+      //   this.invalidateCache(endpoint);
+      // }
 
       return payload as T;
     } catch (error) {
