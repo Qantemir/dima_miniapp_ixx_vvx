@@ -12,6 +12,21 @@ from .config import get_settings
 logger = logging.getLogger(__name__)
 
 
+def format_amount(amount: float) -> str:
+    """
+    Форматирует сумму, убирая .00 для целых чисел.
+    
+    Args:
+        amount: Сумма для форматирования
+        
+    Returns:
+        Отформатированная строка суммы
+    """
+    if amount == int(amount):
+        return str(int(amount))
+    return f"{amount:.2f}".rstrip('0').rstrip('.')
+
+
 async def notify_admins_new_order(
     order_id: str,
     customer_name: str,
@@ -49,7 +64,7 @@ async def notify_admins_new_order(
         f"📋 Заказ: `{order_id[-6:]}`\n"
         f"👤 Клиент: {customer_name}\n"
         f"📞 Телефон: {customer_phone}\n"
-        f"💰 Сумма: {total_amount:.2f} ₸\n"
+        f"💰 Сумма: {format_amount(total_amount)} ₸\n"
         f"📦 Товаров: {items_count}"
     )
     

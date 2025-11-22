@@ -34,40 +34,68 @@ async def handle_bot_webhook(
         
         # Проверяем, что это callback query
         if "callback_query" not in data:
-            logger.debug("No callback_query in data")
+            logger.debug("No callback_query in data, returning ok")
             return {"ok": True}
         
         callback_query = data["callback_query"]
+        callback_query_id = callback_query.get("id")
         callback_data = callback_query.get("data", "")
         user_id = callback_query.get("from", {}).get("id")
         message = callback_query.get("message", {})
         message_id = message.get("message_id")
         chat_id = message.get("chat", {}).get("id")
         
-        logger.info(f"Callback received: user_id={user_id}, callback_data={callback_data}")
+        logger.info(f"Callback received: callback_query_id={callback_query_id}, user_id={user_id}, callback_data={callback_data}, chat_id={chat_id}, message_id={message_id}")
+        
+        if not callback_query_id:
+            logger.error("No callback_query_id in callback_query")
+            return {"ok": True}
         
         if not user_id:
             logger.warning("No user_id in callback_query")
+            await _answer_callback_query(
+                callback_query_id,
+                "Ошибка: не удалось определить пользователя",
+                show_alert=True
+            )
+            return {"ok": True}
+        
+        if not callback_data:
+            logger.warning(f"No callback_data in callback_query for user_id={user_id}")
+            await _answer_callback_query(
+                callback_query_id,
+                "Ошибка: данные кнопки не найдены",
+                show_alert=True
+            )
             return {"ok": True}
         
         # Проверяем, что пользователь - администратор
         settings = get_settings()
-        if user_id not in settings.admin_ids:
+        admin_ids_set = set(settings.admin_ids) if settings.admin_ids else set()
+        logger.info(f"Checking admin access: user_id={user_id}, admin_ids={admin_ids_set}")
+        
+        if user_id not in admin_ids_set:
+            logger.warning(f"User {user_id} is not in admin_ids {admin_ids_set}")
             # Отвечаем на callback, но не обрабатываем
             await _answer_callback_query(
-                callback_query.get("id"),
+                callback_query_id,
                 "У вас нет прав для выполнения этого действия",
                 show_alert=True
             )
             return {"ok": True}
         
+        logger.info(f"User {user_id} is admin, processing callback_data={callback_data}")
+        
         # Обрабатываем callback для изменения статуса заказа (новый формат)
         if callback_data.startswith("status|"):
             # Формат: status|{order_id}|{status}
             parts = callback_data.split("|")
+            logger.info(f"Parsing callback_data: parts={parts}, len={len(parts)}")
+            
             if len(parts) != 3:
+                logger.error(f"Invalid callback_data format: {callback_data}, parts={parts}")
                 await _answer_callback_query(
-                    callback_query.get("id"),
+                    callback_query_id,
                     "Некорректный формат команды",
                     show_alert=True
                 )
@@ -75,6 +103,7 @@ async def handle_bot_webhook(
             
             order_id = parts[1]
             new_status_value = parts[2]
+            logger.info(f"Parsed: order_id={order_id}, new_status={new_status_value}")
             
             # Получаем заказ
             doc = await db.orders.find_one({"_id": as_object_id(order_id)})
@@ -96,17 +125,21 @@ async def handle_bot_webhook(
             }
             
             if new_status_value not in valid_statuses:
+                logger.error(f"Invalid status: {new_status_value}, valid_statuses={valid_statuses}")
                 await _answer_callback_query(
-                    callback_query.get("id"),
-                    "Некорректный статус",
+                    callback_query_id,
+                    f"Некорректный статус: {new_status_value}",
                     show_alert=True
                 )
                 return {"ok": True}
             
             current_status = doc.get("status")
+            logger.info(f"Current status: {current_status}, new status: {new_status_value}")
+            
             if current_status == new_status_value:
+                logger.info(f"Status already set to {new_status_value}")
                 await _answer_callback_query(
-                    callback_query.get("id"),
+                    callback_query_id,
                     f"Заказ уже имеет статус: {new_status_value}",
                     show_alert=False
                 )
@@ -134,17 +167,27 @@ async def handle_bot_webhook(
             can_edit_address = new_status_value in editable_statuses
             
             # Обновляем статус
-            updated = await db.orders.find_one_and_update(
-                {"_id": as_object_id(order_id)},
-                {
-                    "$set": {
-                        "status": new_status_value,
-                        "updated_at": datetime.utcnow(),
-                        "can_edit_address": can_edit_address,
-                    }
-                },
-                return_document=True,
-            )
+            try:
+                updated = await db.orders.find_one_and_update(
+                    {"_id": order_object_id},
+                    {
+                        "$set": {
+                            "status": new_status_value,
+                            "updated_at": datetime.utcnow(),
+                            "can_edit_address": can_edit_address,
+                        }
+                    },
+                    return_document=True,
+                )
+                logger.info(f"Update result: updated={updated is not None}")
+            except Exception as e:
+                logger.error(f"Error updating order: {e}")
+                await _answer_callback_query(
+                    callback_query_id,
+                    f"Ошибка при обновлении заказа: {str(e)}",
+                    show_alert=True
+                )
+                return {"ok": True}
             
             if updated:
                 # Формируем сообщение подтверждения
@@ -158,11 +201,12 @@ async def handle_bot_webhook(
                 confirm_message = status_messages.get(new_status_value, f"Статус изменён на: {new_status_value}")
                 
                 # Отвечаем на callback
-                await _answer_callback_query(
-                    callback_query.get("id"),
+                answer_result = await _answer_callback_query(
+                    callback_query_id,
                     confirm_message,
                     show_alert=False
                 )
+                logger.info(f"Answer callback query result: {answer_result}")
                 
                 # Обновляем сообщение, обновляя кнопки (показываем текущий статус)
                 await _edit_message_reply_markup(
@@ -349,15 +393,16 @@ async def _answer_callback_query(
     callback_query_id: str,
     text: str,
     show_alert: bool = False
-):
+) -> bool:
     """Отвечает на callback query от Telegram."""
     settings = get_settings()
     if not settings.telegram_bot_token:
-        return
+        logger.error("TELEGRAM_BOT_TOKEN not set, cannot answer callback query")
+        return False
     
     try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            await client.post(
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.post(
                 f"https://api.telegram.org/bot{settings.telegram_bot_token}/answerCallbackQuery",
                 json={
                     "callback_query_id": callback_query_id,
@@ -365,8 +410,16 @@ async def _answer_callback_query(
                     "show_alert": show_alert,
                 }
             )
+            result = response.json()
+            if result.get("ok"):
+                logger.info(f"Successfully answered callback query {callback_query_id}: {text}")
+                return True
+            else:
+                logger.error(f"Failed to answer callback query: {result.get('description', 'Unknown error')}")
+                return False
     except Exception as e:
-        logger.error(f"Ошибка при ответе на callback query: {e}")
+        logger.error(f"Ошибка при ответе на callback query {callback_query_id}: {e}")
+        return False
 
 
 async def _edit_message_reply_markup(
