@@ -231,10 +231,15 @@ export const applyTelegramTheme = (themeParams: TelegramThemeParams) => {
 const DEV_USER_STORAGE_KEY = 'miniapp_dev_user_id';
 
 const getDevFallbackUserId = (): number | null => {
+  // Сначала проверяем VITE_DEV_USER_ID из env
   const envValue = import.meta.env.VITE_DEV_USER_ID;
   if (envValue) {
     const parsed = Number(envValue);
     if (!Number.isNaN(parsed)) {
+      // Сохраняем в localStorage для консистентности
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(DEV_USER_STORAGE_KEY, parsed.toString());
+      }
       return parsed;
     }
   }
@@ -243,6 +248,7 @@ const getDevFallbackUserId = (): number | null => {
     return null;
   }
 
+  // Проверяем сохраненный ID в localStorage
   const stored = window.localStorage.getItem(DEV_USER_STORAGE_KEY);
   if (stored) {
     const parsed = Number(stored);
@@ -251,6 +257,20 @@ const getDevFallbackUserId = (): number | null => {
     }
   }
 
+  // Если VITE_DEV_USER_ID не установлен, используем значение по умолчанию из VITE_ADMIN_IDS (первый ID)
+  const adminIds = import.meta.env.VITE_ADMIN_IDS;
+  if (adminIds) {
+    const firstAdminId = adminIds.split(',')[0]?.trim();
+    if (firstAdminId) {
+      const parsed = Number(firstAdminId);
+      if (!Number.isNaN(parsed)) {
+        window.localStorage.setItem(DEV_USER_STORAGE_KEY, parsed.toString());
+        return parsed;
+      }
+    }
+  }
+
+  // В последнюю очередь генерируем случайный ID
   const generated = Math.floor(Math.random() * 1_000_000) + 1;
   window.localStorage.setItem(DEV_USER_STORAGE_KEY, generated.toString());
   return generated;
@@ -387,5 +407,8 @@ export const closeMiniApp = () => {
 export const getRequestAuthHeaders = (): Record<string, string> => {
   // Всегда отправляем dev user ID - подпись Telegram не требуется
   const devUserId = getDevFallbackUserId();
-  return { 'X-Dev-User-Id': (devUserId || 1).toString() };
+  // Если есть VITE_DEV_USER_ID, используем его, иначе fallback
+  const envDevUserId = import.meta.env.VITE_DEV_USER_ID;
+  const userIdToSend = envDevUserId ? Number(envDevUserId) : (devUserId || 1);
+  return { 'X-Dev-User-Id': userIdToSend.toString() };
 };
