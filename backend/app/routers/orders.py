@@ -23,6 +23,7 @@ from ..schemas import (
 )
 from ..utils import as_object_id, serialize_doc
 from ..security import TelegramUser, get_current_user
+from ..notifications import notify_admins_new_order
 
 router = APIRouter(tags=["orders"])
 
@@ -146,7 +147,24 @@ async def create_order(
 
   await db.carts.delete_one({"_id": as_object_id(cart.id)})
   doc = await db.orders.find_one({"_id": result.inserted_id})
-  return Order(**serialize_doc(doc) | {"id": str(doc["_id"])})
+  order = Order(**serialize_doc(doc) | {"id": str(doc["_id"])})
+  
+  # Отправляем уведомление администраторам о новом заказе
+  try:
+    await notify_admins_new_order(
+      order_id=order.id,
+      customer_name=name,
+      customer_phone=phone,
+      total_amount=cart.total_amount,
+      items_count=len(cart.items),
+    )
+  except Exception as e:
+    # Логируем ошибку, но не прерываем создание заказа
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.error(f"Ошибка при отправке уведомления о новом заказе {order.id}: {e}")
+  
+  return order
 
 
 @router.get("/order/last", response_model=Order | None)

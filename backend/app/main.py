@@ -26,7 +26,8 @@ app.mount("/uploads", StaticFiles(directory=settings.upload_dir), name="uploads"
 @app.middleware("http")
 async def apply_security_headers(request, call_next):
   response = await call_next(request)
-  response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+  # Убрали Permissions-Policy заголовок, чтобы избежать ошибок с browsing-topics
+  # response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
   return response
 
 
