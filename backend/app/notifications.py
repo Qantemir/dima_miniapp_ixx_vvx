@@ -60,13 +60,20 @@ async def notify_admins_new_order(
         logger.warning("ADMIN_IDS не настроен. Уведомления не будут отправлены.")
         return
     
+    # Формируем ссылку на 2ГИС для адреса
+    from urllib.parse import quote
+    address_encoded = quote(delivery_address)
+    # Используем 2gis.com (универсальный домен) или можно использовать 2gis.kz для Казахстана
+    address_2gis_url = f"https://2gis.com/search/{address_encoded}"
+    address_link = f"[{delivery_address}]({address_2gis_url})"
+    
     # Формируем текст сообщения
     message = (
         f"🆕 *Новый заказ!*\n\n"
         f"📋 Заказ: `{order_id[-6:]}`\n"
         f"👤 Клиент: {customer_name}\n"
         f"📞 Телефон: {customer_phone}\n"
-        f"📍 Адрес: {delivery_address}\n"
+        f"📍 Адрес: {address_link}\n"
         f"💰 Сумма: {format_amount(total_amount)} ₸\n"
         f"📦 Товаров: {items_count}"
     )
