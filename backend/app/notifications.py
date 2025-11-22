@@ -2,6 +2,7 @@
 Утилиты для отправки уведомлений администраторам через Telegram Bot API.
 """
 import asyncio
+import json
 import logging
 import httpx
 from pathlib import Path
@@ -48,7 +49,7 @@ async def notify_admins_new_order(
         f"📋 Заказ: `{order_id[-6:]}`\n"
         f"👤 Клиент: {customer_name}\n"
         f"📞 Телефон: {customer_phone}\n"
-        f"💰 Сумма: {total_amount:.2f} ₽\n"
+        f"💰 Сумма: {total_amount:.2f} ₸\n"
         f"📦 Товаров: {items_count}"
     )
     
@@ -72,7 +73,8 @@ async def notify_admins_new_order(
                     settings.telegram_bot_token, 
                     admin_id, 
                     message, 
-                    receipt_path
+                    receipt_path,
+                    order_id
                 )
             )
         
@@ -95,6 +97,7 @@ async def _send_notification_with_receipt(
     admin_id: int,
     message: str,
     receipt_path: Path | None,
+    order_id: str,
 ) -> bool:
     """
     Отправляет уведомление администратору с фото чека.
@@ -128,12 +131,23 @@ async def _send_notification_with_receipt(
             with open(receipt_path, "rb") as f:
                 file_data = f.read()
             
-            # Отправляем файл с подписью
+            # Создаем inline-кнопку для принятия заказа
+            keyboard = {
+                "inline_keyboard": [[
+                    {
+                        "text": "✅ Принять заказ",
+                        "callback_data": f"accept_order_{order_id}"
+                    }
+                ]]
+            }
+            
+            # Отправляем файл с подписью и кнопкой
             files = {file_field: (receipt_path.name, file_data)}
             data = {
                 "chat_id": admin_id,
                 "caption": message,
                 "parse_mode": "Markdown",
+                "reply_markup": json.dumps(keyboard),
             }
             
             response = await client.post(api_url, data=data, files=files)
@@ -150,6 +164,16 @@ async def _send_notification_with_receipt(
         
         # Отправляем текстовое сообщение (если файл не отправился или его нет)
         if not receipt_path or not receipt_path.exists():
+            # Создаем inline-кнопку для принятия заказа
+            keyboard = {
+                "inline_keyboard": [[
+                    {
+                        "text": "✅ Принять заказ",
+                        "callback_data": f"accept_order_{order_id}"
+                    }
+                ]]
+            }
+            
             api_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
             response = await client.post(
                 api_url,
@@ -157,6 +181,7 @@ async def _send_notification_with_receipt(
                     "chat_id": admin_id,
                     "text": message,
                     "parse_mode": "Markdown",
+                    "reply_markup": keyboard,
                 },
             )
             result = response.json()
@@ -171,4 +196,75 @@ async def _send_notification_with_receipt(
     except Exception as e:
         logger.error(f"Ошибка при отправке уведомления администратору {admin_id}: {e}")
         return False
+
+
+async def notify_customer_order_status(
+    user_id: int,
+    order_id: str,
+    order_status: str,
+    customer_name: str | None = None,
+) -> None:
+    """
+    Отправляет уведомление клиенту об изменении статуса заказа.
+    
+    Args:
+        user_id: Telegram ID клиента
+        order_id: ID заказа
+        order_status: Новый статус заказа
+        customer_name: Имя клиента (опционально, для персонализации)
+    """
+    settings = get_settings()
+    
+    # Проверяем наличие токена бота
+    if not settings.telegram_bot_token:
+        logger.warning("TELEGRAM_BOT_TOKEN не настроен. Уведомления клиентам не будут отправлены.")
+        return
+    
+    # Формируем сообщение в зависимости от статуса
+    status_messages = {
+        "принят": "✅ Ваш заказ принят в обработку!",
+        "в обработке": "🔄 Ваш заказ обрабатывается...",
+        "выехал": "🚚 Ваш заказ выехал! Скоро будет доставлен.",
+        "завершён": "🎉 Ваш заказ завершён! Спасибо за покупку!",
+        "отменён": "❌ Ваш заказ отменён.",
+    }
+    
+    # Получаем сообщение для статуса
+    status_message = status_messages.get(order_status, f"Статус вашего заказа изменён: {order_status}")
+    
+    # Формируем полное сообщение
+    message = (
+        f"{status_message}\n\n"
+        f"📋 Заказ: `{order_id[-6:]}`\n"
+        f"📊 Статус: *{order_status}*"
+    )
+    
+    # Отправляем уведомление клиенту
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            api_url = f"https://api.telegram.org/bot{settings.telegram_bot_token}/sendMessage"
+            response = await client.post(
+                api_url,
+                json={
+                    "chat_id": user_id,
+                    "text": message,
+                    "parse_mode": "Markdown",
+                },
+            )
+            result = response.json()
+            
+            if result.get("ok"):
+                logger.info(f"Уведомление о статусе заказа {order_id} отправлено клиенту {user_id}")
+            else:
+                error_description = result.get("description", "Unknown error")
+                # Не логируем как ошибку, если пользователь заблокировал бота
+                if "blocked" in error_description.lower() or "chat not found" in error_description.lower():
+                    logger.debug(f"Клиент {user_id} заблокировал бота или чат не найден")
+                else:
+                    logger.warning(
+                        f"Не удалось отправить уведомление клиенту {user_id} о заказе {order_id}: "
+                        f"{error_description}"
+                    )
+    except Exception as e:
+        logger.error(f"Ошибка при отправке уведомления клиенту {user_id} о заказе {order_id}: {e}")
 

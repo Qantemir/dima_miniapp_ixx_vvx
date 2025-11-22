@@ -12,6 +12,7 @@ from ..schemas import BroadcastRequest, BroadcastResponse, Order, OrderStatus, U
 from ..utils import as_object_id, serialize_doc, restore_variant_quantity
 from ..config import get_settings
 from ..auth import verify_admin
+from ..notifications import notify_customer_order_status
 
 router = APIRouter(tags=["admin"])
 
@@ -98,7 +99,80 @@ async def update_order_status(
   )
   if not doc:
     raise HTTPException(status_code=404, detail="Заказ не найден")
+  
+  # Отправляем уведомление клиенту об изменении статуса
+  user_id = doc.get("user_id")
+  if user_id and old_status != new_status:
+    try:
+      await notify_customer_order_status(
+        user_id=user_id,
+        order_id=order_id,
+        order_status=new_status,
+        customer_name=doc.get("customer_name"),
+      )
+    except Exception as e:
+      import logging
+      logger = logging.getLogger(__name__)
+      logger.error(f"Ошибка при отправке уведомления клиенту о статусе заказа {order_id}: {e}")
+  
   return Order(**serialize_doc(doc) | {"id": str(doc["_id"])})
+
+
+@router.post("/admin/order/{order_id}/quick-accept", response_model=Order)
+async def quick_accept_order(
+  order_id: str,
+  db: AsyncIOMotorDatabase = Depends(get_db),
+  _admin_id: int = Depends(verify_admin),
+):
+  """
+  Быстрое принятие заказа (перевод в статус "принят").
+  Используется для обработки callback от кнопки в Telegram уведомлении.
+  """
+  # Получаем заказ
+  doc = await db.orders.find_one({"_id": as_object_id(order_id)})
+  if not doc:
+    raise HTTPException(status_code=404, detail="Заказ не найден")
+  
+  # Проверяем, что заказ еще новый
+  if doc.get("status") != OrderStatus.NEW.value:
+    raise HTTPException(
+      status_code=400, 
+      detail=f"Заказ уже обработан. Текущий статус: {doc.get('status')}"
+    )
+  
+  # Обновляем статус на "принят"
+  old_status = doc.get("status")
+  updated = await db.orders.find_one_and_update(
+    {"_id": as_object_id(order_id)},
+    {
+      "$set": {
+        "status": OrderStatus.ACCEPTED.value,
+        "updated_at": datetime.utcnow(),
+        "can_edit_address": False,
+      }
+    },
+    return_document=True,
+  )
+  
+  if not updated:
+    raise HTTPException(status_code=404, detail="Заказ не найден")
+  
+  # Отправляем уведомление клиенту об изменении статуса
+  user_id = updated.get("user_id")
+  if user_id and old_status != OrderStatus.ACCEPTED.value:
+    try:
+      await notify_customer_order_status(
+        user_id=user_id,
+        order_id=order_id,
+        order_status=OrderStatus.ACCEPTED.value,
+        customer_name=updated.get("customer_name"),
+      )
+    except Exception as e:
+      import logging
+      logger = logging.getLogger(__name__)
+      logger.error(f"Ошибка при отправке уведомления клиенту о статусе заказа {order_id}: {e}")
+  
+  return Order(**serialize_doc(updated) | {"id": str(updated["_id"])})
 
 
 @router.post("/admin/broadcast", response_model=BroadcastResponse)

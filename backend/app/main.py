@@ -5,7 +5,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import settings
 from .database import close_mongo_connection, connect_to_mongo
-from .routers import admin, cart, catalog, orders, store
+from .routers import admin, bot_webhook, cart, catalog, orders, store
 
 app = FastAPI(title="Mini Shop Telegram Backend", version="1.0.0")
 
@@ -47,6 +47,7 @@ app.include_router(cart.router, prefix=settings.api_prefix)
 app.include_router(orders.router, prefix=settings.api_prefix)
 app.include_router(admin.router, prefix=settings.api_prefix)
 app.include_router(store.router, prefix=settings.api_prefix)
+app.include_router(bot_webhook.router, prefix=settings.api_prefix)
 
 
 @app.get("/")
