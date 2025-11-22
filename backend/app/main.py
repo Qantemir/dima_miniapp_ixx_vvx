@@ -38,13 +38,23 @@ async def startup():
   
   # Настраиваем webhook для Telegram Bot API (если указан публичный URL)
   import logging
+  import os
   logger = logging.getLogger(__name__)
+  
+  # Проверяем, был ли PUBLIC_URL определен автоматически
+  if settings.public_url:
+    # Проверяем, был ли он установлен явно через переменную окружения
+    explicit_public_url = os.getenv("PUBLIC_URL")
+    if explicit_public_url:
+      logger.info(f"PUBLIC_URL установлен явно: {settings.public_url}")
+    else:
+      logger.info(f"PUBLIC_URL определен автоматически из переменных окружения хостинга: {settings.public_url}")
   
   if settings.telegram_bot_token and settings.public_url:
     try:
       import httpx
       webhook_url = f"{settings.public_url.rstrip('/')}{settings.api_prefix}/bot/webhook"
-      logger.info(f"Настраиваем webhook: {webhook_url}")
+      logger.info(f"Настраиваем webhook: {webhook_url} (PUBLIC_URL: {settings.public_url})")
       
       async with httpx.AsyncClient(timeout=15.0) as client:
         # Сначала удаляем старый webhook (если есть)
@@ -84,7 +94,8 @@ async def startup():
       logger.error(f"Ошибка при настройке webhook: {e}", exc_info=True)
   elif settings.telegram_bot_token and not settings.public_url:
     logger.warning("⚠️ TELEGRAM_BOT_TOKEN настроен, но PUBLIC_URL не указан. Webhook не будет настроен автоматически.")
-    logger.warning("Добавьте PUBLIC_URL в .env или используйте /api/bot/webhook/setup для ручной настройки")
+    logger.warning("Добавьте PUBLIC_URL в .env или используйте POST /api/bot/webhook/setup с параметром 'url' для ручной настройки")
+    logger.info("Проверьте переменные окружения: RAILWAY_PUBLIC_DOMAIN, RENDER_EXTERNAL_URL, FLY_APP_NAME, VERCEL_URL и др.")
   elif not settings.telegram_bot_token:
     logger.warning("⚠️ TELEGRAM_BOT_TOKEN не настроен. Webhook не будет работать.")
 

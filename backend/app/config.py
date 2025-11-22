@@ -1,6 +1,7 @@
 from functools import lru_cache
 from pathlib import Path
 from typing import List
+import os
 
 from pydantic import BaseSettings, Field, validator
 
@@ -27,6 +28,46 @@ class Settings(BaseSettings):
   broadcast_concurrency: int = Field(10, env="BROADCAST_CONCURRENCY")
   environment: str = Field("development", env="ENVIRONMENT")
   public_url: str | None = Field(None, env="PUBLIC_URL")  # Публичный URL для webhook (например, https://your-domain.com)
+
+  @validator("public_url", pre=True)
+  def auto_detect_public_url(cls, value):
+    """Автоматически определяет PUBLIC_URL из переменных окружения хостинга, если не указан явно."""
+    if value:
+      return value
+    
+    # Пытаемся определить из переменных окружения различных хостингов
+    # Railway
+    railway_domain = os.getenv("RAILWAY_PUBLIC_DOMAIN") or os.getenv("RAILWAY_STATIC_URL")
+    if railway_domain:
+      # Railway может предоставить домен без протокола
+      if railway_domain.startswith("http"):
+        return railway_domain
+      return f"https://{railway_domain}"
+    
+    # Render
+    render_url = os.getenv("RENDER_EXTERNAL_URL")
+    if render_url:
+      return render_url
+    
+    # Fly.io
+    fly_app = os.getenv("FLY_APP_NAME")
+    if fly_app:
+      return f"https://{fly_app}.fly.dev"
+    
+    # Heroku (нужно использовать кастомную переменную или определить из Request)
+    # Для Heroku лучше указать PUBLIC_URL явно
+    
+    # Vercel
+    vercel_url = os.getenv("VERCEL_URL")
+    if vercel_url:
+      return f"https://{vercel_url}"
+    
+    # Общая переменная для многих платформ
+    service_url = os.getenv("SERVICE_URL") or os.getenv("APP_URL")
+    if service_url:
+      return service_url
+    
+    return None
 
   @validator("admin_ids", pre=True)
   def split_admin_ids(cls, value):

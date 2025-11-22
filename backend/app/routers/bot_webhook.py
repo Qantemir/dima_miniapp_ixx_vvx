@@ -61,9 +61,11 @@ async def get_webhook_status():
 
 
 @router.post("/bot/webhook/setup")
-async def setup_webhook():
+async def setup_webhook(request: Request):
     """
     Настраивает webhook для Telegram Bot API.
+    Может принимать опциональный параметр 'url' в теле запроса.
+    Если 'url' не указан, используется PUBLIC_URL из настроек.
     """
     settings = get_settings()
     if not settings.telegram_bot_token:
@@ -72,18 +74,33 @@ async def setup_webhook():
             detail="TELEGRAM_BOT_TOKEN не настроен"
         )
     
-    if not settings.public_url:
+    # Пытаемся получить URL из тела запроса
+    base_url = None
+    try:
+        body = await request.json()
+        base_url = body.get("url") if isinstance(body, dict) else None
+    except:
+        pass
+    
+    # Если URL не передан в запросе, используем из настроек
+    if not base_url:
+        base_url = settings.public_url
+    
+    if not base_url:
         raise HTTPException(
             status_code=400,
-            detail="PUBLIC_URL не настроен. Укажите публичный URL сервера в .env"
+            detail="PUBLIC_URL не настроен. Укажите публичный URL сервера в .env или передайте 'url' в теле запроса"
         )
     
     try:
-        webhook_url = f"{settings.public_url.rstrip('/')}{settings.api_prefix}/bot/webhook"
+        webhook_url = f"{base_url.rstrip('/')}{settings.api_prefix}/bot/webhook"
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.post(
                 f"https://api.telegram.org/bot{settings.telegram_bot_token}/setWebhook",
-                json={"url": webhook_url}
+                json={
+                    "url": webhook_url,
+                    "allowed_updates": ["callback_query"]  # Только callback queries
+                }
             )
             result = response.json()
             if result.get("ok"):
@@ -273,7 +290,7 @@ async def handle_bot_webhook(
             # Обновляем статус
             try:
                 updated = await db.orders.find_one_and_update(
-                    {"_id": order_object_id},
+                    {"_id": as_object_id(order_id)},
                     {
                         "$set": {
                             "status": new_status_value,
