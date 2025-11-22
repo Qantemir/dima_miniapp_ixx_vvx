@@ -33,7 +33,23 @@ class Settings(BaseSettings):
       return []
     if isinstance(value, list):
       return [int(v) for v in value]
-    return [int(v.strip()) for v in str(value).split(",") if v.strip()]
+    # Обрабатываем строку - убираем пробелы и разбиваем по запятой
+    str_value = str(value).strip()
+    if not str_value:
+      return []
+    # Разбиваем по запятой и обрабатываем каждый элемент
+    ids = []
+    for v in str_value.split(","):
+      v = v.strip()
+      if v:
+        try:
+          ids.append(int(v))
+        except ValueError:
+          # Логируем, но не падаем - просто пропускаем некорректное значение
+          import logging
+          logger = logging.getLogger(__name__)
+          logger.warning(f"Некорректное значение в ADMIN_IDS: '{v}', пропускаем")
+    return ids
 
   @validator("upload_dir", pre=True)
   def ensure_upload_dir(cls, value):

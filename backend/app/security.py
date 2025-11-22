@@ -137,15 +137,25 @@ async def get_current_user(
   Returns a user without signature validation - simplified for development.
   Always returns user with ID 1 or from X-Dev-User-Id header if provided.
   """
+  import logging
+  logger = logging.getLogger(__name__)
+  
   # Просто возвращаем пользователя без всяких проверок
   # Если есть заголовок X-Dev-User-Id, используем его, иначе дефолтный ID
   user_id = 1
   if dev_user_id:
     try:
-      user_id = int(dev_user_id)
-    except (ValueError, TypeError):
+      # Убираем пробелы и пытаемся распарсить
+      dev_user_id_clean = str(dev_user_id).strip()
+      user_id = int(dev_user_id_clean)
+      logger.info(f"Использован user_id из заголовка X-Dev-User-Id: {user_id} (исходное значение: '{dev_user_id}')")
+    except (ValueError, TypeError) as e:
       user_id = settings.default_dev_user_id or 1
+      logger.warning(f"Не удалось распарсить X-Dev-User-Id='{dev_user_id}' (ошибка: {e}), используется default_dev_user_id={user_id}")
   else:
     user_id = settings.default_dev_user_id or 1
+    logger.info(f"Заголовок X-Dev-User-Id отсутствует, используется default_dev_user_id={user_id}")
+  
+  logger.info(f"get_current_user вернул user_id={user_id} (тип: {type(user_id).__name__})")
   return TelegramUser(id=user_id)
 
