@@ -21,9 +21,11 @@ export function StoreStatusProvider({ children }: { children: ReactNode }) {
     }
 
     const buildStreamUrl = () => {
-      const base = API_BASE_URL.endsWith('/')
+      // Убираем /app из пути если есть
+      let base = API_BASE_URL.endsWith('/')
         ? API_BASE_URL.slice(0, -1)
         : API_BASE_URL;
+      base = base.replace(/\/app\/api/, '/api');
       const path = `${base}/store/status/stream`;
       if (path.startsWith('http://') || path.startsWith('https://')) {
         return path;

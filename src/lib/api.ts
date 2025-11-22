@@ -78,7 +78,16 @@ class ApiClient {
     endpoint: string,
     options?: RequestInit
   ): Promise<T> {
-    const url = `${this.baseUrl}${endpoint}`;
+    // Формируем абсолютный URL, чтобы избежать проблем с базовым путем /app
+    let url: string;
+    if (this.baseUrl.startsWith('http://') || this.baseUrl.startsWith('https://')) {
+      // Абсолютный URL - используем как есть, убираем /app если есть
+      const base = this.baseUrl.replace(/\/app\/api/, '/api');
+      url = `${base}${endpoint}`;
+    } else {
+      // Относительный URL - используем как есть (для локальной разработки)
+      url = `${this.baseUrl}${endpoint}`;
+    }
     const method = (options?.method || 'GET').toUpperCase();
     
     let timeoutId: NodeJS.Timeout | null = null;

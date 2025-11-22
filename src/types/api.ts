@@ -159,6 +159,13 @@ let apiBaseUrl = rawApiUrl.startsWith('http://') || rawApiUrl.startsWith('https:
   ? rawApiUrl
   : `https://${rawApiUrl}`;
 
+// Убираем возможный /app из пути (если фронтенд развернут в подпапке)
+// Убираем /app из начала, середины и конца URL
+apiBaseUrl = apiBaseUrl
+  .replace(/^https?:\/\/[^\/]+\/app\/api/, (match) => match.replace('/app/api', '/api'))
+  .replace(/\/app\/api/, '/api')
+  .replace(/\/app$/, '');
+
 // Убеждаемся, что URL заканчивается на /api
 if (!apiBaseUrl.endsWith('/api')) {
   apiBaseUrl = apiBaseUrl.replace(/\/$/, '') + '/api';
