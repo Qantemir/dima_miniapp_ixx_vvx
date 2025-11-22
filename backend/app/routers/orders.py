@@ -3,6 +3,7 @@ from pathlib import Path
 from uuid import uuid4
 from gridfs import GridFS
 from bson import ObjectId
+import asyncio
 
 from fastapi import (
   APIRouter,
@@ -115,13 +116,23 @@ async def create_order(
   if not cart:
     raise HTTPException(status_code=400, detail="Корзина пуста")
 
-  # Товары уже списаны при добавлении в корзину, только проверяем наличие
-  # (на случай, если количество изменилось на складе)
-  for cart_item in cart.items:
-    if cart_item.variant_id:
-      try:
-        product_oid = as_object_id(cart_item.product_id)
-        product = await db.products.find_one({"_id": product_oid})
+  # Товары уже списаны при добавлении в корзину
+  # Быстрая проверка доступности только для товаров с variant_id (параллельно)
+  if cart.items:
+    check_tasks = []
+    product_ids = []
+    for cart_item in cart.items:
+      if cart_item.variant_id:
+        try:
+          product_oid = as_object_id(cart_item.product_id)
+          product_ids.append((product_oid, cart_item))
+          check_tasks.append(db.products.find_one({"_id": product_oid}, {"variants": 1}))
+        except ValueError:
+          pass
+    
+    if check_tasks:
+      products = await asyncio.gather(*check_tasks)
+      for product, (_, cart_item) in zip(products, product_ids):
         if product:
           variants = product.get("variants", [])
           variant = next((v for v in variants if v.get("id") == cart_item.variant_id), None)
@@ -133,8 +144,6 @@ async def create_order(
                 status_code=400,
                 detail=f"Товар '{cart_item.product_name}' ({variant.get('name', '')}) больше не доступен"
               )
-      except ValueError:
-        pass  # Игнорируем ошибки парсинга ObjectId
 
   receipt_file_id, original_filename = await _save_payment_receipt(db, payment_receipt)
 

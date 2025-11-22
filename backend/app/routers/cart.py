@@ -59,7 +59,7 @@ async def cleanup_expired_cart(db: AsyncIOMotorDatabase, cart: dict):
   return False
 
 
-async def get_cart_document(db: AsyncIOMotorDatabase, user_id: int):
+async def get_cart_document(db: AsyncIOMotorDatabase, user_id: int, check_expiry: bool = True):
   cart = await db.carts.find_one({"user_id": user_id})
   if not cart:
     cart = {
@@ -71,11 +71,20 @@ async def get_cart_document(db: AsyncIOMotorDatabase, user_id: int):
     }
     result = await db.carts.insert_one(cart)
     cart["_id"] = result.inserted_id
-  else:
-    # Проверяем, не истекла ли корзина
-    was_expired = await cleanup_expired_cart(db, cart)
-    if was_expired:
-      # Создаем новую корзину
+  elif check_expiry:
+    # Быстрая проверка истечения без возврата товаров (делаем в фоне)
+    updated_at = cart.get("updated_at") or cart.get("created_at", datetime.utcnow())
+    if isinstance(updated_at, str):
+      try:
+        updated_at = datetime.fromisoformat(updated_at.replace('Z', '+00:00'))
+      except:
+        updated_at = datetime.utcnow()
+    
+    expiry_time = updated_at + timedelta(minutes=CART_EXPIRY_MINUTES)
+    if datetime.utcnow() > expiry_time:
+      # Очищаем корзину в фоне, не блокируя ответ
+      asyncio.create_task(cleanup_expired_cart(db, cart))
+      # Создаем новую корзину сразу
       cart = {
         "user_id": user_id,
         "items": [],
@@ -98,9 +107,9 @@ async def get_cart(
   current_user: TelegramUser = Depends(get_current_user),
   db: AsyncIOMotorDatabase = Depends(get_db),
 ):
-  # Упрощенная логика: get_cart_document сам обрабатывает все случаи
+  # Быстрое получение корзины без блокирующей проверки истечения
   user_id = current_user.id
-  cart = await get_cart_document(db, user_id)
+  cart = await get_cart_document(db, user_id, check_expiry=True)
   return Cart(**serialize_doc(cart) | {"id": str(cart["_id"])})
 
 
@@ -117,8 +126,9 @@ async def add_to_cart(
     raise HTTPException(status_code=400, detail="Некорректный идентификатор товара")
 
   # Получаем товар и корзину параллельно для оптимизации
+  # Для добавления в корзину не нужно проверять истечение (это делается при GET)
   product_task = db.products.find_one({"_id": product_oid})
-  cart_task = get_cart_document(db, user_id)
+  cart_task = get_cart_document(db, user_id, check_expiry=False)
   
   product, cart = await asyncio.gather(product_task, cart_task)
   
@@ -158,10 +168,9 @@ async def add_to_cart(
   )
   
   already_in_cart = existing["quantity"] if existing else 0
-  total_needed = already_in_cart + payload.quantity
-  
-  # Проверяем доступность с учетом уже добавленного
-  if variant_quantity < total_needed:
+  # Проверка количества будет выполнена в decrement_variant_quantity
+  # Но делаем быструю проверку для лучших сообщений об ошибках
+  if variant_quantity < payload.quantity:
     can_add = max(0, variant_quantity - already_in_cart)
     if can_add == 0:
       raise HTTPException(
@@ -173,26 +182,30 @@ async def add_to_cart(
         status_code=400,
         detail=f"Недостаточно товара. Доступно для добавления: {can_add}, уже в корзине: {already_in_cart}"
       )
-
-  # Списываем товар со склада ПЕРЕД обновлением корзины
-  success = await decrement_variant_quantity(
-    db,
-    payload.product_id,
-    payload.variant_id,
-    payload.quantity
-  )
-  if not success:
-    raise HTTPException(
-      status_code=400,
-      detail=f"Недостаточно товара. В наличии: {variant_quantity}"
-    )
-
-  # Используем атомарные операции MongoDB для обновления корзины
+  
+  # Используем атомарные операции MongoDB для обновления корзины и списания товара
   now = datetime.utcnow()
   
+  # Вычисляем изменение total_amount заранее
+  price_delta = variant_price * payload.quantity
+  
   if existing:
-    # Обновляем существующий товар атомарно
-    updated_cart = await db.carts.find_one_and_update(
+    # Обновляем существующий товар атомарно и списываем товар со склада одновременно
+    # Сначала списываем товар
+    success = await decrement_variant_quantity(
+      db,
+      payload.product_id,
+      payload.variant_id,
+      payload.quantity
+    )
+    if not success:
+      raise HTTPException(
+        status_code=400,
+        detail=f"Недостаточно товара. В наличии: {variant_quantity}"
+      )
+    
+    # Обновляем корзину с пересчетом total_amount в одном запросе
+    final_cart = await db.carts.find_one_and_update(
       {
         "_id": cart["_id"],
         "items": {
@@ -203,7 +216,10 @@ async def add_to_cart(
         }
       },
       {
-        "$inc": {"items.$.quantity": payload.quantity},
+        "$inc": {
+          "items.$.quantity": payload.quantity,
+          "total_amount": price_delta
+        },
         "$set": {"updated_at": now}
       },
       return_document=True
@@ -221,31 +237,33 @@ async def add_to_cart(
       "image": variant.get("image") if variant else product.get("image"),
     }
     
-    updated_cart = await db.carts.find_one_and_update(
+    # Сначала списываем товар
+    success = await decrement_variant_quantity(
+      db,
+      payload.product_id,
+      payload.variant_id,
+      payload.quantity
+    )
+    if not success:
+      raise HTTPException(
+        status_code=400,
+        detail=f"Недостаточно товара. В наличии: {variant_quantity}"
+      )
+    
+    # Обновляем корзину с пересчетом total_amount в одном запросе
+    final_cart = await db.carts.find_one_and_update(
       {"_id": cart["_id"]},
       {
         "$push": {"items": new_item},
+        "$inc": {"total_amount": price_delta},
         "$set": {"updated_at": now}
       },
       return_document=True
     )
   
-  if not updated_cart:
+  if not final_cart:
     # Если обновление не удалось, возвращаем товар на склад
     await restore_variant_quantity(db, payload.product_id, payload.variant_id, payload.quantity)
-    raise HTTPException(status_code=500, detail="Ошибка при обновлении корзины")
-  
-  # Пересчитываем итоговую сумму на основе обновленной корзины
-  updated_cart = recalculate_total(updated_cart)
-  
-  # Обновляем total_amount атомарно в одном запросе
-  final_cart = await db.carts.find_one_and_update(
-    {"_id": updated_cart["_id"]},
-    {"$set": {"total_amount": updated_cart["total_amount"]}},
-    return_document=True
-  )
-  
-  if not final_cart:
     raise HTTPException(status_code=500, detail="Ошибка при обновлении корзины")
   
   # Обновление клиента делаем асинхронно в фоне (не блокируем ответ)
@@ -271,7 +289,7 @@ async def update_cart_item(
   db: AsyncIOMotorDatabase = Depends(get_db),
   current_user: TelegramUser = Depends(get_current_user),
 ):
-  cart = await get_cart_document(db, current_user.id)
+  cart = await get_cart_document(db, current_user.id, check_expiry=False)
   item = next((item for item in cart["items"] if item["id"] == payload.item_id), None)
   if not item:
     raise HTTPException(status_code=404, detail="Товар не найден в корзине")
@@ -332,7 +350,7 @@ async def remove_from_cart(
   db: AsyncIOMotorDatabase = Depends(get_db),
   current_user: TelegramUser = Depends(get_current_user),
 ):
-  cart = await get_cart_document(db, current_user.id)
+  cart = await get_cart_document(db, current_user.id, check_expiry=False)
   item_to_remove = next((item for item in cart["items"] if item["id"] == payload.item_id), None)
   if not item_to_remove:
     raise HTTPException(status_code=404, detail="Товар не найден в корзине")

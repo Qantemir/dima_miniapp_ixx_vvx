@@ -28,13 +28,18 @@ async def list_orders(
     query = {}
     if status_filter:
       query["status"] = status_filter.value
-    cursor = db.orders.find(query).sort("created_at", -1).limit(limit)
+    # Используем to_list для более быстрого получения всех документов
+    docs = await db.orders.find(query).sort("created_at", -1).limit(limit).to_list(length=limit)
     orders = []
-    async for doc in cursor:
-      serialized = serialize_doc(doc)
-      order_data = serialized | {"id": str(doc["_id"])}
-      order = Order(**order_data)
-      orders.append(order)
+    for doc in docs:
+      try:
+        serialized = serialize_doc(doc)
+        order_data = serialized | {"id": str(doc["_id"])}
+        order = Order(**order_data)
+        orders.append(order)
+      except Exception:
+        # Пропускаем проблемные заказы
+        continue
     return orders
   except (ServerSelectionTimeoutError, ConnectionFailure) as e:
     raise HTTPException(
