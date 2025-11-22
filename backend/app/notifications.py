@@ -62,9 +62,12 @@ async def notify_admins_new_order(
     
     # Формируем ссылку на 2ГИС для адреса
     from urllib.parse import quote
-    address_encoded = quote(delivery_address)
+    # Кодируем адрес, кодируя все специальные символы включая "/"
+    # Используем quote с пустым safe для кодирования всех символов
+    address_encoded = quote(delivery_address, safe='')
+    # Используем формат с query параметром для более надежной работы с адресами
     # Используем 2gis.com (универсальный домен) или можно использовать 2gis.kz для Казахстана
-    address_2gis_url = f"https://2gis.com/search/{address_encoded}"
+    address_2gis_url = f"https://2gis.com/search?q={address_encoded}"
     address_link = f"[{delivery_address}]({address_2gis_url})"
     
     # Формируем текст сообщения
