@@ -29,8 +29,12 @@ async def handle_bot_webhook(
     try:
         data = await request.json()
         
+        # Логируем входящий запрос для отладки
+        logger.info(f"Webhook received: {data}")
+        
         # Проверяем, что это callback query
         if "callback_query" not in data:
+            logger.debug("No callback_query in data")
             return {"ok": True}
         
         callback_query = data["callback_query"]
@@ -40,7 +44,10 @@ async def handle_bot_webhook(
         message_id = message.get("message_id")
         chat_id = message.get("chat", {}).get("id")
         
+        logger.info(f"Callback received: user_id={user_id}, callback_data={callback_data}")
+        
         if not user_id:
+            logger.warning("No user_id in callback_query")
             return {"ok": True}
         
         # Проверяем, что пользователь - администратор
@@ -55,10 +62,10 @@ async def handle_bot_webhook(
             return {"ok": True}
         
         # Обрабатываем callback для изменения статуса заказа (новый формат)
-        if callback_data.startswith("status_order_"):
-            # Формат: status_order_{order_id}_{status}
-            parts = callback_data.replace("status_order_", "").split("_", 1)
-            if len(parts) != 2:
+        if callback_data.startswith("status|"):
+            # Формат: status|{order_id}|{status}
+            parts = callback_data.split("|")
+            if len(parts) != 3:
                 await _answer_callback_query(
                     callback_query.get("id"),
                     "Некорректный формат команды",
@@ -66,8 +73,8 @@ async def handle_bot_webhook(
                 )
                 return {"ok": True}
             
-            order_id = parts[0]
-            new_status_value = parts[1]
+            order_id = parts[1]
+            new_status_value = parts[2]
             
             # Получаем заказ
             doc = await db.orders.find_one({"_id": as_object_id(order_id)})

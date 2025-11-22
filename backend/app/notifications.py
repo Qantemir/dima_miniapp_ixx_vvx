@@ -137,27 +137,27 @@ async def _send_notification_with_receipt(
                     [
                         {
                             "text": "✅ Принят",
-                            "callback_data": f"status_order_{order_id}_принят"
+                            "callback_data": f"status|{order_id}|принят"
                         },
                         {
                             "text": "🚚 Выехал",
-                            "callback_data": f"status_order_{order_id}_выехал"
+                            "callback_data": f"status|{order_id}|выехал"
                         }
                     ],
                     [
                         {
                             "text": "🔄 В обработке",
-                            "callback_data": f"status_order_{order_id}_в обработке"
+                            "callback_data": f"status|{order_id}|в обработке"
                         },
                         {
                             "text": "🎉 Завершён",
-                            "callback_data": f"status_order_{order_id}_завершён"
+                            "callback_data": f"status|{order_id}|завершён"
                         }
                     ],
                     [
                         {
                             "text": "❌ Отменить",
-                            "callback_data": f"status_order_{order_id}_отменён"
+                            "callback_data": f"status|{order_id}|отменён"
                         }
                     ]
                 ]
@@ -192,27 +192,27 @@ async def _send_notification_with_receipt(
                     [
                         {
                             "text": "✅ Принят",
-                            "callback_data": f"status_order_{order_id}_принят"
+                            "callback_data": f"status|{order_id}|принят"
                         },
                         {
                             "text": "🚚 Выехал",
-                            "callback_data": f"status_order_{order_id}_выехал"
+                            "callback_data": f"status|{order_id}|выехал"
                         }
                     ],
                     [
                         {
                             "text": "🔄 В обработке",
-                            "callback_data": f"status_order_{order_id}_в обработке"
+                            "callback_data": f"status|{order_id}|в обработке"
                         },
                         {
                             "text": "🎉 Завершён",
-                            "callback_data": f"status_order_{order_id}_завершён"
+                            "callback_data": f"status|{order_id}|завершён"
                         }
                     ],
                     [
                         {
                             "text": "❌ Отменить",
-                            "callback_data": f"status_order_{order_id}_отменён"
+                            "callback_data": f"status|{order_id}|отменён"
                         }
                     ]
                 ]
