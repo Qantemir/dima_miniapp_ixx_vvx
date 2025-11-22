@@ -16,15 +16,19 @@ async def connect_to_mongo():
   global client, db
   if client is None:
     try:
-      # Оптимизация connection pool для быстрой работы
+      # Оптимизация connection pool для быстрой работы с увеличенными таймаутами для Atlas
       client = AsyncIOMotorClient(
         settings.mongo_uri,
-        serverSelectionTimeoutMS=5000,
+        serverSelectionTimeoutMS=30000,  # Увеличено до 30 секунд для SSL handshake
         maxPoolSize=50,  # Больше соединений для параллельных запросов
         minPoolSize=10,  # Минимум соединений всегда готовы
         maxIdleTimeMS=45000,  # Время жизни неактивных соединений
-        connectTimeoutMS=5000,
-        socketTimeoutMS=30000,
+        connectTimeoutMS=20000,  # Увеличено до 20 секунд для SSL handshake
+        socketTimeoutMS=60000,  # Увеличено до 60 секунд для операций чтения
+        retryWrites=True,  # Автоматические повторы записи
+        retryReads=True,  # Автоматические повторы чтения
+        heartbeatFrequencyMS=10000,  # Проверка соединения каждые 10 секунд
+        waitQueueTimeoutMS=30000,  # Таймаут ожидания в очереди соединений
       )
       db = client[settings.mongo_db]
       await ensure_indexes(db)
@@ -37,12 +41,16 @@ async def connect_to_mongo():
       # Создаем клиент даже если подключение не удалось, чтобы не падать при каждом запросе
       client = AsyncIOMotorClient(
         settings.mongo_uri,
-        serverSelectionTimeoutMS=5000,
+        serverSelectionTimeoutMS=30000,
         maxPoolSize=50,
         minPoolSize=10,
         maxIdleTimeMS=45000,
-        connectTimeoutMS=5000,
-        socketTimeoutMS=30000,
+        connectTimeoutMS=20000,
+        socketTimeoutMS=60000,
+        retryWrites=True,
+        retryReads=True,
+        heartbeatFrequencyMS=10000,
+        waitQueueTimeoutMS=30000,
       )
       db = client[settings.mongo_db]
       await ensure_indexes(db)
