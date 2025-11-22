@@ -78,11 +78,19 @@ export const CatalogPage = () => {
     }
   }, [catalogError]);
 
+  const [addingToCart, setAddingToCart] = useState<string | null>(null);
+
   const handleAddToCart = async (
     productId: string,
     variantId: string | undefined,
     quantity: number
   ) => {
+    // Защита от множественных кликов
+    const requestKey = `${productId}-${variantId}`;
+    if (addingToCart === requestKey) {
+      return; // Уже выполняется запрос
+    }
+
     if (storeStatus?.is_sleep_mode) {
       toast.warning(storeStatus.sleep_message || 'Магазин временно не принимает заказы');
       return;
@@ -94,6 +102,7 @@ export const CatalogPage = () => {
       return;
     }
 
+    setAddingToCart(requestKey);
     try {
       const updatedCart = await api.addToCart({
         product_id: productId,
@@ -101,10 +110,8 @@ export const CatalogPage = () => {
         quantity,
       });
       
-      // Обновляем корзину с реальными данными и принудительно обновляем
+      // Обновляем корзину с реальными данными - этого достаточно
       queryClient.setQueryData(CART_QUERY_KEY, updatedCart);
-      // Принудительно обновляем данные для немедленного отображения
-      await queryClient.refetchQueries({ queryKey: CART_QUERY_KEY });
       setAddSuccess(true);
       setTimeout(() => setAddSuccess(false), 2000);
     } catch (error) {
@@ -112,6 +119,8 @@ export const CatalogPage = () => {
       await queryClient.invalidateQueries({ queryKey: CART_QUERY_KEY });
       const errorMessage = error instanceof Error ? error.message : 'Ошибка при добавлении в корзину';
       toast.error(errorMessage);
+    } finally {
+      setAddingToCart(null);
     }
   };
 
@@ -284,15 +293,20 @@ export const CatalogPage = () => {
           </div>
         ) : (
           <AnimatedList className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-            {filteredProducts.map((product, index) => (
-              <AnimatedItem key={product.id} delay={index * 0.05}>
-                <ProductCard
-                  product={product}
-                  onAddToCart={handleAddToCart}
-                  purchasesDisabled={storeStatus?.is_sleep_mode}
-                />
-              </AnimatedItem>
-            ))}
+            {filteredProducts.map((product, index) => {
+              const selectedVariantId = product.variants?.[0]?.id;
+              const isAdding = addingToCart === `${product.id}-${selectedVariantId}`;
+              return (
+                <AnimatedItem key={product.id} delay={index * 0.05}>
+                  <ProductCard
+                    product={product}
+                    onAddToCart={handleAddToCart}
+                    purchasesDisabled={storeStatus?.is_sleep_mode}
+                    isAdding={isAdding}
+                  />
+                </AnimatedItem>
+              );
+            })}
           </AnimatedList>
         )}
       </div>

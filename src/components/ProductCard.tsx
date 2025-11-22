@@ -14,12 +14,14 @@ interface ProductCardProps {
     quantity: number
   ) => void;
   purchasesDisabled?: boolean;
+  isAdding?: boolean;
 }
 
 export const ProductCard = ({
   product,
   onAddToCart,
   purchasesDisabled = false,
+  isAdding = false,
 }: ProductCardProps) => {
   const [quantity, setQuantity] = useState(1);
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(
@@ -183,9 +185,9 @@ export const ProductCard = ({
                 onClick={handleAddToCart} 
                 size="sm" 
                 className="px-3 sm:px-4 text-sm h-9 sm:h-10"
-                disabled={quantity > availableQuantity}
+                disabled={quantity > availableQuantity || isAdding}
               >
-                В корзину
+                {isAdding ? 'Добавление...' : 'В корзину'}
               </Button>
             </div>
           ) : mustSelectVariant ? (

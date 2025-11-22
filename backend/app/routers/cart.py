@@ -159,18 +159,30 @@ async def add_to_cart(
   variant_price = product.get("price", 0)
   variant_quantity = variant.get("quantity", 0)
   
-  # Ищем существующий товар с такой же вариацией
+  # Используем атомарные операции MongoDB для обновления корзины и списания товара
+  now = datetime.utcnow()
+  
+  # Вычисляем изменение total_amount заранее
+  price_delta = variant_price * payload.quantity
+  
+  # Перечитываем корзину для актуальных данных (защита от race conditions)
+  fresh_cart = await db.carts.find_one({"_id": cart["_id"]})
+  if not fresh_cart:
+    raise HTTPException(status_code=404, detail="Корзина не найдена")
+  
+  # Ищем существующий товар с такой же вариацией в актуальной корзине
   existing = next(
-    (item for item in cart["items"] 
+    (item for item in fresh_cart.get("items", [])
      if item["product_id"] == payload.product_id 
      and item.get("variant_id") == payload.variant_id),
     None
   )
   
   already_in_cart = existing["quantity"] if existing else 0
-  # Проверка количества будет выполнена в decrement_variant_quantity
-  # Но делаем быструю проверку для лучших сообщений об ошибках
-  if variant_quantity < payload.quantity:
+  total_needed = already_in_cart + payload.quantity
+  
+  # Проверка количества с учетом уже добавленного
+  if variant_quantity < total_needed:
     can_add = max(0, variant_quantity - already_in_cart)
     if can_add == 0:
       raise HTTPException(
@@ -182,12 +194,6 @@ async def add_to_cart(
         status_code=400,
         detail=f"Недостаточно товара. Доступно для добавления: {can_add}, уже в корзине: {already_in_cart}"
       )
-  
-  # Используем атомарные операции MongoDB для обновления корзины и списания товара
-  now = datetime.utcnow()
-  
-  # Вычисляем изменение total_amount заранее
-  price_delta = variant_price * payload.quantity
   
   if existing:
     # Обновляем существующий товар атомарно и списываем товар со склада одновременно
@@ -205,9 +211,10 @@ async def add_to_cart(
       )
     
     # Обновляем корзину с пересчетом total_amount в одном запросе
+    # Используем актуальный _id из fresh_cart
     final_cart = await db.carts.find_one_and_update(
       {
-        "_id": cart["_id"],
+        "_id": fresh_cart["_id"],
         "items": {
           "$elemMatch": {
             "product_id": payload.product_id,
@@ -251,8 +258,9 @@ async def add_to_cart(
       )
     
     # Обновляем корзину с пересчетом total_amount в одном запросе
+    # Используем актуальный _id из fresh_cart
     final_cart = await db.carts.find_one_and_update(
-      {"_id": cart["_id"]},
+      {"_id": fresh_cart["_id"]},
       {
         "$push": {"items": new_item},
         "$inc": {"total_amount": price_delta},
