@@ -231,28 +231,16 @@ export const applyTelegramTheme = (themeParams: TelegramThemeParams) => {
 const DEV_USER_STORAGE_KEY = 'miniapp_dev_user_id';
 
 const getDevFallbackUserId = (): number | null => {
-  // Сначала проверяем VITE_DEV_USER_ID из env
+  // Сначала проверяем VITE_DEV_USER_ID из env (высший приоритет)
   const envValue = import.meta.env.VITE_DEV_USER_ID;
   if (envValue) {
     const parsed = Number(envValue);
     if (!Number.isNaN(parsed)) {
-      // Сохраняем в localStorage для консистентности
+      // Сохраняем в localStorage для консистентности и перезаписываем старый
       if (typeof window !== 'undefined') {
         window.localStorage.setItem(DEV_USER_STORAGE_KEY, parsed.toString());
       }
-      return parsed;
-    }
-  }
-
-  if (typeof window === 'undefined') {
-    return null;
-  }
-
-  // Проверяем сохраненный ID в localStorage
-  const stored = window.localStorage.getItem(DEV_USER_STORAGE_KEY);
-  if (stored) {
-    const parsed = Number(stored);
-    if (!Number.isNaN(parsed)) {
+      console.log('[getDevFallbackUserId] Использован VITE_DEV_USER_ID:', parsed);
       return parsed;
     }
   }
@@ -264,15 +252,47 @@ const getDevFallbackUserId = (): number | null => {
     if (firstAdminId) {
       const parsed = Number(firstAdminId);
       if (!Number.isNaN(parsed)) {
-        window.localStorage.setItem(DEV_USER_STORAGE_KEY, parsed.toString());
+        // ВАЖНО: перезаписываем старый ID в localStorage правильным значением
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem(DEV_USER_STORAGE_KEY, parsed.toString());
+        }
+        console.log('[getDevFallbackUserId] Использован первый ID из VITE_ADMIN_IDS:', parsed);
         return parsed;
       }
+    }
+  }
+
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  // Проверяем сохраненный ID в localStorage (только если нет env переменных)
+  const stored = window.localStorage.getItem(DEV_USER_STORAGE_KEY);
+  if (stored) {
+    const parsed = Number(stored);
+    if (!Number.isNaN(parsed)) {
+      // Если есть VITE_ADMIN_IDS, проверяем, совпадает ли сохраненный ID
+      // Если не совпадает - перезаписываем правильным значением
+      if (adminIds) {
+        const firstAdminId = adminIds.split(',')[0]?.trim();
+        if (firstAdminId) {
+          const adminIdNum = Number(firstAdminId);
+          if (!Number.isNaN(adminIdNum) && parsed !== adminIdNum) {
+            console.warn(`[getDevFallbackUserId] Обнаружен несовпадающий ID в localStorage (${parsed}), перезаписываем на ${adminIdNum} из VITE_ADMIN_IDS`);
+            window.localStorage.setItem(DEV_USER_STORAGE_KEY, adminIdNum.toString());
+            return adminIdNum;
+          }
+        }
+      }
+      console.log('[getDevFallbackUserId] Использован сохраненный ID из localStorage:', parsed);
+      return parsed;
     }
   }
 
   // В последнюю очередь генерируем случайный ID
   const generated = Math.floor(Math.random() * 1_000_000) + 1;
   window.localStorage.setItem(DEV_USER_STORAGE_KEY, generated.toString());
+  console.warn('[getDevFallbackUserId] Сгенерирован случайный ID:', generated);
   return generated;
 };
 
@@ -407,8 +427,29 @@ export const closeMiniApp = () => {
 export const getRequestAuthHeaders = (): Record<string, string> => {
   // Всегда отправляем dev user ID - подпись Telegram не требуется
   const devUserId = getDevFallbackUserId();
-  // Если есть VITE_DEV_USER_ID, используем его, иначе fallback
+  
+  // Приоритет: VITE_DEV_USER_ID > первый ID из VITE_ADMIN_IDS > devUserId > 1
   const envDevUserId = import.meta.env.VITE_DEV_USER_ID;
-  const userIdToSend = envDevUserId ? Number(envDevUserId) : (devUserId || 1);
+  const adminIds = import.meta.env.VITE_ADMIN_IDS;
+  let userIdToSend = devUserId || 1;
+  
+  if (envDevUserId) {
+    userIdToSend = Number(envDevUserId);
+  } else if (adminIds) {
+    const firstAdminId = adminIds.split(',')[0]?.trim();
+    if (firstAdminId) {
+      const parsed = Number(firstAdminId);
+      if (!Number.isNaN(parsed)) {
+        userIdToSend = parsed;
+      }
+    }
+  }
+  
+  console.log('[getRequestAuthHeaders] Отправляем user_id:', userIdToSend, {
+    VITE_DEV_USER_ID: envDevUserId,
+    VITE_ADMIN_IDS: adminIds,
+    devUserId
+  });
+  
   return { 'X-Dev-User-Id': userIdToSend.toString() };
 };
