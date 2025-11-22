@@ -146,15 +146,9 @@ async def _send_notification_with_receipt(
                     ],
                     [
                         {
-                            "text": "🔄 В обработке",
-                            "callback_data": f"status|{order_id}|в обработке"
-                        },
-                        {
                             "text": "🎉 Завершён",
                             "callback_data": f"status|{order_id}|завершён"
-                        }
-                    ],
-                    [
+                        },
                         {
                             "text": "❌ Отменить",
                             "callback_data": f"status|{order_id}|отменён"
@@ -201,15 +195,9 @@ async def _send_notification_with_receipt(
                     ],
                     [
                         {
-                            "text": "🔄 В обработке",
-                            "callback_data": f"status|{order_id}|в обработке"
-                        },
-                        {
                             "text": "🎉 Завершён",
                             "callback_data": f"status|{order_id}|завершён"
-                        }
-                    ],
-                    [
+                        },
                         {
                             "text": "❌ Отменить",
                             "callback_data": f"status|{order_id}|отменён"

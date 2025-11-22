@@ -133,8 +133,8 @@ async def quick_accept_order(
   if not doc:
     raise HTTPException(status_code=404, detail="Заказ не найден")
   
-  # Проверяем, что заказ еще новый
-  if doc.get("status") != OrderStatus.NEW.value:
+  # Проверяем, что заказ еще в обработке
+  if doc.get("status") != OrderStatus.PROCESSING.value:
     raise HTTPException(
       status_code=400, 
       detail=f"Заказ уже обработан. Текущий статус: {doc.get('status')}"

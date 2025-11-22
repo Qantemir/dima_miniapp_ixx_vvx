@@ -24,7 +24,6 @@ import {
 } from '@/components/ui/alert-dialog';
 
 const AVAILABLE_STATUSES: OrderStatus[] = [
-  'новый',
   'в обработке',
   'принят',
   'выехал',

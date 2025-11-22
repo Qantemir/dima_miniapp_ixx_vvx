@@ -88,7 +88,6 @@ async def handle_bot_webhook(
             
             # Проверяем, что статус валидный
             valid_statuses = {
-                OrderStatus.NEW.value,
                 OrderStatus.PROCESSING.value,
                 OrderStatus.ACCEPTED.value,
                 OrderStatus.SHIPPED.value,
@@ -130,7 +129,6 @@ async def handle_bot_webhook(
             
             # Определяем, можно ли редактировать адрес
             editable_statuses = {
-                OrderStatus.NEW.value,
                 OrderStatus.PROCESSING.value,
             }
             can_edit_address = new_status_value in editable_statuses

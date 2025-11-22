@@ -15,7 +15,6 @@ import { useQuery } from '@tanstack/react-query';
 
 const STATUS_FILTERS: Array<{ value: OrderStatus | 'all'; label: string }> = [
   { value: 'all', label: 'Все' },
-  { value: 'новый', label: 'Новые' },
   { value: 'в обработке', label: 'В работе' },
   { value: 'принят', label: 'Принятые' },
   { value: 'выехал', label: 'Выехали' },
