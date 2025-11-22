@@ -40,6 +40,7 @@ class Category(CategoryBase):
 
     class Config:
         allow_population_by_field_name = True
+        extra = "allow"  # Разрешаем дополнительные поля из базы данных
 
 
 class ProductBase(BaseModel):
@@ -73,6 +74,7 @@ class Product(ProductBase):
 
     class Config:
         allow_population_by_field_name = True
+        extra = "allow"  # Разрешаем дополнительные поля из базы данных
 
 
 class CatalogResponse(BaseModel):
@@ -125,10 +127,13 @@ class OrderStatus(str, Enum):
 
 
 class OrderItem(BaseModel):
+    id: Optional[str] = None  # ID элемента корзины (для совместимости)
     product_id: str
     product_name: str
     quantity: int
     price: float
+    image: Optional[str] = None  # Изображение товара
+    variant_id: Optional[str] = None  # ID вариации (вкуса)
 
 
 class Order(BaseModel):
@@ -146,9 +151,12 @@ class Order(BaseModel):
     can_edit_address: bool = True
     payment_receipt_url: Optional[str] = None
     payment_receipt_filename: Optional[str] = None
+    delivery_type: Optional[str] = None
+    payment_type: Optional[str] = None
 
     class Config:
         allow_population_by_field_name = True
+        extra = "allow"  # Разрешаем дополнительные поля из базы данных
 
 
 class CreateOrderRequest(BaseModel):

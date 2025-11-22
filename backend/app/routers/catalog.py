@@ -60,8 +60,54 @@ async def _load_catalog_from_db(db: AsyncIOMotorDatabase) -> CatalogResponse:
   # Выполняем запросы параллельно
   categories_docs, products_docs = await asyncio.gather(categories_task, products_task)
   
-  categories = [Category(**serialize_doc(doc) | {"id": str(doc["_id"])}) for doc in categories_docs]
-  products = [Product(**serialize_doc(doc) | {"id": str(doc["_id"])}) for doc in products_docs]
+  # Валидируем категории с обработкой ошибок
+  categories = []
+  for doc in categories_docs:
+    try:
+      serialized = serialize_doc(doc)
+      category_data = serialized | {"id": str(doc["_id"])}
+      category = Category(**category_data)
+      categories.append(category)
+    except Exception as e:
+      import logging
+      logger = logging.getLogger(__name__)
+      logger.error(f"Ошибка валидации категории {doc.get('_id')}: {e}, данные: {serialized}")
+      # Пропускаем проблемную категорию
+      continue
+  
+  # Валидируем товары с обработкой ошибок
+  products = []
+  for doc in products_docs:
+    try:
+      serialized = serialize_doc(doc)
+      product_data = serialized | {"id": str(doc["_id"])}
+      
+      # Убеждаемся, что обязательные поля присутствуют и имеют правильный тип
+      if "name" not in product_data or not product_data["name"]:
+        continue  # Пропускаем товары без названия
+      if "price" not in product_data or product_data["price"] is None:
+        product_data["price"] = 0.0  # Устанавливаем цену по умолчанию
+      if not isinstance(product_data["price"], (int, float)):
+        try:
+          product_data["price"] = float(product_data["price"])
+        except (ValueError, TypeError):
+          product_data["price"] = 0.0
+      if "category_id" not in product_data or not product_data["category_id"]:
+        continue  # Пропускаем товары без категории
+      if "available" not in product_data:
+        product_data["available"] = True
+      if not isinstance(product_data["available"], bool):
+        product_data["available"] = bool(product_data["available"])
+      
+      product = Product(**product_data)
+      products.append(product)
+    except Exception as e:
+      import logging
+      logger = logging.getLogger(__name__)
+      logger.error(f"Ошибка валидации товара {doc.get('_id')}: {e}, данные: {serialized}")
+      # Пропускаем проблемный товар
+      continue
+  
   return CatalogResponse(categories=categories, products=products)
 
 
@@ -155,11 +201,20 @@ async def get_admin_catalog(
   _admin_id: int = Depends(verify_admin),
   if_none_match: str | None = Header(None, alias="If-None-Match"),
 ):
-  catalog, etag = await fetch_catalog(db)
-  # Временно отключаем 304 Not Modified для упрощения
-  # if if_none_match and if_none_match == etag:
-  #   return _build_not_modified_response(etag)
-  return _build_catalog_response(catalog, etag)
+  try:
+    catalog, etag = await fetch_catalog(db)
+    # Временно отключаем 304 Not Modified для упрощения
+    # if if_none_match and if_none_match == etag:
+    #   return _build_not_modified_response(etag)
+    return _build_catalog_response(catalog, etag)
+  except Exception as e:
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.error(f"Ошибка при загрузке каталога для админки: {e}", exc_info=True)
+    raise HTTPException(
+      status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+      detail=f"Ошибка при загрузке каталога: {str(e)}"
+    )
 
 
 def _build_id_candidates(raw_id: str) -> Sequence[object]:

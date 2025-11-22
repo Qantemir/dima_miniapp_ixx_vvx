@@ -28,7 +28,13 @@ async def list_orders(
     if status_filter:
       query["status"] = status_filter.value
     cursor = db.orders.find(query).sort("created_at", -1).limit(limit)
-    return [Order(**serialize_doc(doc) | {"id": str(doc["_id"])}) async for doc in cursor]
+    orders = []
+    async for doc in cursor:
+      serialized = serialize_doc(doc)
+      order_data = serialized | {"id": str(doc["_id"])}
+      order = Order(**order_data)
+      orders.append(order)
+    return orders
   except (ServerSelectionTimeoutError, ConnectionFailure) as e:
     raise HTTPException(
       status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

@@ -90,7 +90,9 @@ export const AdminCatalogPage = () => {
       const data = await api.getAdminCatalog();
       setCatalog(data);
     } catch (error) {
-      toast.error('Ошибка загрузки каталога');
+      const message = error instanceof Error ? error.message : 'Ошибка загрузки каталога';
+      console.error('Ошибка загрузки каталога:', error);
+      toast.error(`Ошибка загрузки каталога: ${message}`);
     } finally {
       setLoading(false);
     }

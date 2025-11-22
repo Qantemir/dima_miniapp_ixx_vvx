@@ -97,7 +97,9 @@ export const AdminCategoryPage = () => {
       setProducts(data.products.filter(product => product.category_id === categoryId));
       setFormData(createEmptyProduct(categoryId));
     } catch (error) {
-      toast.error('Не удалось загрузить категорию');
+      const message = error instanceof Error ? error.message : 'Не удалось загрузить категорию';
+      console.error('Ошибка загрузки категории:', error);
+      toast.error(`Не удалось загрузить категорию: ${message}`);
       navigate('/admin/catalog');
     } finally {
       setLoading(false);
