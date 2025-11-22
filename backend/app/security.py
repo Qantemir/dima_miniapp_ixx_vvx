@@ -134,35 +134,22 @@ async def get_current_user(
   dev_user_id: str | None = Header(None, convert_underscores=False, alias="X-Dev-User-Id"),
 ) -> TelegramUser:
   """
-  Returns a user without signature validation - simplified for development.
-  Always returns user with ID 1 or from X-Dev-User-Id header if provided.
+  Получает user_id из заголовка X-Dev-User-Id.
+  Если заголовок отсутствует, использует первый ID из ADMIN_IDS.
   """
-  import logging
-  logger = logging.getLogger(__name__)
-  
-  # Просто возвращаем пользователя без всяких проверок
-  # Если есть заголовок X-Dev-User-Id, используем его, иначе дефолтный ID
-  # Если default_dev_user_id не установлен, используем первый ID из admin_ids
-  default_user_id = settings.default_dev_user_id
-  if default_user_id is None and settings.admin_ids:
-    default_user_id = settings.admin_ids[0]
-  if default_user_id is None:
-    default_user_id = 1
-  
-  user_id = default_user_id
+  # Если есть заголовок X-Dev-User-Id, используем его
   if dev_user_id:
     try:
-      # Убираем пробелы и пытаемся распарсить
-      dev_user_id_clean = str(dev_user_id).strip()
-      user_id = int(dev_user_id_clean)
-      logger.info(f"Использован user_id из заголовка X-Dev-User-Id: {user_id} (исходное значение: '{dev_user_id}')")
-    except (ValueError, TypeError) as e:
-      user_id = default_user_id
-      logger.warning(f"Не удалось распарсить X-Dev-User-Id='{dev_user_id}' (ошибка: {e}), используется default_user_id={user_id}")
-  else:
-    user_id = default_user_id
-    logger.info(f"Заголовок X-Dev-User-Id отсутствует, используется default_user_id={user_id}")
+      user_id = int(str(dev_user_id).strip())
+      return TelegramUser(id=user_id)
+    except (ValueError, TypeError):
+      pass
   
-  logger.info(f"get_current_user вернул user_id={user_id} (тип: {type(user_id).__name__})")
-  return TelegramUser(id=user_id)
+  # Если заголовка нет или он некорректный, используем первый ID из ADMIN_IDS
+  if settings.admin_ids and len(settings.admin_ids) > 0:
+    user_id = int(settings.admin_ids[0])
+    return TelegramUser(id=user_id)
+  
+  # В крайнем случае возвращаем 1
+  return TelegramUser(id=1)
 
