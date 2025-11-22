@@ -1,6 +1,8 @@
 from datetime import datetime
 from pathlib import Path
 from uuid import uuid4
+from gridfs import GridFS
+from bson import ObjectId
 
 from fastapi import (
   APIRouter,
@@ -9,6 +11,7 @@ from fastapi import (
   Form,
   HTTPException,
   UploadFile,
+  Response,
   status,
 )
 from motor.motor_asyncio import AsyncIOMotorDatabase
@@ -47,7 +50,10 @@ ALLOWED_RECEIPT_MIME_TYPES = {
 MAX_RECEIPT_SIZE_BYTES = settings.max_receipt_size_mb * 1024 * 1024
 
 
-def _save_payment_receipt(file: UploadFile) -> tuple[str, str | None]:
+async def _save_payment_receipt(db: AsyncIOMotorDatabase, file: UploadFile) -> tuple[str, str | None]:
+  """
+  Сохраняет чек в GridFS и возвращает file_id и оригинальное имя файла.
+  """
   content_type = (file.content_type or "").lower()
   extension = ALLOWED_RECEIPT_MIME_TYPES.get(content_type)
   if not extension:
@@ -70,13 +76,26 @@ def _save_payment_receipt(file: UploadFile) -> tuple[str, str | None]:
       detail=f"Файл слишком большой. Максимум {settings.max_receipt_size_mb} МБ",
     )
 
+  # Сохраняем в GridFS
+  fs = GridFS(db.database)
   filename = f"{uuid4().hex}{extension}"
-  target_path = settings.upload_dir / filename
-  target_path.parent.mkdir(parents=True, exist_ok=True)
-  with open(target_path, "wb") as destination:
-    destination.write(file_bytes)
-
-  return f"/uploads/{filename}", file.filename
+  
+  # Определяем content_type для GridFS
+  gridfs_content_type = content_type if content_type else f"application/octet-stream"
+  
+  # Сохраняем файл в GridFS
+  file_id = fs.put(
+    file_bytes,
+    filename=filename,
+    content_type=gridfs_content_type,
+    metadata={
+      "original_filename": file.filename,
+      "uploaded_at": datetime.utcnow(),
+    }
+  )
+  
+  # Возвращаем file_id как строку и оригинальное имя файла
+  return str(file_id), file.filename
 
 
 @router.post("/order", response_model=Order, status_code=status.HTTP_201_CREATED)
@@ -117,7 +136,7 @@ async def create_order(
       except ValueError:
         pass  # Игнорируем ошибки парсинга ObjectId
 
-  receipt_url, original_filename = _save_payment_receipt(payment_receipt)
+  receipt_file_id, original_filename = await _save_payment_receipt(db, payment_receipt)
 
   order_doc = {
     "user_id": user_id,
@@ -131,7 +150,7 @@ async def create_order(
     "can_edit_address": True,
     "created_at": datetime.utcnow(),
     "updated_at": datetime.utcnow(),
-    "payment_receipt_url": receipt_url,
+    "payment_receipt_file_id": receipt_file_id,  # ID файла в GridFS
     "payment_receipt_filename": original_filename,
     "delivery_type": delivery_type,
     "payment_type": payment_type,
@@ -140,9 +159,13 @@ async def create_order(
   try:
     result = await db.orders.insert_one(order_doc)
   except Exception:
-    stored_path = settings.upload_dir / Path(receipt_url).name
-    if stored_path.exists():
-      stored_path.unlink(missing_ok=True)
+    # Если не удалось сохранить заказ, удаляем файл из GridFS
+    try:
+      from gridfs import GridFS
+      fs = GridFS(db.database)
+      fs.delete(ObjectId(receipt_file_id))
+    except Exception:
+      pass  # Игнорируем ошибки удаления файла
     raise
 
   await db.carts.delete_one({"_id": as_object_id(cart.id)})
@@ -158,7 +181,8 @@ async def create_order(
       delivery_address=address,
       total_amount=cart.total_amount,
       items_count=len(cart.items),
-      receipt_url=receipt_url,
+      receipt_file_id=receipt_file_id,
+      db=db,
     )
   except Exception as e:
     # Логируем ошибку, но не прерываем создание заказа
@@ -195,6 +219,43 @@ async def get_order_by_id(
   if not doc:
     raise HTTPException(status_code=404, detail="Заказ не найден")
   return Order(**serialize_doc(doc) | {"id": str(doc["_id"])})
+
+
+@router.get("/order/{order_id}/receipt")
+async def get_order_receipt(
+  order_id: str,
+  db: AsyncIOMotorDatabase = Depends(get_db),
+  current_user: TelegramUser = Depends(get_current_user),
+):
+  """
+  Получает чек заказа из GridFS.
+  """
+  doc = await db.orders.find_one(
+    {"_id": as_object_id(order_id), "user_id": current_user.id},
+  )
+  if not doc:
+    raise HTTPException(status_code=404, detail="Заказ не найден")
+  
+  receipt_file_id = doc.get("payment_receipt_file_id")
+  if not receipt_file_id:
+    raise HTTPException(status_code=404, detail="Чек не найден")
+  
+  try:
+    fs = GridFS(db.database)
+    grid_file = fs.get(ObjectId(receipt_file_id))
+    file_data = grid_file.read()
+    filename = grid_file.filename or "receipt"
+    content_type = grid_file.content_type or "application/octet-stream"
+    
+    return Response(
+      content=file_data,
+      media_type=content_type,
+      headers={
+        "Content-Disposition": f'inline; filename="{filename}"',
+      }
+    )
+  except Exception as e:
+    raise HTTPException(status_code=404, detail=f"Не удалось загрузить чек: {str(e)}")
 
 
 @router.patch("/order/{order_id}/address", response_model=Order)

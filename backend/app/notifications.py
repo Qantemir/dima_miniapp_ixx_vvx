@@ -6,6 +6,9 @@ import json
 import logging
 import httpx
 from pathlib import Path
+from bson import ObjectId
+from gridfs import GridFS
+from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from .config import get_settings
 
@@ -34,7 +37,8 @@ async def notify_admins_new_order(
     delivery_address: str,
     total_amount: float,
     items_count: int,
-    receipt_url: str,
+    receipt_file_id: str,
+    db: AsyncIOMotorDatabase,
 ) -> None:
     """
     Отправляет уведомление всем администраторам о новом заказе с фото чека.
@@ -46,7 +50,8 @@ async def notify_admins_new_order(
         delivery_address: Адрес доставки
         total_amount: Общая сумма заказа
         items_count: Количество товаров в заказе
-        receipt_url: Относительный путь к файлу чека (например, /uploads/filename.jpg)
+        receipt_file_id: ID файла чека в GridFS
+        db: База данных для доступа к GridFS
     """
     settings = get_settings()
     
@@ -87,15 +92,20 @@ async def notify_admins_new_order(
         f"📦 Товаров: {items_count}"
     )
     
-    # Получаем путь к файлу чека
-    receipt_path = None
-    if receipt_url:
-        # receipt_url имеет вид /uploads/filename.jpg
-        filename = Path(receipt_url).name
-        receipt_path = settings.upload_dir / filename
-        if not receipt_path.exists():
-            logger.warning(f"Файл чека не найден: {receipt_path}")
-            receipt_path = None
+    # Получаем файл чека из GridFS
+    receipt_data = None
+    receipt_filename = None
+    receipt_content_type = None
+    if receipt_file_id:
+        try:
+            fs = GridFS(db.database)
+            grid_file = fs.get(ObjectId(receipt_file_id))
+            receipt_data = grid_file.read()
+            receipt_filename = grid_file.filename
+            receipt_content_type = grid_file.content_type
+        except Exception as e:
+            logger.warning(f"Не удалось загрузить файл чека из GridFS: {e}")
+            receipt_data = None
     
     # Отправляем уведомление каждому администратору
     async with httpx.AsyncClient(timeout=30.0) as client:
@@ -107,7 +117,9 @@ async def notify_admins_new_order(
                     settings.telegram_bot_token, 
                     admin_id, 
                     message, 
-                    receipt_path,
+                    receipt_data,
+                    receipt_filename,
+                    receipt_content_type,
                     order_id
                 )
             )
@@ -130,7 +142,9 @@ async def _send_notification_with_receipt(
     bot_token: str,
     admin_id: int,
     message: str,
-    receipt_path: Path | None,
+    receipt_data: bytes | None,
+    receipt_filename: str | None,
+    receipt_content_type: str | None,
     order_id: str,
 ) -> bool:
     """
@@ -141,10 +155,13 @@ async def _send_notification_with_receipt(
     """
     try:
         # Сначала отправляем фото/документ чека, если он есть
-        if receipt_path and receipt_path.exists():
-            file_extension = receipt_path.suffix.lower()
-            is_image = file_extension in {'.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif'}
-            is_pdf = file_extension == '.pdf'
+        if receipt_data and receipt_filename:
+            # Определяем тип файла по расширению или content_type
+            file_extension = Path(receipt_filename).suffix.lower()
+            is_image = file_extension in {'.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif'} or (
+                receipt_content_type and receipt_content_type.startswith('image/')
+            )
+            is_pdf = file_extension == '.pdf' or receipt_content_type == 'application/pdf'
             
             if is_image:
                 # Отправляем как фото с подписью
@@ -161,9 +178,8 @@ async def _send_notification_with_receipt(
             
             api_url = f"https://api.telegram.org/bot{bot_token}/{api_method}"
             
-            # Читаем файл
-            with open(receipt_path, "rb") as f:
-                file_data = f.read()
+            # Используем данные из GridFS
+            file_data = receipt_data
             
             # Создаем inline-кнопки для изменения статуса заказа
             keyboard = {

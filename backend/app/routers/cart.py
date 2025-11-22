@@ -206,24 +206,38 @@ async def add_to_cart(
 
   cart["updated_at"] = datetime.utcnow()
   cart = recalculate_total(cart)
-  await db.carts.update_one({"_id": cart["_id"]}, {"$set": cart})
   
-  # Сохраняем или обновляем клиента в базе данных
-  now = datetime.utcnow()
-  existing_customer = await db.customers.find_one({"telegram_id": user_id})
-  if existing_customer:
-    await db.customers.update_one(
-      {"telegram_id": user_id},
-      {"$set": {"last_cart_activity": now}}
-    )
-  else:
-    await db.customers.insert_one({
-      "telegram_id": user_id,
-      "added_at": now,
-      "last_cart_activity": now,
-    })
+  # Используем find_one_and_update для атомарного обновления корзины
+  updated_cart = await db.carts.find_one_and_update(
+    {"_id": cart["_id"]},
+    {"$set": cart},
+    return_document=True
+  )
   
-  return Cart(**serialize_doc(cart) | {"id": str(cart["_id"])})
+  # Обновление клиента делаем асинхронно в фоне (не блокируем ответ)
+  import asyncio
+  async def update_customer_background():
+    now = datetime.utcnow()
+    try:
+      existing_customer = await db.customers.find_one({"telegram_id": user_id})
+      if existing_customer:
+        await db.customers.update_one(
+          {"telegram_id": user_id},
+          {"$set": {"last_cart_activity": now}}
+        )
+      else:
+        await db.customers.insert_one({
+          "telegram_id": user_id,
+          "added_at": now,
+          "last_cart_activity": now,
+        })
+    except Exception:
+      pass  # Игнорируем ошибки обновления клиента
+  
+  # Запускаем в фоне, не ждем завершения
+  asyncio.create_task(update_customer_background())
+  
+  return Cart(**serialize_doc(updated_cart) | {"id": str(updated_cart["_id"])})
 
 
 @router.patch("/cart/item", response_model=Cart)
