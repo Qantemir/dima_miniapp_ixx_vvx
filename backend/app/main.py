@@ -37,28 +37,56 @@ async def startup():
   await connect_to_mongo()
   
   # Настраиваем webhook для Telegram Bot API (если указан публичный URL)
+  import logging
+  logger = logging.getLogger(__name__)
+  
   if settings.telegram_bot_token and settings.public_url:
     try:
       import httpx
       webhook_url = f"{settings.public_url.rstrip('/')}{settings.api_prefix}/bot/webhook"
-      async with httpx.AsyncClient(timeout=10.0) as client:
+      logger.info(f"Настраиваем webhook: {webhook_url}")
+      
+      async with httpx.AsyncClient(timeout=15.0) as client:
+        # Сначала удаляем старый webhook (если есть)
+        try:
+          await client.post(
+            f"https://api.telegram.org/bot{settings.telegram_bot_token}/deleteWebhook",
+            json={"drop_pending_updates": False}
+          )
+        except:
+          pass
+        
+        # Устанавливаем новый webhook
         response = await client.post(
           f"https://api.telegram.org/bot{settings.telegram_bot_token}/setWebhook",
-          json={"url": webhook_url}
+          json={
+            "url": webhook_url,
+            "allowed_updates": ["callback_query"]  # Только callback queries
+          }
         )
         result = response.json()
         if result.get("ok"):
-          import logging
-          logger = logging.getLogger(__name__)
-          logger.info(f"Webhook настроен: {webhook_url}")
+          logger.info(f"✅ Webhook успешно настроен: {webhook_url}")
+          
+          # Проверяем статус webhook
+          check_response = await client.get(
+            f"https://api.telegram.org/bot{settings.telegram_bot_token}/getWebhookInfo"
+          )
+          check_result = check_response.json()
+          if check_result.get("ok"):
+            webhook_info = check_result.get("result", {})
+            logger.info(f"Webhook info: url={webhook_info.get('url')}, pending={webhook_info.get('pending_update_count', 0)}")
         else:
-          import logging
-          logger = logging.getLogger(__name__)
-          logger.warning(f"Не удалось настроить webhook: {result.get('description', 'Unknown error')}")
+          error_desc = result.get("description", "Unknown error")
+          logger.error(f"❌ Не удалось настроить webhook: {error_desc}")
+          logger.error(f"Проверьте, что URL {webhook_url} доступен из интернета")
     except Exception as e:
-      import logging
-      logger = logging.getLogger(__name__)
-      logger.error(f"Ошибка при настройке webhook: {e}")
+      logger.error(f"Ошибка при настройке webhook: {e}", exc_info=True)
+  elif settings.telegram_bot_token and not settings.public_url:
+    logger.warning("⚠️ TELEGRAM_BOT_TOKEN настроен, но PUBLIC_URL не указан. Webhook не будет настроен автоматически.")
+    logger.warning("Добавьте PUBLIC_URL в .env или используйте /api/bot/webhook/setup для ручной настройки")
+  elif not settings.telegram_bot_token:
+    logger.warning("⚠️ TELEGRAM_BOT_TOKEN не настроен. Webhook не будет работать.")
 
 
 @app.on_event("shutdown")

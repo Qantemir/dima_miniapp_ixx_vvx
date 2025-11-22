@@ -121,8 +121,20 @@ async def handle_bot_webhook(
     try:
         data = await request.json()
         
-        # Логируем входящий запрос для отладки
-        logger.info(f"Webhook received: {data}")
+        # Логируем входящий запрос для отладки (ограничиваем размер лога)
+        if isinstance(data, dict):
+            data_keys = list(data.keys())
+            logger.info(f"Webhook received, data keys: {data_keys}")
+            if "callback_query" in data:
+                callback_preview = {
+                    "id": data["callback_query"].get("id"),
+                    "data": data["callback_query"].get("data", "")[:50],  # Первые 50 символов
+                    "from_id": data["callback_query"].get("from", {}).get("id"),
+                }
+                logger.info(f"Callback query preview: {callback_preview}")
+        else:
+            logger.warning(f"Webhook received non-dict data: {type(data)}")
+            return {"ok": True}
         
         # Проверяем, что это callback query
         if "callback_query" not in data:
@@ -321,10 +333,11 @@ async def handle_bot_webhook(
                     except Exception as e:
                         logger.error(f"Ошибка при отправке уведомления клиенту о статусе заказа {order_id}: {e}")
                 
-                logger.info(f"Заказ {order_id} изменён на статус '{new_status_value}' администратором {user_id} через кнопку")
+                logger.info(f"✅ Заказ {order_id} изменён на статус '{new_status_value}' администратором {user_id} через кнопку")
             else:
+                logger.error(f"❌ Не удалось обновить заказ {order_id}")
                 await _answer_callback_query(
-                    callback_query.get("id"),
+                    callback_query_id,
                     "Ошибка при обновлении заказа",
                     show_alert=True
                 )
@@ -332,12 +345,13 @@ async def handle_bot_webhook(
         # Обрабатываем callback для принятия заказа (старый формат для совместимости)
         elif callback_data.startswith("accept_order_"):
             order_id = callback_data.replace("accept_order_", "")
+            logger.info(f"Processing accept_order callback for order_id={order_id}")
             
             # Получаем заказ
             doc = await db.orders.find_one({"_id": as_object_id(order_id)})
             if not doc:
                 await _answer_callback_query(
-                    callback_query.get("id"),
+                    callback_query_id,
                     "Заказ не найден",
                     show_alert=True
                 )
@@ -359,7 +373,7 @@ async def handle_bot_webhook(
             
             if updated:
                 await _answer_callback_query(
-                    callback_query.get("id"),
+                    callback_query_id,
                     "✅ Заказ принят!",
                     show_alert=False
                 )
@@ -383,7 +397,7 @@ async def handle_bot_webhook(
                 logger.info(f"Заказ {order_id} принят администратором {user_id} через кнопку")
             else:
                 await _answer_callback_query(
-                    callback_query.get("id"),
+                    callback_query_id,
                     "Ошибка при обновлении заказа",
                     show_alert=True
                 )
@@ -391,22 +405,23 @@ async def handle_bot_webhook(
         # Обрабатываем callback для отмены заказа (старый формат для совместимости)
         elif callback_data.startswith("cancel_order_"):
             order_id = callback_data.replace("cancel_order_", "")
+            logger.info(f"Processing cancel_order callback for order_id={order_id}")
             
             # Получаем заказ
             doc = await db.orders.find_one({"_id": as_object_id(order_id)})
             if not doc:
                 await _answer_callback_query(
-                    callback_query.get("id"),
+                    callback_query_id,
                     "Заказ не найден",
                     show_alert=True
                 )
                 return {"ok": True}
             
-            # Проверяем, что заказ можно отменить (новый или в обработке)
+            # Проверяем, что заказ можно отменить
             current_status = doc.get("status")
             if current_status in {OrderStatus.SHIPPED.value, OrderStatus.DONE.value, OrderStatus.CANCELED.value}:
                 await _answer_callback_query(
-                    callback_query.get("id"),
+                    callback_query_id,
                     f"Заказ нельзя отменить. Текущий статус: {current_status}",
                     show_alert=True
                 )
@@ -441,7 +456,7 @@ async def handle_bot_webhook(
             if updated:
                 # Отвечаем на callback
                 await _answer_callback_query(
-                    callback_query.get("id"),
+                    callback_query_id,
                     "❌ Заказ отменён!",
                     show_alert=False
                 )
@@ -470,10 +485,17 @@ async def handle_bot_webhook(
                 logger.info(f"Заказ {order_id} отменён администратором {user_id} через кнопку")
             else:
                 await _answer_callback_query(
-                    callback_query.get("id"),
+                    callback_query_id,
                     "Ошибка при обновлении заказа",
                     show_alert=True
                 )
+        else:
+            logger.warning(f"Unhandled callback_data: {callback_data}")
+            await _answer_callback_query(
+                callback_query_id,
+                "Неизвестная команда",
+                show_alert=True
+            )
         
         return {"ok": True}
     except Exception as e:
