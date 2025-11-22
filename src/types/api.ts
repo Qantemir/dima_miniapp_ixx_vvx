@@ -152,21 +152,32 @@ export interface ApiError {
 }
 
 // API Client Configuration
-// Если VITE_API_URL не начинается с http:// или https://, добавляем https://
-// Если не заканчивается на /api, добавляем /api
-const rawApiUrl = import.meta.env.VITE_API_URL || '/api';
-let apiBaseUrl = rawApiUrl.startsWith('http://') || rawApiUrl.startsWith('https://')
-  ? rawApiUrl
-  : `https://${rawApiUrl}`;
+// Нормализуем VITE_API_URL так, чтобы:
+// - абсолютные http/https адреса использовались как есть;
+// - пути, начинающиеся с '/', оставались относительными (для прокси Vite и одинакового origin);
+// - голые домены/поддомены получали https://;
+// - путь всегда заканчивался на /api.
+const rawApiUrl = (import.meta.env.VITE_API_URL || '/api').trim();
 
-// Убираем возможный /app из пути (если фронтенд развернут в подпапке)
-// Убираем /app из начала, середины и конца URL
-apiBaseUrl = apiBaseUrl
-  .replace(/^https?:\/\/[^\/]+\/app\/api/, (match) => match.replace('/app/api', '/api'))
-  .replace(/\/app\/api/, '/api')
-  .replace(/\/app$/, '');
+const normalizeApiBaseUrl = (value: string) => {
+  if (!value) return '/api';
+  // Абсолютный URL
+  if (value.startsWith('http://') || value.startsWith('https://')) {
+    return value.replace(/\/$/, '');
+  }
+  // Относительный путь (оставляем для дев-прокси и same-origin)
+  if (value.startsWith('/')) {
+    return value;
+  }
+  // Голый домен — добавляем https://
+  return `https://${value.replace(/^\/+/, '')}`;
+};
 
-// Убеждаемся, что URL заканчивается на /api
+let apiBaseUrl = normalizeApiBaseUrl(rawApiUrl)
+  // Убираем возможный /app из пути (если фронтенд развернут в подпапке)
+  .replace(/\/app\/api/g, '/api')
+  .replace(/\/app$/g, '');
+
 if (!apiBaseUrl.endsWith('/api')) {
   apiBaseUrl = apiBaseUrl.replace(/\/$/, '') + '/api';
 }

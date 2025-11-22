@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, MapPin, Package } from '@/components/icons';
 import { Button } from '@/components/ui/button';
@@ -25,22 +25,7 @@ export const OrderPage = () => {
   const [newAddress, setNewAddress] = useState('');
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    if (orderId) {
-      loadOrder();
-    } else {
-      loadLastOrder();
-    }
-
-    showBackButton(() => navigate('/'));
-
-    return () => {
-      hideMainButton();
-      hideBackButton();
-    };
-  }, [orderId]);
-
-  const loadOrder = async () => {
+  const loadOrder = useCallback(async () => {
     if (!orderId) return;
 
     try {
@@ -52,9 +37,9 @@ export const OrderPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [orderId]);
 
-  const loadLastOrder = async () => {
+  const loadLastOrder = useCallback(async () => {
     try {
       const data = await api.getLastOrder();
       if (data) {
@@ -70,7 +55,22 @@ export const OrderPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [navigate]);
+
+  useEffect(() => {
+    if (orderId) {
+      loadOrder();
+    } else {
+      loadLastOrder();
+    }
+
+    showBackButton(() => navigate('/'));
+
+    return () => {
+      hideMainButton();
+      hideBackButton();
+    };
+  }, [orderId, navigate, loadOrder, loadLastOrder]);
 
   const handleSaveAddress = async () => {
     if (!order || !newAddress.trim()) {

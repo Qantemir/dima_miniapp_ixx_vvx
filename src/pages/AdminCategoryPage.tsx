@@ -1,4 +1,4 @@
-import { ChangeEvent, useEffect, useState } from 'react';
+import { ChangeEvent, useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Boxes, MoreVertical, Plus, Trash2, X } from '@/components/icons';
 import { AdminHeader } from '@/components/AdminHeader';
@@ -75,11 +75,7 @@ export const AdminCategoryPage = () => {
     return () => hideBackButton();
   }, [navigate]);
 
-  useEffect(() => {
-    loadCategory();
-  }, [categoryId]);
-
-  const loadCategory = async () => {
+  const loadCategory = useCallback(async () => {
     if (!categoryId) {
       navigate('/admin/catalog');
       return;
@@ -104,7 +100,11 @@ export const AdminCategoryPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [categoryId, navigate]);
+
+  useEffect(() => {
+    loadCategory();
+  }, [loadCategory]);
 
   const openCreateDialog = () => {
     if (!categoryId) return;
@@ -208,7 +208,7 @@ export const AdminCategoryPage = () => {
     setVariants(prev => [...prev, newVariant]);
   };
 
-  const updateVariant = (index: number, field: keyof ProductVariant, value: any) => {
+  const updateVariant = (index: number, field: keyof ProductVariant, value: string | number | boolean) => {
     setVariants(prev => {
       const updated = [...prev];
       updated[index] = { ...updated[index], [field]: value };

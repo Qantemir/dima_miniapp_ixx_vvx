@@ -74,12 +74,12 @@ export const CartPage = () => {
     return (
       <>
         <Seo title="Корзина" description="Проверьте товары перед оформлением заказа." path="/cart" jsonLd={cartJsonLd} />
-        <div className="min-h-screen bg-background p-4 space-y-4">
+        <main className="min-h-screen bg-background p-4 space-y-4" role="main" aria-busy>
           <Skeleton className="h-12 w-full" />
           {[1, 2, 3].map(i => (
             <Skeleton key={i} className="h-24 w-full" />
           ))}
-        </div>
+        </main>
       </>
     );
   }
@@ -88,32 +88,32 @@ export const CartPage = () => {
     return (
       <>
         <Seo title="Корзина пуста" description="Добавьте товары в корзину, чтобы оформить заказ." path="/cart" jsonLd={cartJsonLd} />
-        <div className="min-h-screen bg-background flex flex-col">
-        <div className="px-3 py-2.5 sm:px-4 sm:py-4 border-b border-border bg-card">
-          <div className="flex items-center gap-2 sm:gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => navigate('/')}
-              className="h-9 w-9 sm:h-10 sm:w-10"
-            >
-              <ArrowLeft className="h-5 w-5" />
+        <main className="min-h-screen bg-background flex flex-col" role="main">
+          <header className="px-3 py-2.5 sm:px-4 sm:py-4 border-b border-border bg-card">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate('/')}
+                className="h-9 w-9 sm:h-10 sm:w-10"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+              <h1 className="text-lg sm:text-xl font-bold text-foreground">Корзина</h1>
+            </div>
+          </header>
+
+          <div className="flex-1 flex flex-col items-center justify-center p-4">
+            <ShoppingCart className="h-16 w-16 text-muted-foreground mb-4" />
+            <p className="text-lg text-muted-foreground mb-2">Корзина пуста</p>
+            <p className="text-sm text-muted-foreground mb-6">
+              Добавьте товары из каталога
+            </p>
+            <Button onClick={() => navigate('/')}>
+              Перейти к покупкам
             </Button>
-            <h1 className="text-lg sm:text-xl font-bold text-foreground">Корзина</h1>
           </div>
-        </div>
-        
-        <div className="flex-1 flex flex-col items-center justify-center p-4">
-          <ShoppingCart className="h-16 w-16 text-muted-foreground mb-4" />
-          <p className="text-lg text-muted-foreground mb-2">Корзина пуста</p>
-          <p className="text-sm text-muted-foreground mb-6">
-            Добавьте товары из каталога
-          </p>
-          <Button onClick={() => navigate('/')}>
-            Перейти к покупкам
-          </Button>
-        </div>
-        </div>
+        </main>
       </>
     );
   }
@@ -122,47 +122,47 @@ export const CartPage = () => {
     <>
       <Seo title="Корзина" description="Редактируйте корзину и переходите к оформлению заказа." path="/cart" jsonLd={cartJsonLd} />
       <PageTransition>
-      <div className="min-h-screen bg-background pb-24">
-      {/* Header */}
-      <div className="sticky z-10 bg-card border-b border-border px-3 py-2.5 sm:px-4 sm:py-4" style={{ top: 'calc(env(safe-area-inset-top, 0px) + var(--tg-header-height, 0px))' }}>
-        <div className="flex items-center gap-2 sm:gap-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate('/')}
-            className="h-9 w-9 sm:h-10 sm:w-10"
+        <main className="min-h-screen bg-background pb-24" role="main">
+          <header
+            className="sticky z-10 bg-card border-b border-border px-3 py-2.5 sm:px-4 sm:py-4"
+            style={{ top: 'calc(env(safe-area-inset-top, 0px) + var(--tg-header-height, 0px))' }}
           >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <h1 className="text-lg sm:text-xl font-bold text-foreground">Корзина</h1>
-        </div>
-      </div>
+            <div className="flex items-center gap-2 sm:gap-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate('/')}
+                className="h-9 w-9 sm:h-10 sm:w-10"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+              <h1 className="text-lg sm:text-xl font-bold text-foreground">Корзина</h1>
+            </div>
+          </header>
 
-      {/* Cart Items */}
-      <div className="px-3 py-4 sm:px-4 sm:py-6">
-        <AnimatedList className="space-y-3">
-          {cart.items.map((item, index) => (
-            <AnimatedItem key={item.id} delay={index * 0.05}>
-              <CartItem
-                item={item}
-                onUpdateQuantity={handleUpdateQuantity}
-                onRemove={handleRemoveItem}
-              />
-            </AnimatedItem>
-          ))}
-        </AnimatedList>
-      </div>
+          <section className="px-3 py-4 sm:px-4 sm:py-6" aria-label="Товары в корзине">
+            <AnimatedList className="space-y-3">
+              {cart.items.map((item, index) => (
+                <AnimatedItem key={item.id} delay={index * 0.05}>
+                  <CartItem
+                    item={item}
+                    onUpdateQuantity={handleUpdateQuantity}
+                    onRemove={handleRemoveItem}
+                  />
+                </AnimatedItem>
+              ))}
+            </AnimatedList>
+          </section>
 
-      {/* Total */}
-      <div className="px-3 py-4 sm:px-4 sm:py-5 bg-card border-t border-border">
-        <div className="flex items-center justify-between text-base sm:text-lg">
-          <span className="text-muted-foreground">Итого:</span>
-          <span className="font-bold text-foreground text-xl sm:text-2xl">
-            {cart.total_amount} ₸
-          </span>
-        </div>
-        </div>
-      </div>
+          <section className="px-3 py-4 sm:px-4 sm:py-5 bg-card border-t border-border" aria-label="Итоговая сумма">
+            <div className="flex items-center justify-between text-base sm:text-lg">
+              <span className="text-muted-foreground">Итого:</span>
+              <span className="font-bold text-foreground text-xl sm:text-2xl">
+                {cart.total_amount} ₸
+              </span>
+            </div>
+          </section>
+        </main>
       </PageTransition>
     </>
   );

@@ -153,7 +153,7 @@ class ApiClient {
       const contentType = response.headers.get('content-type') || '';
       const isJson = contentType.includes('application/json');
       
-      let payload: any;
+      let payload: unknown;
       try {
         payload = isJson ? await response.json() : await response.text();
       } catch (parseError) {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, MapPin, User, Phone } from '@/components/icons';
 import { Button } from '@/components/ui/button';
@@ -50,6 +50,21 @@ export const AdminOrderDetailPage = () => {
   const [pendingStatus, setPendingStatus] = useState<OrderStatus | null>(null);
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
 
+  const loadOrder = useCallback(async () => {
+    if (!orderId) return;
+
+    try {
+      const data = await api.getAdminOrder(orderId);
+      setOrder(data);
+      setCurrentStatus(data.status);
+    } catch (error) {
+      toast.error('Ошибка загрузки заказа');
+      navigate('/admin');
+    } finally {
+      setLoading(false);
+    }
+  }, [orderId, navigate]);
+
   useEffect(() => {
     const userId = getUserId();
     const isUserAdmin = userId ? isAdmin(userId, ADMIN_IDS) : false;
@@ -69,22 +84,7 @@ export const AdminOrderDetailPage = () => {
     return () => {
       hideBackButton();
     };
-  }, [orderId, navigate]);
-
-  const loadOrder = async () => {
-    if (!orderId) return;
-
-    try {
-      const data = await api.getAdminOrder(orderId);
-      setOrder(data);
-      setCurrentStatus(data.status);
-    } catch (error) {
-      toast.error('Ошибка загрузки заказа');
-      navigate('/admin');
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [orderId, navigate, loadOrder]);
 
   const handleStatusSelect = (newStatus: OrderStatus) => {
     if (!order || newStatus === order.status) {

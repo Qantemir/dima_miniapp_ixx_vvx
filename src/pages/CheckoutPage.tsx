@@ -1,4 +1,4 @@
-import { useEffect, useState, type ChangeEvent } from 'react';
+import { useCallback, useEffect, useState, type ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from '@/components/icons';
 import { Button } from '@/components/ui/button';
@@ -51,42 +51,7 @@ export const CheckoutPage = () => {
   const [paymentReceipt, setPaymentReceipt] = useState<File | null>(null);
   const [receiptError, setReceiptError] = useState<string | null>(null);
 
-  useEffect(() => {
-    showBackButton(() => navigate('/cart'));
-    showMainButton('Подтвердить заказ', handleSubmit);
-    return () => {
-      hideMainButton();
-      hideBackButton();
-    };
-  }, []);
-
-  const handleReceiptChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) {
-      setPaymentReceipt(null);
-      setReceiptError('Пожалуйста, прикрепите чек об оплате');
-      return;
-    }
-
-    if (!RECEIPT_ALLOWED_TYPES.includes(file.type)) {
-      event.target.value = '';
-      setPaymentReceipt(null);
-      setReceiptError('Допустимы только изображения (JPG, PNG, WEBP, HEIC) или PDF');
-      return;
-    }
-
-    if (file.size > RECEIPT_MAX_SIZE) {
-      event.target.value = '';
-      setPaymentReceipt(null);
-      setReceiptError(`Файл слишком большой. Максимум ${(RECEIPT_MAX_SIZE / (1024 * 1024)).toFixed(0)} МБ`);
-      return;
-    }
-
-    setReceiptError(null);
-    setPaymentReceipt(file);
-  };
-
-  const handleSubmit = async () => {
+  const handleSubmit = useCallback(async () => {
     if (!formData.name || !formData.phone || !formData.address) {
       toast.warning('Пожалуйста, заполните все обязательные поля');
       return;
@@ -126,7 +91,43 @@ export const CheckoutPage = () => {
     } finally {
       setSubmitting(false);
     }
+  }, [formData, paymentReceipt, storeStatus, cartSummary, navigate]);
+
+  useEffect(() => {
+    showBackButton(() => navigate('/cart'));
+    showMainButton('Подтвердить заказ', handleSubmit);
+    return () => {
+      hideMainButton();
+      hideBackButton();
+    };
+  }, [navigate, handleSubmit]);
+
+  const handleReceiptChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      setPaymentReceipt(null);
+      setReceiptError('Пожалуйста, прикрепите чек об оплате');
+      return;
+    }
+
+    if (!RECEIPT_ALLOWED_TYPES.includes(file.type)) {
+      event.target.value = '';
+      setPaymentReceipt(null);
+      setReceiptError('Допустимы только изображения (JPG, PNG, WEBP, HEIC) или PDF');
+      return;
+    }
+
+    if (file.size > RECEIPT_MAX_SIZE) {
+      event.target.value = '';
+      setPaymentReceipt(null);
+      setReceiptError(`Файл слишком большой. Максимум ${(RECEIPT_MAX_SIZE / (1024 * 1024)).toFixed(0)} МБ`);
+      return;
+    }
+
+    setReceiptError(null);
+    setPaymentReceipt(file);
   };
+
 
   const checkoutJsonLd = {
     "@context": "https://schema.org",

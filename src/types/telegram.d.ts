@@ -12,7 +12,15 @@ interface TelegramWebAppInitData {
   query_id?: string;
   user?: TelegramWebAppUser;
   receiver?: TelegramWebAppUser;
-  chat?: any;
+  chat?: {
+    id: number;
+    type: string;
+    title?: string;
+    username?: string;
+    first_name?: string;
+    last_name?: string;
+    photo_url?: string;
+  };
   chat_type?: string;
   chat_instance?: string;
   start_param?: string;

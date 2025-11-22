@@ -138,19 +138,19 @@ export const CatalogPage = () => {
           description="Просматривайте категории и товары Mini Shop прямо внутри Telegram."
           path="/"
         />
-      <div className="min-h-screen bg-background p-4 space-y-4">
-        <Skeleton className="h-12 w-full" />
-        <div className="flex gap-2 overflow-x-auto pb-2">
-          {[1, 2, 3].map(i => (
-            <Skeleton key={i} className="h-10 w-24 flex-shrink-0" />
-          ))}
-        </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
-          {[1, 2, 3, 4].map(i => (
-            <Skeleton key={i} className="h-80 w-full" />
-          ))}
-        </div>
-      </div>
+        <main className="min-h-screen bg-background p-4 space-y-4" role="main" aria-busy>
+          <Skeleton className="h-12 w-full" />
+          <div className="flex gap-2 overflow-x-auto pb-2" aria-hidden>
+            {[1, 2, 3].map(i => (
+              <Skeleton key={i} className="h-10 w-24 flex-shrink-0" />
+            ))}
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4" aria-hidden>
+            {[1, 2, 3, 4].map(i => (
+              <Skeleton key={i} className="h-80 w-full" />
+            ))}
+          </div>
+        </main>
       </>
     );
   }
@@ -163,18 +163,20 @@ export const CatalogPage = () => {
         path="/"
         jsonLd={catalogJsonLd}
       />
-    <div className="min-h-screen bg-background pb-20">
-      {/* Header */}
-      <div className="sticky z-10 bg-card border-b border-border px-3 py-2.5 sm:px-4 sm:py-4" style={{ top: 'calc(env(safe-area-inset-top, 0px) + var(--tg-header-height, 0px))' }}>
+    <main className="min-h-screen bg-background pb-20" role="main">
+      <header
+        className="sticky z-10 bg-card border-b border-border px-3 py-2.5 sm:px-4 sm:py-4"
+        style={{ top: 'calc(env(safe-area-inset-top, 0px) + var(--tg-header-height, 0px))' }}
+      >
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0 flex-shrink">
             <Package className="h-5 w-5 sm:h-6 sm:w-6 text-primary flex-shrink-0" />
             <h1 className="text-lg sm:text-xl font-bold text-foreground truncate">Магазин</h1>
           </div>
-          
+
           <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
             {isUserAdmin && forceClientView && (
-            <Button
+              <Button
                 variant="secondary"
                 size="sm"
                 onClick={() => {
@@ -187,37 +189,37 @@ export const CatalogPage = () => {
                 <span className="hidden sm:inline">Админ-режим</span>
               </Button>
             )}
-            <Button 
-              variant="outline" 
-              size="sm" 
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => navigate('/order')}
               className="h-9 px-2 sm:px-3"
             >
               <ClipboardList className="h-4 w-4 sm:mr-2 flex-shrink-0" />
               <span className="hidden sm:inline">Мои заказы</span>
             </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
+            <Button
+              variant="outline"
+              size="sm"
               onClick={handleHelp}
               className="h-9 px-2 sm:px-3"
             >
               <HelpCircle className="h-4 w-4 sm:mr-2 flex-shrink-0" />
               <span className="hidden sm:inline">Помощь</span>
             </Button>
-            
+
             <div className="relative">
-              <Button 
-                variant="default" 
-                size="sm" 
-                onClick={() => setCartDialogOpen(true)} 
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => setCartDialogOpen(true)}
                 className="relative h-9 px-2 sm:px-3"
               >
                 <ShoppingCart className="h-4 w-4 sm:mr-2 flex-shrink-0" />
                 <span className="hidden sm:inline">Корзина</span>
-              {cartItemsCount > 0 && (
+                {cartItemsCount > 0 && (
                   <span className="absolute -top-1 -right-1 sm:relative sm:top-0 sm:right-0 sm:ml-2 bg-primary-foreground/90 text-primary text-[10px] sm:text-xxs font-bold rounded-full h-4 w-4 sm:h-5 sm:px-2 sm:w-auto flex items-center justify-center">
-                  {cartItemsCount}
+                    {cartItemsCount}
                   </span>
                 )}
               </Button>
@@ -229,22 +231,22 @@ export const CatalogPage = () => {
             </div>
           </div>
         </div>
-      </div>
+      </header>
 
       {storeStatus?.is_sleep_mode && (
-        <div className="p-4">
+        <section className="p-4" aria-label="Статус магазина">
           <Alert>
             <AlertTitle>Магазин временно не работает</AlertTitle>
             <AlertDescription>
               {storeStatus.sleep_message || 'Мы временно не принимаем заказы. Возвращайтесь позже!'}
             </AlertDescription>
           </Alert>
-        </div>
+        </section>
       )}
 
-      {/* Categories */}
       {categories.length > 0 && (
-        <motion.div 
+        <motion.section
+          aria-label="Категории"
           className="px-3 py-3 sm:px-4 sm:py-4 border-b border-border bg-card"
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -281,11 +283,10 @@ export const CatalogPage = () => {
               </motion.div>
             ))}
           </div>
-        </motion.div>
+        </motion.section>
       )}
 
-      {/* Products */}
-      <div className="px-3 py-4 sm:px-4 sm:py-6">
+      <section className="px-3 py-4 sm:px-4 sm:py-6" aria-label="Список товаров">
         {filteredProducts.length === 0 ? (
           <div className="text-center py-12">
             <Package className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
@@ -309,11 +310,10 @@ export const CatalogPage = () => {
             })}
           </AnimatedList>
         )}
-      </div>
+      </section>
 
-      {/* Cart Dialog */}
-      <CartDialog 
-        open={cartDialogOpen} 
+      <CartDialog
+        open={cartDialogOpen}
         onOpenChange={setCartDialogOpen}
       />
       <Dialog open={helpDialogOpen} onOpenChange={setHelpDialogOpen}>
@@ -376,7 +376,7 @@ export const CatalogPage = () => {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </main>
     </>
   );
 };
