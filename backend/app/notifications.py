@@ -31,6 +31,7 @@ async def notify_admins_new_order(
     order_id: str,
     customer_name: str,
     customer_phone: str,
+    delivery_address: str,
     total_amount: float,
     items_count: int,
     receipt_url: str,
@@ -42,6 +43,7 @@ async def notify_admins_new_order(
         order_id: ID заказа
         customer_name: Имя клиента
         customer_phone: Телефон клиента
+        delivery_address: Адрес доставки
         total_amount: Общая сумма заказа
         items_count: Количество товаров в заказе
         receipt_url: Относительный путь к файлу чека (например, /uploads/filename.jpg)
@@ -64,6 +66,7 @@ async def notify_admins_new_order(
         f"📋 Заказ: `{order_id[-6:]}`\n"
         f"👤 Клиент: {customer_name}\n"
         f"📞 Телефон: {customer_phone}\n"
+        f"📍 Адрес: {delivery_address}\n"
         f"💰 Сумма: {format_amount(total_amount)} ₸\n"
         f"📦 Товаров: {items_count}"
     )

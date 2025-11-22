@@ -155,6 +155,7 @@ async def create_order(
       order_id=order.id,
       customer_name=name,
       customer_phone=phone,
+      delivery_address=address,
       total_amount=cart.total_amount,
       items_count=len(cart.items),
       receipt_url=receipt_url,
