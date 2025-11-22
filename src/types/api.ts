@@ -152,7 +152,19 @@ export interface ApiError {
 }
 
 // API Client Configuration
-export const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+// Если VITE_API_URL не начинается с http:// или https://, добавляем https://
+// Если не заканчивается на /api, добавляем /api
+const rawApiUrl = import.meta.env.VITE_API_URL || '/api';
+let apiBaseUrl = rawApiUrl.startsWith('http://') || rawApiUrl.startsWith('https://')
+  ? rawApiUrl
+  : `https://${rawApiUrl}`;
+
+// Убеждаемся, что URL заканчивается на /api
+if (!apiBaseUrl.endsWith('/api')) {
+  apiBaseUrl = apiBaseUrl.replace(/\/$/, '') + '/api';
+}
+
+export const API_BASE_URL = apiBaseUrl;
 
 // Admin user IDs (должен совпадать с config.py в Python боте)
 export const ADMIN_IDS = (import.meta.env.VITE_ADMIN_IDS || '').split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));

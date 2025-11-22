@@ -134,22 +134,28 @@ async def get_current_user(
   dev_user_id: str | None = Header(None, convert_underscores=False, alias="X-Dev-User-Id"),
 ) -> TelegramUser:
   """
-  Получает user_id из заголовка X-Dev-User-Id.
-  Если заголовок отсутствует, использует первый ID из ADMIN_IDS.
+  Получает user_id ТОЛЬКО из заголовка X-Dev-User-Id (реальный ID от Telegram).
+  Если заголовок отсутствует - ошибка.
   """
-  # Если есть заголовок X-Dev-User-Id, используем его
-  if dev_user_id:
-    try:
-      user_id = int(str(dev_user_id).strip())
-      return TelegramUser(id=user_id)
-    except (ValueError, TypeError):
-      pass
+  import logging
+  logger = logging.getLogger(__name__)
   
-  # Если заголовка нет или он некорректный, используем первый ID из ADMIN_IDS
-  if settings.admin_ids and len(settings.admin_ids) > 0:
-    user_id = int(settings.admin_ids[0])
+  # Используем ТОЛЬКО реальный ID от Telegram из заголовка
+  if not dev_user_id:
+    logger.error("[get_current_user] Заголовок X-Dev-User-Id отсутствует - нет данных от Telegram")
+    raise HTTPException(
+      status_code=status.HTTP_401_UNAUTHORIZED,
+      detail="Не удалось получить ID пользователя от Telegram. Убедитесь, что приложение запущено через Telegram.",
+    )
+  
+  try:
+    user_id = int(str(dev_user_id).strip())
+    logger.info(f"[get_current_user] Использован user_id от Telegram: {user_id}")
     return TelegramUser(id=user_id)
-  
-  # В крайнем случае возвращаем 1
-  return TelegramUser(id=1)
+  except (ValueError, TypeError) as e:
+    logger.error(f"[get_current_user] Не удалось распарсить X-Dev-User-Id='{dev_user_id}': {e}")
+    raise HTTPException(
+      status_code=status.HTTP_400_BAD_REQUEST,
+      detail=f"Некорректный формат user_id: {dev_user_id}",
+    )
 

@@ -228,62 +228,16 @@ export const applyTelegramTheme = (themeParams: TelegramThemeParams) => {
   }
 };
 
-const DEV_USER_STORAGE_KEY = 'miniapp_dev_user_id';
-
-const getDevFallbackUserId = (): number | null => {
-  // Используем первый ID из VITE_ADMIN_IDS
-  const adminIds = import.meta.env.VITE_ADMIN_IDS;
-  if (adminIds) {
-    const firstAdminId = adminIds.split(',')[0]?.trim();
-    if (firstAdminId) {
-      const parsed = Number(firstAdminId);
-      if (!Number.isNaN(parsed)) {
-        // Сохраняем в localStorage
-        if (typeof window !== 'undefined') {
-          window.localStorage.setItem(DEV_USER_STORAGE_KEY, parsed.toString());
-        }
-        return parsed;
-      }
-    }
-  }
-
-  if (typeof window === 'undefined') {
-    return null;
-  }
-
-  // Проверяем сохраненный ID в localStorage
-  const stored = window.localStorage.getItem(DEV_USER_STORAGE_KEY);
-  if (stored) {
-    const parsed = Number(stored);
-    if (!Number.isNaN(parsed)) {
-      return parsed;
-    }
-  }
-
-  // В крайнем случае возвращаем 1
-  return 1;
-};
-
 export const getUserId = (): number | null => {
   const tg = getTelegram();
-  return tg?.initDataUnsafe?.user?.id || getDevFallbackUserId();
+  // Используем ТОЛЬКО реальный ID от Telegram, без fallback
+  return tg?.initDataUnsafe?.user?.id || null;
 };
 
 export const getUser = () => {
   const tg = getTelegram();
-  if (tg?.initDataUnsafe?.user) {
-    return tg.initDataUnsafe.user;
-  }
-
-  const fallbackId = getDevFallbackUserId();
-  if (!fallbackId) return null;
-
-  return {
-    id: fallbackId,
-    first_name: "Demo",
-    last_name: "",
-    username: "demo_user",
-  };
+  // Возвращаем ТОЛЬКО реальные данные от Telegram
+  return tg?.initDataUnsafe?.user || null;
 };
 
 export const isAdmin = (userId: number, adminIds: number[]): boolean => {
@@ -393,9 +347,14 @@ export const closeMiniApp = () => {
 };
 
 export const getRequestAuthHeaders = (): Record<string, string> => {
-  // Используем первый ID из VITE_ADMIN_IDS
-  const devUserId = getDevFallbackUserId();
-  const userIdToSend = devUserId || 1;
+  // Используем ТОЛЬКО реальный ID от Telegram
+  const tg = getTelegram();
+  const realUserId = tg?.initDataUnsafe?.user?.id;
   
-  return { 'X-Dev-User-Id': userIdToSend.toString() };
+  if (realUserId) {
+    return { 'X-Dev-User-Id': realUserId.toString() };
+  }
+  
+  // Если ID от Telegram нет, возвращаем пустой объект (бэкенд обработает)
+  return {};
 };
