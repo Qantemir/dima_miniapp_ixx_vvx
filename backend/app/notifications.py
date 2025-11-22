@@ -131,12 +131,16 @@ async def _send_notification_with_receipt(
             with open(receipt_path, "rb") as f:
                 file_data = f.read()
             
-            # Создаем inline-кнопку для принятия заказа
+            # Создаем inline-кнопки для принятия и отмены заказа
             keyboard = {
                 "inline_keyboard": [[
                     {
                         "text": "✅ Принять заказ",
                         "callback_data": f"accept_order_{order_id}"
+                    },
+                    {
+                        "text": "❌ Отменить заказ",
+                        "callback_data": f"cancel_order_{order_id}"
                     }
                 ]]
             }
@@ -164,12 +168,16 @@ async def _send_notification_with_receipt(
         
         # Отправляем текстовое сообщение (если файл не отправился или его нет)
         if not receipt_path or not receipt_path.exists():
-            # Создаем inline-кнопку для принятия заказа
+            # Создаем inline-кнопки для принятия и отмены заказа
             keyboard = {
                 "inline_keyboard": [[
                     {
                         "text": "✅ Принять заказ",
                         "callback_data": f"accept_order_{order_id}"
+                    },
+                    {
+                        "text": "❌ Отменить заказ",
+                        "callback_data": f"cancel_order_{order_id}"
                     }
                 ]]
             }

@@ -26,6 +26,7 @@ class Settings(BaseSettings):
   broadcast_batch_size: int = Field(25, env="BROADCAST_BATCH_SIZE")
   broadcast_concurrency: int = Field(10, env="BROADCAST_CONCURRENCY")
   environment: str = Field("development", env="ENVIRONMENT")
+  public_url: str | None = Field(None, env="PUBLIC_URL")  # Публичный URL для webhook (например, https://your-domain.com)
 
   @validator("admin_ids", pre=True)
   def split_admin_ids(cls, value):

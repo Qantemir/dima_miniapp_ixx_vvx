@@ -99,7 +99,7 @@ async def handle_bot_webhook(
                     show_alert=False
                 )
                 
-                # Обновляем сообщение, убирая кнопку
+                # Обновляем сообщение, убирая кнопки
                 await _edit_message_reply_markup(
                     settings.telegram_bot_token,
                     chat_id,
@@ -121,6 +121,93 @@ async def handle_bot_webhook(
                         logger.error(f"Ошибка при отправке уведомления клиенту о статусе заказа {order_id}: {e}")
                 
                 logger.info(f"Заказ {order_id} принят администратором {user_id} через кнопку")
+            else:
+                await _answer_callback_query(
+                    callback_query.get("id"),
+                    "Ошибка при обновлении заказа",
+                    show_alert=True
+                )
+        
+        # Обрабатываем callback для отмены заказа
+        elif callback_data.startswith("cancel_order_"):
+            order_id = callback_data.replace("cancel_order_", "")
+            
+            # Получаем заказ
+            doc = await db.orders.find_one({"_id": as_object_id(order_id)})
+            if not doc:
+                await _answer_callback_query(
+                    callback_query.get("id"),
+                    "Заказ не найден",
+                    show_alert=True
+                )
+                return {"ok": True}
+            
+            # Проверяем, что заказ можно отменить (новый или в обработке)
+            current_status = doc.get("status")
+            if current_status in {OrderStatus.SHIPPED.value, OrderStatus.DONE.value, OrderStatus.CANCELED.value}:
+                await _answer_callback_query(
+                    callback_query.get("id"),
+                    f"Заказ нельзя отменить. Текущий статус: {current_status}",
+                    show_alert=True
+                )
+                return {"ok": True}
+            
+            # Обновляем статус на "отменён" и возвращаем товары на склад
+            from datetime import datetime
+            from ..utils import restore_variant_quantity
+            
+            items = doc.get("items", [])
+            for item in items:
+                if item.get("variant_id"):
+                    await restore_variant_quantity(
+                        db,
+                        item.get("product_id"),
+                        item.get("variant_id"),
+                        item.get("quantity", 0)
+                    )
+            
+            updated = await db.orders.find_one_and_update(
+                {"_id": as_object_id(order_id)},
+                {
+                    "$set": {
+                        "status": OrderStatus.CANCELED.value,
+                        "updated_at": datetime.utcnow(),
+                        "can_edit_address": False,
+                    }
+                },
+                return_document=True,
+            )
+            
+            if updated:
+                # Отвечаем на callback
+                await _answer_callback_query(
+                    callback_query.get("id"),
+                    "❌ Заказ отменён!",
+                    show_alert=False
+                )
+                
+                # Обновляем сообщение, убирая кнопки
+                await _edit_message_reply_markup(
+                    settings.telegram_bot_token,
+                    chat_id,
+                    message_id,
+                    None  # Убираем кнопки
+                )
+                
+                # Отправляем уведомление клиенту об изменении статуса
+                customer_user_id = updated.get("user_id")
+                if customer_user_id:
+                    try:
+                        await notify_customer_order_status(
+                            user_id=customer_user_id,
+                            order_id=order_id,
+                            order_status=OrderStatus.CANCELED.value,
+                            customer_name=updated.get("customer_name"),
+                        )
+                    except Exception as e:
+                        logger.error(f"Ошибка при отправке уведомления клиенту о статусе заказа {order_id}: {e}")
+                
+                logger.info(f"Заказ {order_id} отменён администратором {user_id} через кнопку")
             else:
                 await _answer_callback_query(
                     callback_query.get("id"),

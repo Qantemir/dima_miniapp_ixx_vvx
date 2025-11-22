@@ -35,6 +35,30 @@ async def apply_security_headers(request, call_next):
 async def startup():
   # Подключаемся к MongoDB при старте для быстрого первого запроса
   await connect_to_mongo()
+  
+  # Настраиваем webhook для Telegram Bot API (если указан публичный URL)
+  if settings.telegram_bot_token and settings.public_url:
+    try:
+      import httpx
+      webhook_url = f"{settings.public_url.rstrip('/')}{settings.api_prefix}/bot/webhook"
+      async with httpx.AsyncClient(timeout=10.0) as client:
+        response = await client.post(
+          f"https://api.telegram.org/bot{settings.telegram_bot_token}/setWebhook",
+          json={"url": webhook_url}
+        )
+        result = response.json()
+        if result.get("ok"):
+          import logging
+          logger = logging.getLogger(__name__)
+          logger.info(f"Webhook настроен: {webhook_url}")
+        else:
+          import logging
+          logger = logging.getLogger(__name__)
+          logger.warning(f"Не удалось настроить webhook: {result.get('description', 'Unknown error')}")
+    except Exception as e:
+      import logging
+      logger = logging.getLogger(__name__)
+      logger.error(f"Ошибка при настройке webhook: {e}")
 
 
 @app.on_event("shutdown")
