@@ -131,18 +131,36 @@ async def _send_notification_with_receipt(
             with open(receipt_path, "rb") as f:
                 file_data = f.read()
             
-            # Создаем inline-кнопки для принятия и отмены заказа
+            # Создаем inline-кнопки для изменения статуса заказа
             keyboard = {
-                "inline_keyboard": [[
-                    {
-                        "text": "✅ Принять заказ",
-                        "callback_data": f"accept_order_{order_id}"
-                    },
-                    {
-                        "text": "❌ Отменить заказ",
-                        "callback_data": f"cancel_order_{order_id}"
-                    }
-                ]]
+                "inline_keyboard": [
+                    [
+                        {
+                            "text": "✅ Принят",
+                            "callback_data": f"status_order_{order_id}_принят"
+                        },
+                        {
+                            "text": "🚚 Выехал",
+                            "callback_data": f"status_order_{order_id}_выехал"
+                        }
+                    ],
+                    [
+                        {
+                            "text": "🔄 В обработке",
+                            "callback_data": f"status_order_{order_id}_в обработке"
+                        },
+                        {
+                            "text": "🎉 Завершён",
+                            "callback_data": f"status_order_{order_id}_завершён"
+                        }
+                    ],
+                    [
+                        {
+                            "text": "❌ Отменить",
+                            "callback_data": f"status_order_{order_id}_отменён"
+                        }
+                    ]
+                ]
             }
             
             # Отправляем файл с подписью и кнопкой
@@ -168,18 +186,36 @@ async def _send_notification_with_receipt(
         
         # Отправляем текстовое сообщение (если файл не отправился или его нет)
         if not receipt_path or not receipt_path.exists():
-            # Создаем inline-кнопки для принятия и отмены заказа
+            # Создаем inline-кнопки для изменения статуса заказа
             keyboard = {
-                "inline_keyboard": [[
-                    {
-                        "text": "✅ Принять заказ",
-                        "callback_data": f"accept_order_{order_id}"
-                    },
-                    {
-                        "text": "❌ Отменить заказ",
-                        "callback_data": f"cancel_order_{order_id}"
-                    }
-                ]]
+                "inline_keyboard": [
+                    [
+                        {
+                            "text": "✅ Принят",
+                            "callback_data": f"status_order_{order_id}_принят"
+                        },
+                        {
+                            "text": "🚚 Выехал",
+                            "callback_data": f"status_order_{order_id}_выехал"
+                        }
+                    ],
+                    [
+                        {
+                            "text": "🔄 В обработке",
+                            "callback_data": f"status_order_{order_id}_в обработке"
+                        },
+                        {
+                            "text": "🎉 Завершён",
+                            "callback_data": f"status_order_{order_id}_завершён"
+                        }
+                    ],
+                    [
+                        {
+                            "text": "❌ Отменить",
+                            "callback_data": f"status_order_{order_id}_отменён"
+                        }
+                    ]
+                ]
             }
             
             api_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"

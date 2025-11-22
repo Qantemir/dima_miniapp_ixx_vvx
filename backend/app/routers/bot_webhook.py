@@ -54,9 +54,20 @@ async def handle_bot_webhook(
             )
             return {"ok": True}
         
-        # Обрабатываем callback для принятия заказа
-        if callback_data.startswith("accept_order_"):
-            order_id = callback_data.replace("accept_order_", "")
+        # Обрабатываем callback для изменения статуса заказа (новый формат)
+        if callback_data.startswith("status_order_"):
+            # Формат: status_order_{order_id}_{status}
+            parts = callback_data.replace("status_order_", "").split("_", 1)
+            if len(parts) != 2:
+                await _answer_callback_query(
+                    callback_query.get("id"),
+                    "Некорректный формат команды",
+                    show_alert=True
+                )
+                return {"ok": True}
+            
+            order_id = parts[0]
+            new_status_value = parts[1]
             
             # Получаем заказ
             doc = await db.orders.find_one({"_id": as_object_id(order_id)})
@@ -68,11 +79,125 @@ async def handle_bot_webhook(
                 )
                 return {"ok": True}
             
-            # Проверяем, что заказ еще новый
-            if doc.get("status") != OrderStatus.NEW.value:
+            # Проверяем, что статус валидный
+            valid_statuses = {
+                OrderStatus.NEW.value,
+                OrderStatus.PROCESSING.value,
+                OrderStatus.ACCEPTED.value,
+                OrderStatus.SHIPPED.value,
+                OrderStatus.DONE.value,
+                OrderStatus.CANCELED.value,
+            }
+            
+            if new_status_value not in valid_statuses:
                 await _answer_callback_query(
                     callback_query.get("id"),
-                    f"Заказ уже обработан. Текущий статус: {doc.get('status')}",
+                    "Некорректный статус",
+                    show_alert=True
+                )
+                return {"ok": True}
+            
+            current_status = doc.get("status")
+            if current_status == new_status_value:
+                await _answer_callback_query(
+                    callback_query.get("id"),
+                    f"Заказ уже имеет статус: {new_status_value}",
+                    show_alert=False
+                )
+                return {"ok": True}
+            
+            # Если заказ отменяется, возвращаем товары на склад
+            from datetime import datetime
+            from ..utils import restore_variant_quantity
+            
+            if new_status_value == OrderStatus.CANCELED.value and current_status != OrderStatus.CANCELED.value:
+                items = doc.get("items", [])
+                for item in items:
+                    if item.get("variant_id"):
+                        await restore_variant_quantity(
+                            db,
+                            item.get("product_id"),
+                            item.get("variant_id"),
+                            item.get("quantity", 0)
+                        )
+            
+            # Определяем, можно ли редактировать адрес
+            editable_statuses = {
+                OrderStatus.NEW.value,
+                OrderStatus.PROCESSING.value,
+            }
+            can_edit_address = new_status_value in editable_statuses
+            
+            # Обновляем статус
+            updated = await db.orders.find_one_and_update(
+                {"_id": as_object_id(order_id)},
+                {
+                    "$set": {
+                        "status": new_status_value,
+                        "updated_at": datetime.utcnow(),
+                        "can_edit_address": can_edit_address,
+                    }
+                },
+                return_document=True,
+            )
+            
+            if updated:
+                # Формируем сообщение подтверждения
+                status_messages = {
+                    OrderStatus.ACCEPTED.value: "✅ Заказ принят!",
+                    OrderStatus.PROCESSING.value: "🔄 Статус изменён на 'В обработке'",
+                    OrderStatus.SHIPPED.value: "🚚 Заказ выехал!",
+                    OrderStatus.DONE.value: "🎉 Заказ завершён!",
+                    OrderStatus.CANCELED.value: "❌ Заказ отменён!",
+                }
+                confirm_message = status_messages.get(new_status_value, f"Статус изменён на: {new_status_value}")
+                
+                # Отвечаем на callback
+                await _answer_callback_query(
+                    callback_query.get("id"),
+                    confirm_message,
+                    show_alert=False
+                )
+                
+                # Обновляем сообщение, обновляя кнопки (показываем текущий статус)
+                await _edit_message_reply_markup(
+                    settings.telegram_bot_token,
+                    chat_id,
+                    message_id,
+                    None  # Убираем кнопки после изменения статуса
+                )
+                
+                # Отправляем уведомление клиенту об изменении статуса
+                customer_user_id = updated.get("user_id")
+                if customer_user_id:
+                    try:
+                        await notify_customer_order_status(
+                            user_id=customer_user_id,
+                            order_id=order_id,
+                            order_status=new_status_value,
+                            customer_name=updated.get("customer_name"),
+                        )
+                    except Exception as e:
+                        logger.error(f"Ошибка при отправке уведомления клиенту о статусе заказа {order_id}: {e}")
+                
+                logger.info(f"Заказ {order_id} изменён на статус '{new_status_value}' администратором {user_id} через кнопку")
+            else:
+                await _answer_callback_query(
+                    callback_query.get("id"),
+                    "Ошибка при обновлении заказа",
+                    show_alert=True
+                )
+        
+        # Обрабатываем callback для принятия заказа (старый формат для совместимости)
+        elif callback_data.startswith("accept_order_"):
+            order_id = callback_data.replace("accept_order_", "")
+            
+            # Получаем заказ
+            doc = await db.orders.find_one({"_id": as_object_id(order_id)})
+            if not doc:
+                await _answer_callback_query(
+                    callback_query.get("id"),
+                    "Заказ не найден",
                     show_alert=True
                 )
                 return {"ok": True}
@@ -92,22 +217,17 @@ async def handle_bot_webhook(
             )
             
             if updated:
-                # Отвечаем на callback
                 await _answer_callback_query(
                     callback_query.get("id"),
                     "✅ Заказ принят!",
                     show_alert=False
                 )
-                
-                # Обновляем сообщение, убирая кнопки
                 await _edit_message_reply_markup(
                     settings.telegram_bot_token,
                     chat_id,
                     message_id,
-                    None  # Убираем кнопки
+                    None
                 )
-                
-                # Отправляем уведомление клиенту об изменении статуса
                 customer_user_id = updated.get("user_id")
                 if customer_user_id:
                     try:
@@ -119,7 +239,6 @@ async def handle_bot_webhook(
                         )
                     except Exception as e:
                         logger.error(f"Ошибка при отправке уведомления клиенту о статусе заказа {order_id}: {e}")
-                
                 logger.info(f"Заказ {order_id} принят администратором {user_id} через кнопку")
             else:
                 await _answer_callback_query(
@@ -128,7 +247,7 @@ async def handle_bot_webhook(
                     show_alert=True
                 )
         
-        # Обрабатываем callback для отмены заказа
+        # Обрабатываем callback для отмены заказа (старый формат для совместимости)
         elif callback_data.startswith("cancel_order_"):
             order_id = callback_data.replace("cancel_order_", "")
             

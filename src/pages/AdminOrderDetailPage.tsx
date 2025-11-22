@@ -13,13 +13,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Seo } from '@/components/Seo';
 import { ReceiptDialog } from '@/components/ReceiptDialog';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -204,22 +197,20 @@ export const AdminOrderDetailPage = () => {
         {/* Change Status */}
         <div className="bg-card rounded-lg p-4 border border-border space-y-3">
           <h3 className="font-semibold text-foreground">Изменить статус</h3>
-          <Select
-            value={currentStatus || order.status}
-            onValueChange={value => handleStatusSelect(value as OrderStatus)}
-            disabled={updating}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Выберите статус" />
-            </SelectTrigger>
-            <SelectContent>
-              {AVAILABLE_STATUSES.map(status => (
-                <SelectItem key={status} value={status}>
-                  {STATUS_LABELS[status]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="grid grid-cols-2 gap-2">
+            {AVAILABLE_STATUSES.map(status => (
+              <Button
+                key={status}
+                variant={order.status === status ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => handleStatusSelect(status)}
+                disabled={updating || order.status === status}
+                className="w-full"
+              >
+                {STATUS_LABELS[status]}
+              </Button>
+            ))}
+          </div>
         </div>
 
         {/* Customer Info */}
