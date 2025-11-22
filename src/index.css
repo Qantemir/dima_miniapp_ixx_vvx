@@ -103,6 +103,20 @@
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
+    /* Учитываем safe-area для Telegram Mini App */
+    padding-top: env(safe-area-inset-top, 0);
+    padding-bottom: env(safe-area-inset-bottom, 0);
+    padding-left: env(safe-area-inset-left, 0);
+    padding-right: env(safe-area-inset-right, 0);
+  }
+
+  /* Дополнительный отступ для статус-бара Telegram */
+  html {
+    --tg-header-height: 0px;
+  }
+
+  body.telegram-app {
+    padding-top: calc(env(safe-area-inset-top, 0px) + var(--tg-header-height, 0px));
   }
 }
 

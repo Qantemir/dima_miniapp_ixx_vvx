@@ -166,7 +166,7 @@ export const AdminOrderDetailPage = () => {
       <Seo title={seoTitle} description="Изменяйте статус и просматривайте детали заказа." path={seoPath} noIndex />
       <div className="min-h-screen bg-background pb-6">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-card border-b border-border p-4">
+      <div className="sticky z-10 bg-card border-b border-border p-4" style={{ top: 'calc(env(safe-area-inset-top, 0px) + var(--tg-header-height, 0px))' }}>
         <div className="flex items-center gap-3">
           <Button
             variant="ghost"

@@ -188,6 +188,31 @@ export const initTelegram = () => {
     if (tg.colorScheme) {
       document.documentElement.classList.toggle('dark', tg.colorScheme === 'dark');
     }
+
+    // Устанавливаем отступ для статус-бара Telegram
+    const setHeaderOffset = () => {
+      // Вычисляем высоту статус-бара на основе разницы viewport
+      const viewportHeight = tg.viewportHeight || window.innerHeight;
+      const viewportStableHeight = tg.viewportStableHeight || viewportHeight;
+      const headerHeight = Math.max(0, viewportHeight - viewportStableHeight);
+      
+      // Если высота статус-бара не определена, используем фиксированный отступ
+      const finalHeight = headerHeight > 0 ? headerHeight : 44; // 44px - стандартная высота статус-бара
+      
+      document.documentElement.style.setProperty('--tg-header-height', `${finalHeight}px`);
+      document.body.classList.add('telegram-app');
+    };
+
+    // Устанавливаем отступ сразу
+    setHeaderOffset();
+    
+    // Слушаем изменения viewport
+    if (typeof tg.onEvent === 'function') {
+      tg.onEvent('viewportChanged', setHeaderOffset);
+    }
+    
+    // Также обновляем при изменении размера окна (fallback)
+    window.addEventListener('resize', setHeaderOffset);
   }
   return tg;
 };

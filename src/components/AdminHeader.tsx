@@ -36,7 +36,7 @@ export const AdminHeader = ({ title, description, icon }: AdminHeaderProps) => {
   };
 
   return (
-    <div className="sticky top-0 z-20 bg-card border-b border-border p-4 space-y-4">
+    <div className="sticky top-0 z-20 bg-card border-b border-border p-4 space-y-4" style={{ top: 'calc(env(safe-area-inset-top, 0px) + var(--tg-header-height, 0px))' }}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3">
           <div className="rounded-full bg-primary/10 p-2">
