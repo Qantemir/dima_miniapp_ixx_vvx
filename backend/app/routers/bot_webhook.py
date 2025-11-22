@@ -18,6 +18,98 @@ router = APIRouter(tags=["bot"])
 logger = logging.getLogger(__name__)
 
 
+@router.get("/bot/webhook/status")
+async def get_webhook_status():
+    """
+    Проверяет статус webhook в Telegram Bot API.
+    """
+    settings = get_settings()
+    if not settings.telegram_bot_token:
+        return {
+            "configured": False,
+            "error": "TELEGRAM_BOT_TOKEN не настроен"
+        }
+    
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(
+                f"https://api.telegram.org/bot{settings.telegram_bot_token}/getWebhookInfo"
+            )
+            result = response.json()
+            if result.get("ok"):
+                webhook_info = result.get("result", {})
+                return {
+                    "configured": True,
+                    "url": webhook_info.get("url", ""),
+                    "has_custom_certificate": webhook_info.get("has_custom_certificate", False),
+                    "pending_update_count": webhook_info.get("pending_update_count", 0),
+                    "last_error_date": webhook_info.get("last_error_date"),
+                    "last_error_message": webhook_info.get("last_error_message"),
+                    "max_connections": webhook_info.get("max_connections"),
+                }
+            else:
+                return {
+                    "configured": False,
+                    "error": result.get("description", "Unknown error")
+                }
+    except Exception as e:
+        logger.error(f"Ошибка при проверке статуса webhook: {e}")
+        return {
+            "configured": False,
+            "error": str(e)
+        }
+
+
+@router.post("/bot/webhook/setup")
+async def setup_webhook():
+    """
+    Настраивает webhook для Telegram Bot API.
+    """
+    settings = get_settings()
+    if not settings.telegram_bot_token:
+        raise HTTPException(
+            status_code=400,
+            detail="TELEGRAM_BOT_TOKEN не настроен"
+        )
+    
+    if not settings.public_url:
+        raise HTTPException(
+            status_code=400,
+            detail="PUBLIC_URL не настроен. Укажите публичный URL сервера в .env"
+        )
+    
+    try:
+        webhook_url = f"{settings.public_url.rstrip('/')}{settings.api_prefix}/bot/webhook"
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.post(
+                f"https://api.telegram.org/bot{settings.telegram_bot_token}/setWebhook",
+                json={"url": webhook_url}
+            )
+            result = response.json()
+            if result.get("ok"):
+                logger.info(f"Webhook успешно настроен: {webhook_url}")
+                return {
+                    "success": True,
+                    "url": webhook_url,
+                    "message": "Webhook успешно настроен"
+                }
+            else:
+                error_msg = result.get("description", "Unknown error")
+                logger.error(f"Не удалось настроить webhook: {error_msg}")
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Не удалось настроить webhook: {error_msg}"
+                )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Ошибка при настройке webhook: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Ошибка при настройке webhook: {str(e)}"
+        )
+
+
 @router.post("/bot/webhook")
 async def handle_bot_webhook(
     request: Request,
