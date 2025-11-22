@@ -157,6 +157,7 @@ async def create_order(
       customer_phone=phone,
       total_amount=cart.total_amount,
       items_count=len(cart.items),
+      receipt_url=receipt_url,
     )
   except Exception as e:
     # Логируем ошибку, но не прерываем создание заказа
