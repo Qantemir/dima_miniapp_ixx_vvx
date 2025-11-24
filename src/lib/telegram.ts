@@ -327,7 +327,7 @@ export const showMainButton = (
 
 export const hideMainButton = () => {
   const tg = getTelegram();
-  if (!hasTelegramInitContext(tg)) return;
+  if (!tg) return;
 
   detachMainButtonHandler(tg);
 

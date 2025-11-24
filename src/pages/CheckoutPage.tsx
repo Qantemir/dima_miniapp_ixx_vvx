@@ -10,7 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { api } from '@/lib/api';
 import { Seo } from '@/components/Seo';
 import { buildCanonicalUrl } from '@/lib/seo';
-import { showBackButton, hideBackButton, hideMainButton } from '@/lib/telegram';
+import { showBackButton, hideBackButton } from '@/lib/telegram';
 import { toast } from '@/lib/toast';
 import { useStoreStatus } from '@/contexts/StoreStatusContext';
 import { useCart } from '@/hooks/useCart';
@@ -94,12 +94,10 @@ export const CheckoutPage = () => {
   }, [formData, paymentReceipt, storeStatus, cartSummary, navigate]);
 
   useEffect(() => {
-    hideMainButton();
     showBackButton(() => navigate('/cart'));
 
     return () => {
       hideBackButton();
-      hideMainButton();
     };
   }, [navigate]);
 
