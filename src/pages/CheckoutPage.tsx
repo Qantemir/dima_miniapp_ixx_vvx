@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from '@/components/icons';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { api } from '@/lib/api';
 import { Seo } from '@/components/Seo';
 import { buildCanonicalUrl } from '@/lib/seo';
-import { showBackButton, hideBackButton, hideMainButton, showMainButton, getTelegram, isTelegramWebApp, waitForTelegramInitData } from '@/lib/telegram';
+import { showBackButton, hideBackButton, hideMainButton } from '@/lib/telegram';
 import { toast } from '@/lib/toast';
 import { useStoreStatus } from '@/contexts/StoreStatusContext';
 import { useCart } from '@/hooks/useCart';
@@ -40,7 +40,6 @@ const formatFileSize = (size: number) => {
 export const CheckoutPage = () => {
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
-  const [isTelegramApp, setIsTelegramApp] = useState<boolean | null>(() => (isTelegramWebApp() ? true : null));
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -51,7 +50,6 @@ export const CheckoutPage = () => {
   const { status: storeStatus } = useStoreStatus();
   const [paymentReceipt, setPaymentReceipt] = useState<File | null>(null);
   const [receiptError, setReceiptError] = useState<string | null>(null);
-  const handleSubmitRef = useRef<() => Promise<void> | void>(() => undefined);
 
   const handleSubmit = useCallback(async () => {
     if (!formData.name || !formData.phone || !formData.address) {
@@ -96,30 +94,6 @@ export const CheckoutPage = () => {
   }, [formData, paymentReceipt, storeStatus, cartSummary, navigate]);
 
   useEffect(() => {
-    handleSubmitRef.current = handleSubmit;
-  }, [handleSubmit]);
-
-  useEffect(() => {
-    const resolved = isTelegramWebApp();
-    setIsTelegramApp(resolved ? true : false);
-
-    if (!resolved) {
-      let isMounted = true;
-      waitForTelegramInitData(2000).then(data => {
-        if (!isMounted) return;
-        if (data) {
-          setIsTelegramApp(true);
-        } else {
-          setIsTelegramApp(prev => (prev === null ? false : prev));
-        }
-      });
-      return () => {
-        isMounted = false;
-      };
-    }
-  }, []);
-
-  useEffect(() => {
     showBackButton(() => navigate('/cart'));
 
     return () => {
@@ -127,21 +101,6 @@ export const CheckoutPage = () => {
       hideMainButton();
     };
   }, [navigate]);
-
-  useEffect(() => {
-    if (isTelegramApp !== true) {
-      hideMainButton();
-      return;
-    }
-
-    showMainButton('Подтвердить заказ', () => {
-      handleSubmitRef.current?.();
-    });
-
-    return () => {
-      hideMainButton();
-    };
-  }, [isTelegramApp]);
 
   const isSubmitDisabled = useMemo(
     () =>
@@ -161,31 +120,6 @@ export const CheckoutPage = () => {
       receiptError,
     ],
   );
-
-  useEffect(() => {
-    if (isTelegramApp !== true) {
-      return;
-    }
-
-    const telegram = getTelegram();
-    if (!telegram) {
-      return;
-    }
-
-    if (submitting) {
-      telegram.MainButton.setText('Отправка...');
-      telegram.MainButton.showProgress(true);
-    } else {
-      telegram.MainButton.setText('Подтвердить заказ');
-      telegram.MainButton.hideProgress();
-    }
-
-    if (isSubmitDisabled) {
-      telegram.MainButton.disable();
-    } else {
-      telegram.MainButton.enable();
-    }
-  }, [isTelegramApp, submitting, isSubmitDisabled]);
 
   const handleReceiptChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -379,6 +313,13 @@ export const CheckoutPage = () => {
           )}
         </Card>
 
+        <Button
+          className="w-full h-12 text-base"
+          disabled={isSubmitDisabled}
+          onClick={handleSubmit}
+        >
+          {submitting ? 'Отправка...' : 'Подтвердить заказ'}
+        </Button>
         </div>
       </div>
       </PageTransition>
