@@ -83,8 +83,16 @@ async def _save_payment_receipt(db: AsyncIOMotorDatabase, file: UploadFile) -> t
         detail="Поддерживаются только изображения (JPG, PNG, WEBP, HEIC) или PDF",
       )
 
-  file.file.seek(0)
-  file_bytes = file.file.read()
+  # Читаем файл правильно, чтобы избежать ошибок с закрытым файлом
+  # Используем асинхронный метод read() который правильно обрабатывает файл
+  try:
+    file_bytes = await file.read()
+  except Exception as e:
+    raise HTTPException(
+      status_code=400,
+      detail=f"Ошибка при чтении файла: {str(e)}"
+    )
+
   if not file_bytes:
     raise HTTPException(status_code=400, detail="Файл чека пустой")
   if len(file_bytes) > MAX_RECEIPT_SIZE_BYTES:
@@ -103,18 +111,24 @@ async def _save_payment_receipt(db: AsyncIOMotorDatabase, file: UploadFile) -> t
   gridfs_content_type = content_type if content_type else f"application/octet-stream"
   
   # Сохраняем файл в GridFS (синхронная операция в executor)
-  file_id = await loop.run_in_executor(
-    None,
-    lambda: fs.put(
-      file_bytes,
-      filename=filename,
-      content_type=gridfs_content_type,
-      metadata={
-        "original_filename": file.filename,
-        "uploaded_at": datetime.utcnow(),
-      }
+  try:
+    file_id = await loop.run_in_executor(
+      None,
+      lambda: fs.put(
+        file_bytes,
+        filename=filename,
+        content_type=gridfs_content_type,
+        metadata={
+          "original_filename": file.filename,
+          "uploaded_at": datetime.utcnow(),
+        }
+      )
     )
-  )
+  except Exception as e:
+    raise HTTPException(
+      status_code=500,
+      detail=f"Ошибка при сохранении файла в GridFS: {str(e)}"
+    )
   
   # Возвращаем file_id как строку и оригинальное имя файла
   return str(file_id), file.filename
