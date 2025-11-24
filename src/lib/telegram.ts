@@ -5,6 +5,19 @@ const INIT_DATA_STORAGE_KEY = 'miniapp_init_data';
 
 let cachedInitData: string | null = null;
 let waitForInitDataPromise: Promise<string | null> | null = null;
+let activeMainButtonHandler: (() => void) | null = null;
+
+const hasTelegramInitContext = (tg?: TelegramWebApp | null): tg is TelegramWebApp => {
+  if (!tg) {
+    return false;
+  }
+
+  const hasUnsafeUser = Boolean(tg.initDataUnsafe?.user?.id);
+  const hasInitData =
+    typeof tg.initData === 'string' && tg.initData.trim().length > 0;
+
+  return hasUnsafeUser || hasInitData;
+};
 
 export const getTelegram = () => {
   if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
@@ -12,6 +25,8 @@ export const getTelegram = () => {
   }
   return null;
 };
+
+export const isTelegramWebApp = () => hasTelegramInitContext(getTelegram());
 
 const extractInitDataFromString = (raw?: string | null) => {
   if (!raw) return null;
@@ -269,42 +284,67 @@ export const isAdmin = (userId: number, adminIds: number[]): boolean => {
   return adminIds.includes(userId);
 };
 
+const detachMainButtonHandler = (tg?: TelegramWebApp | null) => {
+  if (!activeMainButtonHandler) {
+    return;
+  }
+
+  const telegram = tg ?? getTelegram();
+  if (!telegram) {
+    activeMainButtonHandler = null;
+    return;
+  }
+
+  try {
+    telegram.MainButton.offClick(activeMainButtonHandler);
+  } catch {
+    // Ignore detach errors - Telegram SDK can throw when handler not found
+  } finally {
+    activeMainButtonHandler = null;
+  }
+};
+
 export const showMainButton = (
   text: string,
   onClick: () => void,
   options?: { color?: string; textColor?: string }
 ) => {
   const tg = getTelegram();
-  if (!tg) return;
+  if (!hasTelegramInitContext(tg)) return;
+
+  // Удаляем предыдущий обработчик, если он был зарегистрирован
+  detachMainButtonHandler(tg);
+  activeMainButtonHandler = onClick;
 
   tg.MainButton.setText(text);
   if (options?.color) tg.MainButton.color = options.color;
   if (options?.textColor) tg.MainButton.textColor = options.textColor;
-  
+
   tg.MainButton.onClick(onClick);
+  tg.MainButton.enable();
   tg.MainButton.show();
 };
 
 export const hideMainButton = () => {
   const tg = getTelegram();
-  if (!tg) return;
-  
-  // Сначала отключаем обработчик, потом скрываем
+  if (!hasTelegramInitContext(tg)) return;
+
+  detachMainButtonHandler(tg);
+
   try {
-    // Очищаем все обработчики
-    tg.MainButton.offClick(() => {});
-    // Скрываем кнопку
+    tg.MainButton.hideProgress();
+    tg.MainButton.disable();
     tg.MainButton.hide();
-    // Дополнительно очищаем текст, чтобы убедиться что кнопка скрыта
     tg.MainButton.setText('');
-  } catch (error) {
+    tg.MainButton.setParams({ is_visible: false, is_active: false });
+  } catch {
     // Игнорируем ошибки, если что-то пошло не так
   }
 };
 
 export const showBackButton = (onClick: () => void) => {
   const tg = getTelegram();
-  if (!tg || !isVersionSupported('6.1') || !tg.BackButton) return;
+  if (!hasTelegramInitContext(tg) || !isVersionSupported('6.1') || !tg.BackButton) return;
 
   tg.BackButton.onClick(onClick);
   tg.BackButton.show();
@@ -312,7 +352,7 @@ export const showBackButton = (onClick: () => void) => {
 
 export const hideBackButton = () => {
   const tg = getTelegram();
-  if (!tg || !isVersionSupported('6.1') || !tg.BackButton) return;
+  if (!hasTelegramInitContext(tg) || !isVersionSupported('6.1') || !tg.BackButton) return;
   
   tg.BackButton.hide();
   tg.BackButton.offClick(() => {});
