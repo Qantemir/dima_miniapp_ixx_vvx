@@ -184,10 +184,10 @@ export const ProductCard = ({
               <Button 
                 onClick={handleAddToCart} 
                 size="sm" 
-                className="px-3 sm:px-4 text-xs sm:text-sm font-medium h-9 sm:h-10 shadow-sm"
+                className="px-3 sm:px-4 text-xs sm:text-sm font-medium h-9 sm:h-10 shadow-sm min-w-[90px] sm:min-w-[100px]"
                 disabled={quantity > availableQuantity || isAdding}
               >
-                {isAdding ? '...' : 'В корзину'}
+                {isAdding ? 'Добавление...' : 'В корзину'}
               </Button>
             </div>
           ) : mustSelectVariant ? (
