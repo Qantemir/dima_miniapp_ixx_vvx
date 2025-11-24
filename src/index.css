@@ -103,6 +103,11 @@
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
+    /* Улучшенная типографика */
+    font-feature-settings: "kern" 1, "liga" 1;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     /* Учитываем safe-area для Telegram Mini App */
     padding-top: env(safe-area-inset-top, 0);
     padding-bottom: env(safe-area-inset-bottom, 0);
@@ -188,5 +193,26 @@
   }
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
+  }
+
+  /* Улучшенные touch targets для мобильных */
+  @media (max-width: 768px) {
+    button,
+    a,
+    [role="button"] {
+      min-height: 44px;
+      min-width: 44px;
+    }
+  }
+
+  /* Плавные переходы для всех интерактивных элементов */
+  button,
+  a,
+  input,
+  textarea,
+  select {
+    transition-property: color, background-color, border-color, opacity, transform;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 150ms;
   }
 }

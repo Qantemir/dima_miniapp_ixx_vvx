@@ -161,38 +161,39 @@ export const CheckoutPage = () => {
     <>
       <Seo title="Оформление заказа" description="Введите контактные данные для подтверждения заказа." path="/checkout" jsonLd={checkoutJsonLd} />
       <PageTransition>
-      <div className="min-h-screen bg-background pb-32">
+      <div className="min-h-screen bg-background pb-32 sm:pb-24">
       {/* Header */}
-      <div className="sticky z-10 bg-card border-b border-border px-3 py-2.5 sm:px-4 sm:py-4" style={{ top: 'calc(env(safe-area-inset-top, 0px) + var(--tg-header-height, 0px))' }}>
-        <div className="flex items-center gap-2 sm:gap-3">
+      <div className="sticky z-10 bg-card/95 backdrop-blur-sm border-b border-border px-4 py-3 sm:px-6 sm:py-4 shadow-sm" style={{ top: 'calc(env(safe-area-inset-top, 0px) + var(--tg-header-height, 0px))' }}>
+        <div className="flex items-center gap-3">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => navigate('/cart')}
-            className="h-9 w-9 sm:h-10 sm:w-10"
+            className="h-10 w-10 sm:h-11 sm:w-11 rounded-lg"
           >
-            <ArrowLeft className="h-5 w-5" />
+            <ArrowLeft className="h-5 w-5 sm:h-6 sm:w-6" />
           </Button>
-          <h1 className="text-lg sm:text-xl font-bold text-foreground truncate">Оформление заказа</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground truncate">Оформление заказа</h1>
         </div>
       </div>
 
       {/* Form */}
-      <div className="px-3 py-4 sm:px-4 sm:py-6 space-y-5 sm:space-y-6">
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Имя *</Label>
+      <div className="px-4 py-5 sm:px-6 sm:py-6 space-y-6">
+        <div className="space-y-5">
+          <div className="space-y-2.5">
+            <Label htmlFor="name" className="text-sm font-medium">Имя *</Label>
             <Input
               id="name"
               value={formData.name}
               onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
               placeholder="Как к вам обращаться?"
               disabled={submitting}
+              className="h-11 text-base"
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="phone">Телефон *</Label>
+          <div className="space-y-2.5">
+            <Label htmlFor="phone" className="text-sm font-medium">Телефон *</Label>
             <Input
               id="phone"
               type="tel"
@@ -200,11 +201,12 @@ export const CheckoutPage = () => {
               onChange={e => setFormData(prev => ({ ...prev, phone: e.target.value }))}
               placeholder="+7 (900) 123-45-67"
               disabled={submitting}
+              className="h-11 text-base"
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="address">Адрес доставки *</Label>
+          <div className="space-y-2.5">
+            <Label htmlFor="address" className="text-sm font-medium">Адрес доставки *</Label>
             <Textarea
               id="address"
               value={formData.address}
@@ -212,11 +214,12 @@ export const CheckoutPage = () => {
               placeholder="Укажите полный адрес доставки"
               rows={3}
               disabled={submitting}
+              className="text-base resize-none"
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="comment">Комментарий</Label>
+          <div className="space-y-2.5">
+            <Label htmlFor="comment" className="text-sm font-medium">Комментарий</Label>
             <Textarea
               id="comment"
               value={formData.comment}
@@ -224,31 +227,33 @@ export const CheckoutPage = () => {
               placeholder="Дополнительная информация о заказе"
               rows={2}
               disabled={submitting}
+              className="text-base resize-none"
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="receipt">Чек об оплате *</Label>
+          <div className="space-y-2.5">
+            <Label htmlFor="receipt" className="text-sm font-medium">Чек об оплате *</Label>
             <Input
               id="receipt"
               type="file"
               accept="image/*,.pdf"
               onChange={handleReceiptChange}
               disabled={submitting}
+              className="h-11 text-base file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
             />
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs sm:text-sm text-muted-foreground">
               Прикрепите скриншот или PDF до {(RECEIPT_MAX_SIZE / (1024 * 1024)).toFixed(0)} МБ
             </p>
             {receiptError && (
-              <p className="text-sm text-destructive">
+              <p className="text-sm text-destructive mt-1">
                 {receiptError}
               </p>
             )}
             {paymentReceipt && !receiptError && (
-              <div className="flex items-center justify-between rounded-md border border-dashed border-muted p-3 text-sm">
-                <div className="min-w-0">
-                  <p className="font-medium text-foreground truncate">{paymentReceipt.name}</p>
-                  <p className="text-xs text-muted-foreground">{formatFileSize(paymentReceipt.size)}</p>
+              <div className="flex items-center justify-between rounded-lg border border-dashed border-muted bg-muted/30 p-3 sm:p-4">
+                <div className="min-w-0 flex-1 pr-3">
+                  <p className="font-medium text-foreground truncate text-sm sm:text-base">{paymentReceipt.name}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{formatFileSize(paymentReceipt.size)}</p>
                 </div>
                 <Button
                   type="button"
@@ -260,6 +265,7 @@ export const CheckoutPage = () => {
                     const input = document.getElementById('receipt') as HTMLInputElement | null;
                     if (input) input.value = '';
                   }}
+                  className="flex-shrink-0 h-9 px-3"
                 >
                   Удалить
                 </Button>
@@ -268,17 +274,17 @@ export const CheckoutPage = () => {
           </div>
         </div>
 
-        <div className="text-sm text-muted-foreground">
+        <div className="text-xs sm:text-sm text-muted-foreground">
           * Обязательные поля
         </div>
 
-        <Card className="p-3 sm:p-4 space-y-3 sm:space-y-4">
-          <div className="flex items-center justify-between gap-2">
+        <Card className="p-4 sm:p-5 space-y-4">
+          <div className="flex items-center justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <p className="font-semibold text-sm sm:text-base">Состав заказа</p>
-              <p className="text-xs sm:text-sm text-muted-foreground">Проверьте товары перед оплатой</p>
+              <p className="font-semibold text-base sm:text-lg">Состав заказа</p>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">Проверьте товары перед оплатой</p>
             </div>
-            <Button variant="ghost" size="sm" onClick={() => refetchCart()} disabled={cartLoading} className="flex-shrink-0 h-8 sm:h-9 text-xs sm:text-sm">
+            <Button variant="ghost" size="sm" onClick={() => refetchCart()} disabled={cartLoading} className="flex-shrink-0 h-9 px-3 text-sm">
               Обновить
             </Button>
           </div>
@@ -295,27 +301,33 @@ export const CheckoutPage = () => {
             </p>
           ) : (
             <>
-              <div className="space-y-2 sm:space-y-3">
+              <div className="space-y-3">
                 {cartSummary.items.map(item => (
-                  <div key={item.id} className="flex justify-between text-xs sm:text-sm gap-2">
-                    <p className="text-foreground truncate min-w-0 flex-1">
-                      {item.product_name}
-                      <span className="text-muted-foreground"> × {item.quantity}</span>
+                  <div key={item.id} className="flex justify-between items-start gap-3 py-2 border-b border-border/50 last:border-0">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm sm:text-base text-foreground font-medium truncate">
+                        {item.product_name}
+                      </p>
+                      <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+                        {item.variant_name && `${item.variant_name} × `}{item.quantity}
+                      </p>
+                    </div>
+                    <p className="font-semibold text-foreground flex-shrink-0 text-sm sm:text-base whitespace-nowrap">
+                      {item.quantity * item.price} ₸
                     </p>
-                    <p className="font-semibold text-foreground flex-shrink-0">{item.quantity * item.price} ₸</p>
                   </div>
                 ))}
               </div>
-              <div className="flex justify-between border-t pt-2 sm:pt-3 font-semibold text-base sm:text-lg">
-                <span>Итого</span>
-                <span>{cartSummary.total_amount} ₸</span>
+              <div className="flex justify-between items-center border-t border-border pt-4 mt-2">
+                <span className="font-semibold text-base sm:text-lg text-foreground">Итого</span>
+                <span className="font-bold text-lg sm:text-xl text-foreground">{cartSummary.total_amount} ₸</span>
               </div>
             </>
           )}
         </Card>
 
         <Button
-          className="w-full h-12 text-base"
+          className="w-full h-12 sm:h-14 text-base sm:text-lg font-semibold shadow-lg"
           disabled={isSubmitDisabled}
           onClick={handleSubmit}
         >

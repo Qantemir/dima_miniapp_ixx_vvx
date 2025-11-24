@@ -95,7 +95,7 @@ export const ProductCard = ({
       <Card className="w-full overflow-hidden border-border bg-card rounded-2xl shadow-sm h-full transition-shadow hover:shadow-md">
         {displayImage && (
           <motion.div 
-            className="aspect-[4/3] w-full overflow-hidden bg-muted"
+            className="aspect-[3/2] w-full overflow-hidden bg-muted"
             whileHover={{ scale: 1.05 }}
             transition={{ duration: 0.3 }}
           >
@@ -107,18 +107,18 @@ export const ProductCard = ({
           </motion.div>
         )}
       
-      <div className="p-3 space-y-3">
+      <div className="p-3 sm:p-4 space-y-3">
         <div>
-          <h3 className="font-semibold text-foreground">{product.name}</h3>
+          <h3 className="font-semibold text-sm sm:text-base text-foreground leading-tight line-clamp-1">{product.name}</h3>
           {product.description && (
-            <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1 line-clamp-2 leading-relaxed">
               {product.description}
             </p>
           )}
         </div>
 
         <div className="space-y-2">
-          <p className="text-sm text-muted-foreground">Вкус *:</p>
+          <p className="text-xs font-medium text-muted-foreground">Вкус *:</p>
             <div className="flex flex-wrap gap-2">
               {product.variants.map((variant) => {
                 const variantQuantity = variant.quantity ?? 0;
@@ -131,15 +131,15 @@ export const ProductCard = ({
                       setQuantity(1);
                     }}
                     disabled={!variant.available || isOutOfStock}
-                    className={`px-3 py-1.5 text-sm rounded-lg border transition-colors relative ${
+                    className={`px-3 py-2 text-xs sm:text-sm rounded-lg border transition-all min-h-[36px] flex items-center justify-center ${
                       selectedVariant?.id === variant.id
-                        ? 'bg-primary text-primary-foreground border-primary'
-                        : 'bg-secondary text-secondary-foreground border-border hover:bg-secondary/80'
-                    } ${!variant.available || isOutOfStock ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                        : 'bg-secondary text-secondary-foreground border-border hover:bg-secondary/80 active:scale-95'
+                    } ${!variant.available || isOutOfStock ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                   >
-                    {variant.name}
+                    <span className="font-medium">{variant.name}</span>
                     {variantQuantity > 0 && (
-                      <span className="ml-1 text-xs opacity-75">
+                      <span className="ml-1.5 text-xs opacity-75">
                         ({variantQuantity})
                       </span>
                     )}
@@ -148,33 +148,33 @@ export const ProductCard = ({
               })}
             </div>
             {mustSelectVariant && (
-              <p className="text-xs text-destructive">Выберите вкус</p>
+              <p className="text-xs text-destructive mt-1">Выберите вкус</p>
             )}
           </div>
 
-        <div className="flex items-end justify-between pt-2 gap-2 flex-wrap">
+        <div className="flex items-center justify-between pt-1 gap-2.5">
           <div className="text-lg sm:text-xl font-bold text-foreground">
             {currentPrice} ₸
           </div>
 
           {isAvailable && !purchasesDisabled && selectedVariant ? (
             <div className="flex items-center gap-2 flex-shrink-0">
-              <div className="flex items-center gap-0.5 sm:gap-1 bg-secondary rounded-xl px-1.5 sm:px-2 py-1">
+              <div className="flex items-center gap-0.5 bg-secondary rounded-lg px-1.5 py-1 border border-border/50">
                 <Button
                   size="icon"
                   variant="ghost"
                   onClick={decrement}
-                  className="h-7 w-7 sm:h-8 sm:w-8"
+                  className="h-7 w-7 sm:h-8 sm:w-8 rounded-md"
                   disabled={quantity <= 1}
                 >
                   <Minus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 </Button>
-                <span className="w-6 sm:w-7 text-center font-medium text-sm sm:text-base">{quantity}</span>
+                <span className="w-7 sm:w-8 text-center font-semibold text-xs sm:text-sm">{quantity}</span>
                 <Button
                   size="icon"
                   variant="ghost"
                   onClick={increment}
-                  className="h-7 w-7 sm:h-8 sm:w-8"
+                  className="h-7 w-7 sm:h-8 sm:w-8 rounded-md"
                   disabled={hasVariants && quantity >= availableQuantity}
                 >
                   <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -184,10 +184,10 @@ export const ProductCard = ({
               <Button 
                 onClick={handleAddToCart} 
                 size="sm" 
-                className="px-3 sm:px-4 text-sm h-9 sm:h-10"
+                className="px-3 sm:px-4 text-xs sm:text-sm font-medium h-9 sm:h-10 shadow-sm"
                 disabled={quantity > availableQuantity || isAdding}
               >
-                {isAdding ? 'Добавление...' : 'В корзину'}
+                {isAdding ? '...' : 'В корзину'}
               </Button>
             </div>
           ) : mustSelectVariant ? (
@@ -195,7 +195,7 @@ export const ProductCard = ({
               Выберите вкус
             </span>
           ) : isAvailable && purchasesDisabled ? (
-            <span className="text-sm text-muted-foreground">
+            <span className="text-sm text-muted-foreground text-right">
               Магазин временно не принимает заказы
             </span>
           ) : (

@@ -140,8 +140,8 @@ export const CartPage = () => {
             </div>
           </header>
 
-          <section className="px-3 py-4 sm:px-4 sm:py-6" aria-label="Товары в корзине">
-            <AnimatedList className="space-y-3">
+          <section className="px-4 py-5 sm:px-6 sm:py-6" aria-label="Товары в корзине">
+            <AnimatedList className="space-y-4">
               {cart.items.map((item, index) => (
                 <AnimatedItem key={item.id} delay={index * 0.05}>
                   <CartItem
@@ -154,10 +154,10 @@ export const CartPage = () => {
             </AnimatedList>
           </section>
 
-          <section className="px-3 py-4 sm:px-4 sm:py-5 bg-card border-t border-border" aria-label="Итоговая сумма">
-            <div className="flex items-center justify-between text-base sm:text-lg">
-              <span className="text-muted-foreground">Итого:</span>
-              <span className="font-bold text-foreground text-xl sm:text-2xl">
+          <section className="px-4 py-5 sm:px-6 sm:py-6 bg-card border-t border-border sticky bottom-0" aria-label="Итоговая сумма">
+            <div className="flex items-center justify-between">
+              <span className="text-base sm:text-lg font-semibold text-muted-foreground">Итого:</span>
+              <span className="font-bold text-foreground text-2xl sm:text-3xl">
                 {cart.total_amount} ₸
               </span>
             </div>

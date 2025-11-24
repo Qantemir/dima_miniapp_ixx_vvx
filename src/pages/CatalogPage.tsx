@@ -165,16 +165,16 @@ export const CatalogPage = () => {
       />
     <main className="min-h-screen bg-background pb-20" role="main">
       <header
-        className="sticky z-10 bg-card border-b border-border px-3 py-2.5 sm:px-4 sm:py-4"
+        className="sticky z-10 bg-card/95 backdrop-blur-sm border-b border-border px-4 py-3 sm:px-6 sm:py-4 shadow-sm"
         style={{ top: 'calc(env(safe-area-inset-top, 0px) + var(--tg-header-height, 0px))' }}
       >
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0 flex-shrink">
-            <Package className="h-5 w-5 sm:h-6 sm:w-6 text-primary flex-shrink-0" />
-            <h1 className="text-lg sm:text-xl font-bold text-foreground truncate">Магазин</h1>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0 flex-shrink">
+            <Package className="h-6 w-6 sm:h-7 sm:w-7 text-primary flex-shrink-0" />
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground truncate">Магазин</h1>
           </div>
 
-          <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+          <div className="flex items-center gap-2 flex-shrink-0">
             {isUserAdmin && forceClientView && (
               <Button
                 variant="secondary"
@@ -183,29 +183,29 @@ export const CatalogPage = () => {
                   setForceClientView(false);
                   navigate('/admin');
                 }}
-                className="h-9 px-2 sm:px-3 gap-1 sm:gap-2"
+                className="h-10 px-3 sm:px-4 gap-2 rounded-lg"
               >
                 <ShieldCheck className="h-4 w-4 flex-shrink-0" />
-                <span className="hidden sm:inline">Админ-режим</span>
+                <span className="hidden sm:inline text-sm font-medium">Админ-режим</span>
               </Button>
             )}
             <Button
               variant="outline"
               size="sm"
               onClick={() => navigate('/order')}
-              className="h-9 px-2 sm:px-3"
+              className="h-10 px-3 sm:px-4 rounded-lg"
             >
               <ClipboardList className="h-4 w-4 sm:mr-2 flex-shrink-0" />
-              <span className="hidden sm:inline">Мои заказы</span>
+              <span className="hidden sm:inline text-sm font-medium">Мои заказы</span>
             </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={handleHelp}
-              className="h-9 px-2 sm:px-3"
+              className="h-10 px-3 sm:px-4 rounded-lg"
             >
               <HelpCircle className="h-4 w-4 sm:mr-2 flex-shrink-0" />
-              <span className="hidden sm:inline">Помощь</span>
+              <span className="hidden sm:inline text-sm font-medium">Помощь</span>
             </Button>
 
             <div className="relative">
@@ -213,12 +213,12 @@ export const CatalogPage = () => {
                 variant="default"
                 size="sm"
                 onClick={() => setCartDialogOpen(true)}
-                className="relative h-9 px-2 sm:px-3"
+                className="relative h-10 px-3 sm:px-4 rounded-lg shadow-sm"
               >
                 <ShoppingCart className="h-4 w-4 sm:mr-2 flex-shrink-0" />
-                <span className="hidden sm:inline">Корзина</span>
+                <span className="hidden sm:inline text-sm font-medium">Корзина</span>
                 {cartItemsCount > 0 && (
-                  <span className="absolute -top-1 -right-1 sm:relative sm:top-0 sm:right-0 sm:ml-2 bg-primary-foreground/90 text-primary text-[10px] sm:text-xxs font-bold rounded-full h-4 w-4 sm:h-5 sm:px-2 sm:w-auto flex items-center justify-center">
+                  <span className="absolute -top-1.5 -right-1.5 sm:relative sm:top-0 sm:right-0 sm:ml-2 bg-primary-foreground text-primary text-[10px] sm:text-xs font-bold rounded-full h-5 w-5 sm:h-6 sm:px-2 sm:w-auto flex items-center justify-center shadow-sm">
                     {cartItemsCount}
                   </span>
                 )}
@@ -247,12 +247,12 @@ export const CatalogPage = () => {
       {categories.length > 0 && (
         <motion.section
           aria-label="Категории"
-          className="px-3 py-3 sm:px-4 sm:py-4 border-b border-border bg-card"
+          className="px-4 py-4 sm:px-6 sm:py-5 border-b border-border bg-card"
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
         >
-          <div className="flex gap-2 overflow-x-auto pb-2 -mx-3 sm:-mx-4 px-3 sm:px-4 scrollbar-hide">
+          <div className="flex gap-2.5 sm:gap-3 overflow-x-auto pb-2 -mx-4 sm:-mx-6 px-4 sm:px-6 scrollbar-hide">
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -261,7 +261,7 @@ export const CatalogPage = () => {
               <Button
                 variant={selectedCategory === null ? 'default' : 'outline'}
                 onClick={() => setSelectedCategory(null)}
-                className="flex-shrink-0 h-9 px-4 text-sm"
+                className="flex-shrink-0 h-10 px-5 text-sm font-medium"
               >
                 Все
               </Button>
@@ -276,7 +276,7 @@ export const CatalogPage = () => {
                 <Button
                   variant={selectedCategory === category.id ? 'default' : 'outline'}
                   onClick={() => setSelectedCategory(category.id)}
-                  className="flex-shrink-0 h-9 px-4 text-sm whitespace-nowrap"
+                  className="flex-shrink-0 h-10 px-5 text-sm font-medium whitespace-nowrap"
                 >
                   {category.name}
                 </Button>
@@ -286,14 +286,15 @@ export const CatalogPage = () => {
         </motion.section>
       )}
 
-      <section className="px-3 py-4 sm:px-4 sm:py-6" aria-label="Список товаров">
+      <section className="px-4 py-5 sm:px-6 sm:py-6" aria-label="Список товаров">
         {filteredProducts.length === 0 ? (
-          <div className="text-center py-12">
-            <Package className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-            <p className="text-muted-foreground">Товары не найдены</p>
+          <div className="text-center py-16 sm:py-20">
+            <Package className="h-20 w-20 sm:h-24 sm:w-24 text-muted-foreground mx-auto mb-4" />
+            <p className="text-base sm:text-lg text-muted-foreground font-medium">Товары не найдены</p>
+            <p className="text-sm text-muted-foreground mt-2">Попробуйте выбрать другую категорию</p>
           </div>
         ) : (
-          <AnimatedList className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+          <AnimatedList className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
             {filteredProducts.map((product, index) => {
               const selectedVariantId = product.variants?.[0]?.id;
               const isAdding = addingToCart === `${product.id}-${selectedVariantId}`;
