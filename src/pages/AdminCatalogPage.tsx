@@ -269,18 +269,20 @@ export const AdminCatalogPage = () => {
         />
 
         <div className="p-4 space-y-6">
-        <Card className="border border-border bg-card p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-foreground">Категории</h2>
-              <p className="text-sm text-muted-foreground">
+        <Card className="border border-border bg-card p-4 sm:p-5 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+            <div className="flex-1 min-w-0">
+              <h2 className="text-lg sm:text-xl font-semibold text-foreground">Категории</h2>
+              <p className="text-sm text-muted-foreground mt-1">
                 Создавайте и редактируйте рубрики каталога
               </p>
             </div>
-            <Button size="sm" onClick={() => openCategoryDialog()}>
-              <Plus className="h-4 w-4 mr-2" />
-              Новая категория
-            </Button>
+            <div className="flex-shrink-0">
+              <Button size="sm" onClick={() => openCategoryDialog()} className="w-full sm:w-auto">
+                <Plus className="h-4 w-4 mr-2" />
+                Новая категория
+              </Button>
+            </div>
           </div>
 
           <div className="divide-y divide-border">
