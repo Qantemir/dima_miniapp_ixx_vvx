@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from '@/components/icons';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { api } from '@/lib/api';
 import { Seo } from '@/components/Seo';
 import { buildCanonicalUrl } from '@/lib/seo';
-import { showBackButton, hideBackButton } from '@/lib/telegram';
+import { showBackButton, hideBackButton, showMainButton, hideMainButton, getTelegram } from '@/lib/telegram';
 import { toast } from '@/lib/toast';
 import { useStoreStatus } from '@/contexts/StoreStatusContext';
 import { useCart } from '@/hooks/useCart';
@@ -47,9 +47,11 @@ export const CheckoutPage = () => {
     comment: '',
   });
   const { data: cartSummary, isFetching: cartLoading, refetch: refetchCart } = useCart(true);
+  const [isTelegramApp, setIsTelegramApp] = useState(() => Boolean(getTelegram()));
   const { status: storeStatus } = useStoreStatus();
   const [paymentReceipt, setPaymentReceipt] = useState<File | null>(null);
   const [receiptError, setReceiptError] = useState<string | null>(null);
+  const handleSubmitRef = useRef<() => Promise<void> | void>(() => undefined);
 
   const handleSubmit = useCallback(async () => {
     if (!formData.name || !formData.phone || !formData.address) {
@@ -94,12 +96,34 @@ export const CheckoutPage = () => {
   }, [formData, paymentReceipt, storeStatus, cartSummary, navigate]);
 
   useEffect(() => {
+    handleSubmitRef.current = handleSubmit;
+  }, [handleSubmit]);
+
+  useEffect(() => {
+    setIsTelegramApp(Boolean(getTelegram()));
+    hideMainButton();
     showBackButton(() => navigate('/cart'));
 
     return () => {
       hideBackButton();
+      hideMainButton();
     };
   }, [navigate]);
+
+  useEffect(() => {
+    if (!isTelegramApp) {
+      hideMainButton();
+      return;
+    }
+
+    showMainButton('Подтвердить заказ', () => {
+      handleSubmitRef.current?.();
+    });
+
+    return () => {
+      hideMainButton();
+    };
+  }, [isTelegramApp]);
 
   const isSubmitDisabled = useMemo(
     () =>
@@ -119,6 +143,31 @@ export const CheckoutPage = () => {
       receiptError,
     ],
   );
+
+  useEffect(() => {
+    if (!isTelegramApp) {
+      return;
+    }
+
+    const telegram = getTelegram();
+    if (!telegram) {
+      return;
+    }
+
+    if (submitting) {
+      telegram.MainButton.setText('Отправка...');
+      telegram.MainButton.showProgress(true);
+    } else {
+      telegram.MainButton.setText('Подтвердить заказ');
+      telegram.MainButton.hideProgress();
+    }
+
+    if (isSubmitDisabled) {
+      telegram.MainButton.disable();
+    } else {
+      telegram.MainButton.enable();
+    }
+  }, [isTelegramApp, submitting, isSubmitDisabled]);
 
   const handleReceiptChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -312,13 +361,6 @@ export const CheckoutPage = () => {
           )}
         </Card>
 
-        <Button
-          className="w-full h-12 text-base"
-          disabled={isSubmitDisabled}
-          onClick={handleSubmit}
-        >
-          {submitting ? 'Отправка...' : 'Подтвердить заказ'}
-        </Button>
         </div>
       </div>
       </PageTransition>
