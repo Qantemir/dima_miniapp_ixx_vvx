@@ -154,6 +154,7 @@ async def _send_notification_with_receipt(
         True если отправка успешна, False в противном случае
     """
     try:
+        file_sent = False
         # Сначала отправляем фото/документ чека, если он есть
         if receipt_data and receipt_filename:
             # Определяем тип файла по расширению или content_type
@@ -208,7 +209,7 @@ async def _send_notification_with_receipt(
             }
             
             # Отправляем файл с подписью и кнопкой
-            files = {file_field: (receipt_path.name, file_data)}
+            files = {file_field: (receipt_filename, file_data)}
             data = {
                 "chat_id": admin_id,
                 "caption": message,
@@ -220,6 +221,7 @@ async def _send_notification_with_receipt(
             result = response.json()
             
             if result.get("ok"):
+                file_sent = True
                 return True
             else:
                 logger.warning(
@@ -227,9 +229,10 @@ async def _send_notification_with_receipt(
                     f"{result.get('description', 'Unknown error')}"
                 )
                 # Продолжаем отправку текстового сообщения если файл не отправился
+                file_sent = False
         
         # Отправляем текстовое сообщение (если файл не отправился или его нет)
-        if not receipt_path or not receipt_path.exists():
+        if not file_sent:
             # Создаем inline-кнопки для изменения статуса заказа
             keyboard = {
                 "inline_keyboard": [
