@@ -10,7 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { api } from '@/lib/api';
 import { Seo } from '@/components/Seo';
 import { buildCanonicalUrl } from '@/lib/seo';
-import { showBackButton, hideBackButton, showMainButton, hideMainButton, getTelegram, isTelegramWebApp } from '@/lib/telegram';
+import { showBackButton, hideBackButton, showMainButton, hideMainButton, getTelegram, isTelegramWebApp, isTelegramEnvironment } from '@/lib/telegram';
 import { toast } from '@/lib/toast';
 import { useStoreStatus } from '@/contexts/StoreStatusContext';
 import { useCart } from '@/hooks/useCart';
@@ -47,7 +47,8 @@ export const CheckoutPage = () => {
     comment: '',
   });
   const { data: cartSummary, isFetching: cartLoading, refetch: refetchCart } = useCart(true);
-  const [isTelegramApp, setIsTelegramApp] = useState(() => isTelegramWebApp());
+  const [isTelegramApp, setIsTelegramApp] = useState(() => isTelegramEnvironment());
+  const [usesTelegramMainButton, setUsesTelegramMainButton] = useState(false);
   const { status: storeStatus } = useStoreStatus();
   const [paymentReceipt, setPaymentReceipt] = useState<File | null>(null);
   const [receiptError, setReceiptError] = useState<string | null>(null);
@@ -100,7 +101,7 @@ export const CheckoutPage = () => {
   }, [handleSubmit]);
 
   useEffect(() => {
-    setIsTelegramApp(isTelegramWebApp());
+    setIsTelegramApp(isTelegramEnvironment());
     hideMainButton();
     showBackButton(() => navigate('/cart'));
 
@@ -113,15 +114,18 @@ export const CheckoutPage = () => {
   useEffect(() => {
     if (!isTelegramApp) {
       hideMainButton();
+      setUsesTelegramMainButton(false);
       return;
     }
 
-    showMainButton('Подтвердить заказ', () => {
+    const shown = showMainButton('Подтвердить заказ', () => {
       handleSubmitRef.current?.();
     });
+    setUsesTelegramMainButton(Boolean(shown));
 
     return () => {
       hideMainButton();
+      setUsesTelegramMainButton(false);
     };
   }, [isTelegramApp]);
 
@@ -145,7 +149,7 @@ export const CheckoutPage = () => {
   );
 
   useEffect(() => {
-    if (!isTelegramApp) {
+    if (!usesTelegramMainButton) {
       return;
     }
 
@@ -167,7 +171,7 @@ export const CheckoutPage = () => {
     } else {
       telegram.MainButton.enable();
     }
-  }, [isTelegramApp, submitting, isSubmitDisabled]);
+  }, [usesTelegramMainButton, submitting, isSubmitDisabled]);
 
   const handleReceiptChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -362,7 +366,7 @@ export const CheckoutPage = () => {
         </Card>
 
         </div>
-        {!isTelegramApp && (
+        {!usesTelegramMainButton && (
           <div
             className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background/95 px-3 py-3 sm:px-4 sm:py-4"
             style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}

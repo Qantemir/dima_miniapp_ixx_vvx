@@ -28,6 +28,15 @@ export const getTelegram = () => {
 
 export const isTelegramWebApp = () => hasTelegramInitContext(getTelegram());
 
+// Более щадящая проверка окружения: используем, когда нужно понять,
+// что приложение открыто в Telegram (включая Desktop), даже если initData пуст.
+export const isTelegramEnvironment = () => {
+  const tg = getTelegram();
+  if (!tg) return false;
+  if (hasTelegramInitContext(tg)) return true;
+  return Boolean(tg.platform && tg.platform !== 'unknown');
+};
+
 const extractInitDataFromString = (raw?: string | null) => {
   if (!raw) return null;
   const match = raw.match(new RegExp(`${INIT_DATA_PARAM}=([^&]+)`));
@@ -310,7 +319,7 @@ export const showMainButton = (
   options?: { color?: string; textColor?: string }
 ) => {
   const tg = getTelegram();
-  if (!hasTelegramInitContext(tg)) return;
+  if (!hasTelegramInitContext(tg)) return false;
 
   // Удаляем предыдущий обработчик, если он был зарегистрирован
   detachMainButtonHandler(tg);
@@ -323,6 +332,7 @@ export const showMainButton = (
   tg.MainButton.onClick(onClick);
   tg.MainButton.enable();
   tg.MainButton.show();
+  return true;
 };
 
 export const hideMainButton = () => {
