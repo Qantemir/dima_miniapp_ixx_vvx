@@ -93,10 +93,23 @@ export const CheckoutPage = () => {
     }
   }, [formData, paymentReceipt, storeStatus, cartSummary, navigate]);
 
+  // Скрываем Main Button сразу при монтировании компонента
   useEffect(() => {
+    // Скрываем Main Button сразу
+    hideMainButton();
+    // Небольшая задержка на случай, если кнопка показывается асинхронно
+    const timeoutId1 = setTimeout(() => {
+      hideMainButton();
+    }, 50);
+    const timeoutId2 = setTimeout(() => {
+      hideMainButton();
+    }, 200);
+    
     showBackButton(() => navigate('/cart'));
-    hideMainButton(); // Убеждаемся, что Main Button скрыта
+    
     return () => {
+      clearTimeout(timeoutId1);
+      clearTimeout(timeoutId2);
       hideBackButton();
       hideMainButton();
     };

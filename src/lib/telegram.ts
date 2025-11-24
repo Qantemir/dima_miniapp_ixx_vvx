@@ -289,8 +289,17 @@ export const hideMainButton = () => {
   const tg = getTelegram();
   if (!tg) return;
   
-  tg.MainButton.hide();
-  tg.MainButton.offClick(() => {});
+  // Сначала отключаем обработчик, потом скрываем
+  try {
+    // Очищаем все обработчики
+    tg.MainButton.offClick(() => {});
+    // Скрываем кнопку
+    tg.MainButton.hide();
+    // Дополнительно очищаем текст, чтобы убедиться что кнопка скрыта
+    tg.MainButton.setText('');
+  } catch (error) {
+    // Игнорируем ошибки, если что-то пошло не так
+  }
 };
 
 export const showBackButton = (onClick: () => void) => {
