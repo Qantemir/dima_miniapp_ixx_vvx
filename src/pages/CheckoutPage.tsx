@@ -40,7 +40,7 @@ const formatFileSize = (size: number) => {
 export const CheckoutPage = () => {
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
-  const [isTelegramApp, setIsTelegramApp] = useState(() => isTelegramWebApp());
+  const [isTelegramApp, setIsTelegramApp] = useState<boolean | null>(() => (isTelegramWebApp() ? true : null));
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -100,8 +100,26 @@ export const CheckoutPage = () => {
   }, [handleSubmit]);
 
   useEffect(() => {
-    setIsTelegramApp(isTelegramWebApp());
+    const resolved = isTelegramWebApp();
+    setIsTelegramApp(resolved ? true : false);
 
+    if (!resolved) {
+      let isMounted = true;
+      waitForTelegramInitData(2000).then(data => {
+        if (!isMounted) return;
+        if (data) {
+          setIsTelegramApp(true);
+        } else {
+          setIsTelegramApp(prev => (prev === null ? false : prev));
+        }
+      });
+      return () => {
+        isMounted = false;
+      };
+    }
+  }, []);
+
+  useEffect(() => {
     showBackButton(() => navigate('/cart'));
 
     return () => {
@@ -111,25 +129,7 @@ export const CheckoutPage = () => {
   }, [navigate]);
 
   useEffect(() => {
-    if (isTelegramApp) {
-      return;
-    }
-
-    let isMounted = true;
-
-    waitForTelegramInitData(2000).then(data => {
-      if (isMounted && data) {
-        setIsTelegramApp(true);
-      }
-    });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [isTelegramApp]);
-
-  useEffect(() => {
-    if (!isTelegramApp) {
+    if (isTelegramApp !== true) {
       hideMainButton();
       return;
     }
@@ -163,7 +163,7 @@ export const CheckoutPage = () => {
   );
 
   useEffect(() => {
-    if (!isTelegramApp) {
+    if (isTelegramApp !== true) {
       return;
     }
 
@@ -379,7 +379,7 @@ export const CheckoutPage = () => {
           )}
         </Card>
 
-        {!isTelegramApp && (
+        {isTelegramApp === false && (
           <Button
             className="w-full h-12 text-base mt-4"
             disabled={isSubmitDisabled}
