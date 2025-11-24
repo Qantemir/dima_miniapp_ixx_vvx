@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from '@/components/icons';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { api } from '@/lib/api';
 import { Seo } from '@/components/Seo';
 import { buildCanonicalUrl } from '@/lib/seo';
-import { showBackButton, hideBackButton, showMainButton, hideMainButton, getTelegram, isTelegramWebApp, isTelegramEnvironment } from '@/lib/telegram';
+import { showBackButton, hideBackButton, hideMainButton } from '@/lib/telegram';
 import { toast } from '@/lib/toast';
 import { useStoreStatus } from '@/contexts/StoreStatusContext';
 import { useCart } from '@/hooks/useCart';
@@ -47,12 +47,9 @@ export const CheckoutPage = () => {
     comment: '',
   });
   const { data: cartSummary, isFetching: cartLoading, refetch: refetchCart } = useCart(true);
-  const [isTelegramApp, setIsTelegramApp] = useState(() => isTelegramEnvironment());
-  const [usesTelegramMainButton, setUsesTelegramMainButton] = useState(false);
   const { status: storeStatus } = useStoreStatus();
   const [paymentReceipt, setPaymentReceipt] = useState<File | null>(null);
   const [receiptError, setReceiptError] = useState<string | null>(null);
-  const handleSubmitRef = useRef<() => Promise<void> | void>(() => undefined);
 
   const handleSubmit = useCallback(async () => {
     if (!formData.name || !formData.phone || !formData.address) {
@@ -97,11 +94,6 @@ export const CheckoutPage = () => {
   }, [formData, paymentReceipt, storeStatus, cartSummary, navigate]);
 
   useEffect(() => {
-    handleSubmitRef.current = handleSubmit;
-  }, [handleSubmit]);
-
-  useEffect(() => {
-    setIsTelegramApp(isTelegramEnvironment());
     hideMainButton();
     showBackButton(() => navigate('/cart'));
 
@@ -110,24 +102,6 @@ export const CheckoutPage = () => {
       hideMainButton();
     };
   }, [navigate]);
-
-  useEffect(() => {
-    if (!isTelegramApp) {
-      hideMainButton();
-      setUsesTelegramMainButton(false);
-      return;
-    }
-
-    const shown = showMainButton('Подтвердить заказ', () => {
-      handleSubmitRef.current?.();
-    });
-    setUsesTelegramMainButton(Boolean(shown));
-
-    return () => {
-      hideMainButton();
-      setUsesTelegramMainButton(false);
-    };
-  }, [isTelegramApp]);
 
   const isSubmitDisabled = useMemo(
     () =>
@@ -147,31 +121,6 @@ export const CheckoutPage = () => {
       receiptError,
     ],
   );
-
-  useEffect(() => {
-    if (!usesTelegramMainButton) {
-      return;
-    }
-
-    const telegram = getTelegram();
-    if (!telegram || !isTelegramWebApp()) {
-      return;
-    }
-
-    if (submitting) {
-      telegram.MainButton.setText('Отправка...');
-      telegram.MainButton.showProgress(true);
-    } else {
-      telegram.MainButton.setText('Подтвердить заказ');
-      telegram.MainButton.hideProgress();
-    }
-
-    if (isSubmitDisabled) {
-      telegram.MainButton.disable();
-    } else {
-      telegram.MainButton.enable();
-    }
-  }, [usesTelegramMainButton, submitting, isSubmitDisabled]);
 
   const handleReceiptChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -365,23 +314,14 @@ export const CheckoutPage = () => {
           )}
         </Card>
 
+        <Button
+          className="w-full h-12 text-base"
+          disabled={isSubmitDisabled}
+          onClick={handleSubmit}
+        >
+          {submitting ? 'Отправка...' : 'Подтвердить заказ'}
+        </Button>
         </div>
-        {!usesTelegramMainButton && (
-          <div
-            className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background/95 px-3 py-3 sm:px-4 sm:py-4"
-            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}
-          >
-            <Button
-              type="button"
-              size="lg"
-              className="w-full"
-              onClick={() => handleSubmitRef.current?.()}
-              disabled={isSubmitDisabled}
-            >
-              {submitting ? 'Отправка...' : 'Подтвердить заказ'}
-            </Button>
-          </div>
-        )}
       </div>
       </PageTransition>
     </>
