@@ -83,18 +83,24 @@
         }
         
         function resetZoom() {
-          setTimeout(function() {
-            if (viewport) {
-              viewport.setAttribute('content', 
-                'width=device-width, initial-scale=' + initialScale + ', maximum-scale=' + initialScale + ', minimum-scale=' + initialScale + ', user-scalable=no, viewport-fit=cover'
-              );
-            }
-            // Принудительно сбрасываем масштаб
-            document.body.style.zoom = '1';
-            if (document.documentElement.style.zoom !== undefined) {
-              document.documentElement.style.zoom = '1';
-            }
-          }, 10);
+          if (viewport) {
+            viewport.setAttribute('content', 
+              'width=device-width, initial-scale=' + initialScale + ', maximum-scale=' + initialScale + ', minimum-scale=' + initialScale + ', user-scalable=no, viewport-fit=cover'
+            );
+          }
+          // Принудительно сбрасываем масштаб
+          document.body.style.zoom = '1';
+          document.body.style.transform = 'scale(1)';
+          if (document.documentElement.style.zoom !== undefined) {
+            document.documentElement.style.zoom = '1';
+            document.documentElement.style.transform = 'scale(1)';
+          }
+          // Сбрасываем масштаб для всех input/textarea
+          const inputs = document.querySelectorAll('input, textarea');
+          inputs.forEach(function(input) {
+            input.style.zoom = '1';
+            input.style.transform = 'scale(1)';
+          });
         }
         
         // Применяем при загрузке
@@ -116,9 +122,17 @@
             input.removeEventListener('click', resetZoom);
             
             // Добавляем новые обработчики
-            input.addEventListener('focus', resetZoom, { passive: true });
+            input.addEventListener('focus', function() {
+              resetZoom();
+              setTimeout(resetZoom, 50);
+              setTimeout(resetZoom, 100);
+            }, { passive: true });
             input.addEventListener('blur', resetZoom, { passive: true });
-            input.addEventListener('touchstart', resetZoom, { passive: true });
+            input.addEventListener('touchstart', function(e) {
+              resetZoom();
+              e.preventDefault();
+            }, { passive: false });
+            input.addEventListener('touchend', resetZoom, { passive: true });
             input.addEventListener('click', resetZoom, { passive: true });
             
             // Принудительно устанавливаем font-size для textarea

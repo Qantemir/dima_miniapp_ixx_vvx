@@ -162,12 +162,22 @@
     select {
       font-size: 16px !important;
       -webkit-text-size-adjust: 100% !important;
+      transform: scale(1) !important;
+      zoom: 1 !important;
     }
     
     textarea {
       font-size: 16px !important;
       -webkit-text-size-adjust: 100% !important;
+      transform: scale(1) !important;
+      zoom: 1 !important;
     }
+  }
+
+  /* Принудительное предотвращение зума через touch-action */
+  input,
+  textarea {
+    touch-action: manipulation;
   }
 }
 
