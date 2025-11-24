@@ -295,7 +295,7 @@ export const CheckoutPage = () => {
         </Card>
 
         <Button
-          className="w-full h-12 text-base"
+          className="w-full h-12 text-base mt-4"
           disabled={
             submitting ||
             cartLoading ||
