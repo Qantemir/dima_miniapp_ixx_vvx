@@ -120,33 +120,53 @@
   }
 
   /* Предотвращаем автоматический зум iOS Safari при фокусе на input/textarea */
-  input[type="text"],
-  input[type="tel"],
-  input[type="email"],
-  input[type="password"],
-  input[type="number"],
-  input[type="search"],
-  input[type="url"],
+  input,
   textarea,
   select {
     font-size: 16px !important;
-    -webkit-text-size-adjust: 100%;
+    -webkit-text-size-adjust: 100% !important;
     -webkit-appearance: none;
+    appearance: none;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Специальные правила для textarea */
+  textarea {
+    font-size: 16px !important;
+    -webkit-text-size-adjust: 100% !important;
+    -webkit-appearance: none !important;
+    appearance: none !important;
   }
 
   /* Для iOS Safari - предотвращаем зум при фокусе */
   @supports (-webkit-touch-callout: none) {
-    input[type="text"],
-    input[type="tel"],
-    input[type="email"],
-    input[type="password"],
-    input[type="number"],
-    input[type="search"],
-    input[type="url"],
+    input,
     textarea,
     select {
       font-size: 16px !important;
-      transform: scale(1);
+      transform: scale(1) !important;
+      zoom: 1 !important;
+      -webkit-text-size-adjust: 100% !important;
+    }
+    
+    textarea {
+      font-size: 16px !important;
+      -webkit-text-size-adjust: 100% !important;
+    }
+  }
+
+  /* Дополнительная защита от зума на мобильных устройствах */
+  @media screen and (max-width: 768px) {
+    input,
+    textarea,
+    select {
+      font-size: 16px !important;
+      -webkit-text-size-adjust: 100% !important;
+    }
+    
+    textarea {
+      font-size: 16px !important;
+      -webkit-text-size-adjust: 100% !important;
     }
   }
 }

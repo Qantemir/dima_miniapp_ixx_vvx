@@ -2,7 +2,7 @@
 <html lang="ru">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover" />
     <title>Mini Shop | Telegram-магазин</title>
     <meta name="description" content="Mini Shop — быстрый Telegram-магазин с категориями, корзиной и онлайн-оплатой." />
     <meta name="keywords" content="telegram shop, мини-магазин, telegram mini app, доставка, онлайн магазин" />
@@ -68,6 +68,112 @@
       })();
     </script>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script>
+      // Предотвращаем автоматический зум iOS Safari при фокусе на input/textarea
+      (function() {
+        let viewport = document.querySelector('meta[name="viewport"]');
+        let initialScale = 1;
+        
+        function preventZoom() {
+          if (viewport) {
+            viewport.setAttribute('content', 
+              'width=device-width, initial-scale=' + initialScale + ', maximum-scale=' + initialScale + ', minimum-scale=' + initialScale + ', user-scalable=no, viewport-fit=cover'
+            );
+          }
+        }
+        
+        function resetZoom() {
+          setTimeout(function() {
+            if (viewport) {
+              viewport.setAttribute('content', 
+                'width=device-width, initial-scale=' + initialScale + ', maximum-scale=' + initialScale + ', minimum-scale=' + initialScale + ', user-scalable=no, viewport-fit=cover'
+              );
+            }
+            // Принудительно сбрасываем масштаб
+            document.body.style.zoom = '1';
+            if (document.documentElement.style.zoom !== undefined) {
+              document.documentElement.style.zoom = '1';
+            }
+          }, 10);
+        }
+        
+        // Применяем при загрузке
+        preventZoom();
+        
+        // Применяем при изменении ориентации
+        window.addEventListener('orientationchange', function() {
+          setTimeout(preventZoom, 100);
+        });
+        
+        // Применяем при фокусе на input/textarea
+        function attachZoomPrevention() {
+          const inputs = document.querySelectorAll('input, textarea');
+          inputs.forEach(function(input) {
+            // Удаляем старые обработчики если есть
+            input.removeEventListener('focus', resetZoom);
+            input.removeEventListener('blur', resetZoom);
+            input.removeEventListener('touchstart', resetZoom);
+            input.removeEventListener('click', resetZoom);
+            
+            // Добавляем новые обработчики
+            input.addEventListener('focus', resetZoom, { passive: true });
+            input.addEventListener('blur', resetZoom, { passive: true });
+            input.addEventListener('touchstart', resetZoom, { passive: true });
+            input.addEventListener('click', resetZoom, { passive: true });
+            
+            // Принудительно устанавливаем font-size для textarea
+            if (input.tagName === 'TEXTAREA') {
+              input.style.fontSize = '16px';
+              input.style.webkitTextSizeAdjust = '100%';
+            }
+          });
+        }
+        
+        document.addEventListener('DOMContentLoaded', attachZoomPrevention);
+        
+        // Также применяем при динамическом добавлении элементов
+        const observer = new MutationObserver(function(mutations) {
+          mutations.forEach(function(mutation) {
+            mutation.addedNodes.forEach(function(node) {
+              if (node.nodeType === 1) {
+                if (node.tagName === 'INPUT' || node.tagName === 'TEXTAREA') {
+                  // Принудительно устанавливаем font-size для textarea
+                  if (node.tagName === 'TEXTAREA') {
+                    node.style.fontSize = '16px';
+                    node.style.webkitTextSizeAdjust = '100%';
+                  }
+                  node.addEventListener('focus', resetZoom, { passive: true });
+                  node.addEventListener('blur', resetZoom, { passive: true });
+                  node.addEventListener('touchstart', resetZoom, { passive: true });
+                  node.addEventListener('click', resetZoom, { passive: true });
+                }
+                const inputs = node.querySelectorAll ? node.querySelectorAll('input, textarea') : [];
+                inputs.forEach(function(input) {
+                  if (input.tagName === 'TEXTAREA') {
+                    input.style.fontSize = '16px';
+                    input.style.webkitTextSizeAdjust = '100%';
+                  }
+                  input.addEventListener('focus', resetZoom, { passive: true });
+                  input.addEventListener('blur', resetZoom, { passive: true });
+                  input.addEventListener('touchstart', resetZoom, { passive: true });
+                  input.addEventListener('click', resetZoom, { passive: true });
+                });
+              }
+            });
+            // Перепривязываем все обработчики после изменений
+            attachZoomPrevention();
+          });
+        });
+        
+        if (document.body) {
+          observer.observe(document.body, { childList: true, subtree: true });
+        } else {
+          document.addEventListener('DOMContentLoaded', function() {
+            observer.observe(document.body, { childList: true, subtree: true });
+          });
+        }
+      })();
+    </script>
   </head>
 
   <body>
