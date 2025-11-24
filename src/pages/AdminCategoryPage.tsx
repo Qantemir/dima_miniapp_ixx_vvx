@@ -321,12 +321,12 @@ export const AdminCategoryPage = () => {
               products.map(product => (
                 <div
                   key={product.id}
-                  className="p-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
+                  className="p-4 flex items-start gap-3 sm:items-center sm:justify-between relative"
                 >
-                  <div>
+                  <div className="flex-1 min-w-0">
                     <p className="font-semibold text-foreground">{product.name}</p>
                     {product.description && (
-                      <p className="text-sm text-muted-foreground line-clamp-2">
+                      <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
                         {product.description}
                       </p>
                     )}
@@ -343,24 +343,26 @@ export const AdminCategoryPage = () => {
                       </span>
                     </div>
                   </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => openEditDialog(product)}>
-                        Редактировать
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className="text-destructive focus:text-destructive"
-                        onClick={() => handleDelete(product)}
-                      >
-                        Удалить
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <div className="flex-shrink-0">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-9 w-9 sm:h-10 sm:w-10">
+                          <MoreVertical className="h-5 w-5" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => openEditDialog(product)}>
+                          Редактировать
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onClick={() => handleDelete(product)}
+                        >
+                          Удалить
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </div>
               ))
             )}
