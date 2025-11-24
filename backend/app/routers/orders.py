@@ -4,6 +4,7 @@ from uuid import uuid4
 from gridfs import GridFS
 from bson import ObjectId
 import asyncio
+from pymongo import MongoClient
 
 from fastapi import (
   APIRouter,
@@ -30,6 +31,21 @@ from ..security import TelegramUser, get_current_user
 from ..notifications import notify_admins_new_order
 
 router = APIRouter(tags=["orders"])
+
+# Глобальный синхронный клиент для GridFS
+_sync_client: MongoClient | None = None
+_sync_db = None
+
+
+def _get_gridfs():
+  """
+  Получает синхронный GridFS клиент для работы с файлами.
+  """
+  global _sync_client, _sync_db
+  if _sync_client is None:
+    _sync_client = MongoClient(settings.mongo_uri)
+    _sync_db = _sync_client[settings.mongo_db]
+  return GridFS(_sync_db)
 
 
 async def get_cart(db: AsyncIOMotorDatabase, user_id: int) -> Cart | None:
@@ -77,22 +93,27 @@ async def _save_payment_receipt(db: AsyncIOMotorDatabase, file: UploadFile) -> t
       detail=f"Файл слишком большой. Максимум {settings.max_receipt_size_mb} МБ",
     )
 
-  # Сохраняем в GridFS
-  fs = GridFS(db.database)
+  # Сохраняем в GridFS используя синхронный клиент
+  # Выполняем в executor, чтобы не блокировать event loop
+  loop = asyncio.get_event_loop()
+  fs = _get_gridfs()
   filename = f"{uuid4().hex}{extension}"
   
   # Определяем content_type для GridFS
   gridfs_content_type = content_type if content_type else f"application/octet-stream"
   
-  # Сохраняем файл в GridFS
-  file_id = fs.put(
-    file_bytes,
-    filename=filename,
-    content_type=gridfs_content_type,
-    metadata={
-      "original_filename": file.filename,
-      "uploaded_at": datetime.utcnow(),
-    }
+  # Сохраняем файл в GridFS (синхронная операция в executor)
+  file_id = await loop.run_in_executor(
+    None,
+    lambda: fs.put(
+      file_bytes,
+      filename=filename,
+      content_type=gridfs_content_type,
+      metadata={
+        "original_filename": file.filename,
+        "uploaded_at": datetime.utcnow(),
+      }
+    )
   )
   
   # Возвращаем file_id как строку и оригинальное имя файла
@@ -170,9 +191,9 @@ async def create_order(
   except Exception:
     # Если не удалось сохранить заказ, удаляем файл из GridFS
     try:
-      from gridfs import GridFS
-      fs = GridFS(db.database)
-      fs.delete(ObjectId(receipt_file_id))
+      fs = _get_gridfs()
+      loop = asyncio.get_event_loop()
+      await loop.run_in_executor(None, lambda: fs.delete(ObjectId(receipt_file_id)))
     except Exception:
       pass  # Игнорируем ошибки удаления файла
     raise
@@ -250,9 +271,12 @@ async def get_order_receipt(
     raise HTTPException(status_code=404, detail="Чек не найден")
   
   try:
-    fs = GridFS(db.database)
-    grid_file = fs.get(ObjectId(receipt_file_id))
-    file_data = grid_file.read()
+    fs = _get_gridfs()
+    loop = asyncio.get_event_loop()
+    
+    # Получаем файл из GridFS (синхронная операция в executor)
+    grid_file = await loop.run_in_executor(None, lambda: fs.get(ObjectId(receipt_file_id)))
+    file_data = await loop.run_in_executor(None, grid_file.read)
     filename = grid_file.filename or "receipt"
     content_type = grid_file.content_type or "application/octet-stream"
     

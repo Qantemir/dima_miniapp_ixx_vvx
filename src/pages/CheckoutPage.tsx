@@ -10,7 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { api } from '@/lib/api';
 import { Seo } from '@/components/Seo';
 import { buildCanonicalUrl } from '@/lib/seo';
-import { showMainButton, hideMainButton, showBackButton, hideBackButton } from '@/lib/telegram';
+import { showBackButton, hideBackButton } from '@/lib/telegram';
 import { toast } from '@/lib/toast';
 import { useStoreStatus } from '@/contexts/StoreStatusContext';
 import { useCart } from '@/hooks/useCart';
@@ -95,12 +95,10 @@ export const CheckoutPage = () => {
 
   useEffect(() => {
     showBackButton(() => navigate('/cart'));
-    showMainButton('Подтвердить заказ', handleSubmit);
     return () => {
-      hideMainButton();
       hideBackButton();
     };
-  }, [navigate, handleSubmit]);
+  }, [navigate]);
 
   const handleReceiptChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
