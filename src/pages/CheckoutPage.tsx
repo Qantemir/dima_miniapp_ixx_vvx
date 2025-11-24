@@ -379,15 +379,6 @@ export const CheckoutPage = () => {
           )}
         </Card>
 
-        {isTelegramApp === false && (
-          <Button
-            className="w-full h-12 text-base mt-4"
-            disabled={isSubmitDisabled}
-            onClick={handleSubmit}
-          >
-            {submitting ? 'Отправка...' : 'Подтвердить заказ'}
-          </Button>
-        )}
         </div>
       </div>
       </PageTransition>
