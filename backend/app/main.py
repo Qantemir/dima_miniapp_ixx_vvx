@@ -22,6 +22,47 @@ app.add_middleware(
 
 app.mount("/uploads", StaticFiles(directory=settings.upload_dir), name="uploads")
 
+# Монтируем статические файлы фронтенда (dist папка)
+import os
+from pathlib import Path
+
+# Определяем путь к dist папке относительно backend/app/main.py
+backend_dir = Path(__file__).parent.parent
+project_root = backend_dir.parent
+dist_dir = project_root / "dist"
+
+if dist_dir.exists():
+    # Монтируем статические файлы фронтенда (assets, favicon, robots.txt и т.д.)
+    app.mount("/assets", StaticFiles(directory=str(dist_dir / "assets")), name="assets")
+    
+    # Монтируем корневые статические файлы (favicon.svg, robots.txt, sitemap.xml)
+    @app.get("/favicon.svg")
+    async def favicon():
+        from fastapi.responses import FileResponse
+        favicon_path = dist_dir / "favicon.svg"
+        if favicon_path.exists():
+            return FileResponse(str(favicon_path))
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404)
+    
+    @app.get("/robots.txt")
+    async def robots():
+        from fastapi.responses import FileResponse
+        robots_path = dist_dir / "robots.txt"
+        if robots_path.exists():
+            return FileResponse(str(robots_path))
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404)
+    
+    @app.get("/sitemap.xml")
+    async def sitemap():
+        from fastapi.responses import FileResponse
+        sitemap_path = dist_dir / "sitemap.xml"
+        if sitemap_path.exists():
+            return FileResponse(str(sitemap_path))
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404)
+
 
 @app.middleware("http")
 async def apply_security_headers(request, call_next):
@@ -121,4 +162,21 @@ async def root():
 async def health():
   """Health check endpoint that doesn't require database."""
   return {"status": "ok", "message": "Server is running"}
+
+# SPA fallback - должен быть последним, после всех роутеров
+if dist_dir.exists():
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        # Пропускаем API пути и уже обработанные статические файлы
+        if full_path.startswith("api/") or full_path.startswith("uploads/") or full_path.startswith("assets/"):
+            from fastapi import HTTPException
+            raise HTTPException(status_code=404, detail="Not found")
+        
+        # Отдаём index.html для всех остальных путей (SPA routing)
+        from fastapi.responses import FileResponse
+        index_path = dist_dir / "index.html"
+        if index_path.exists():
+            return FileResponse(str(index_path), media_type="text/html")
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Frontend not built")
 
