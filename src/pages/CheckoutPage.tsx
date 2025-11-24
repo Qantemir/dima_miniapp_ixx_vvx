@@ -94,6 +94,7 @@ export const CheckoutPage = () => {
   }, [formData, paymentReceipt, storeStatus, cartSummary, navigate]);
 
   useEffect(() => {
+    hideMainButton();
     showBackButton(() => navigate('/cart'));
 
     return () => {
