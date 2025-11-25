@@ -128,10 +128,15 @@
               setTimeout(resetZoom, 100);
             }, { passive: true });
             input.addEventListener('blur', resetZoom, { passive: true });
-            input.addEventListener('touchstart', function(e) {
-              resetZoom();
-              e.preventDefault();
-            }, { passive: false });
+            // Для textarea НЕ используем preventDefault, чтобы не блокировать ввод
+            if (input.tagName === 'TEXTAREA') {
+              input.addEventListener('touchstart', resetZoom, { passive: true });
+            } else {
+              input.addEventListener('touchstart', function(e) {
+                resetZoom();
+                e.preventDefault();
+              }, { passive: false });
+            }
             input.addEventListener('touchend', resetZoom, { passive: true });
             input.addEventListener('click', resetZoom, { passive: true });
             
@@ -155,10 +160,16 @@
                   if (node.tagName === 'TEXTAREA') {
                     node.style.fontSize = '16px';
                     node.style.webkitTextSizeAdjust = '100%';
+                    // Для textarea НЕ используем preventDefault
+                    node.addEventListener('touchstart', resetZoom, { passive: true });
+                  } else {
+                    node.addEventListener('touchstart', function(e) {
+                      resetZoom();
+                      e.preventDefault();
+                    }, { passive: false });
                   }
                   node.addEventListener('focus', resetZoom, { passive: true });
                   node.addEventListener('blur', resetZoom, { passive: true });
-                  node.addEventListener('touchstart', resetZoom, { passive: true });
                   node.addEventListener('click', resetZoom, { passive: true });
                 }
                 const inputs = node.querySelectorAll ? node.querySelectorAll('input, textarea') : [];
@@ -166,10 +177,16 @@
                   if (input.tagName === 'TEXTAREA') {
                     input.style.fontSize = '16px';
                     input.style.webkitTextSizeAdjust = '100%';
+                    // Для textarea НЕ используем preventDefault
+                    input.addEventListener('touchstart', resetZoom, { passive: true });
+                  } else {
+                    input.addEventListener('touchstart', function(e) {
+                      resetZoom();
+                      e.preventDefault();
+                    }, { passive: false });
                   }
                   input.addEventListener('focus', resetZoom, { passive: true });
                   input.addEventListener('blur', resetZoom, { passive: true });
-                  input.addEventListener('touchstart', resetZoom, { passive: true });
                   input.addEventListener('click', resetZoom, { passive: true });
                 });
               }
