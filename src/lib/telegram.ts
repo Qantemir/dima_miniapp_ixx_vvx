@@ -96,6 +96,18 @@ const persistInitData = (value: string) => {
   }
 };
 
+export const refreshTelegramData = (): void => {
+  // Очищаем кэш, чтобы при следующем запросе данные обновились
+  cachedInitData = null;
+  try {
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      window.sessionStorage.removeItem(INIT_DATA_STORAGE_KEY);
+    }
+  } catch (e) {
+    // Игнорируем ошибки sessionStorage
+  }
+};
+
 const readStoredInitData = (): string | null => {
   if (cachedInitData) {
     return cachedInitData;
@@ -431,7 +443,34 @@ export const closeMiniApp = () => {
 export const getRequestAuthHeaders = (): Record<string, string> => {
   // Используем ТОЛЬКО реальный ID от Telegram
   const tg = getTelegram();
-  const realUserId = tg?.initDataUnsafe?.user?.id;
+  
+  // Пытаемся получить ID из initDataUnsafe
+  let realUserId = tg?.initDataUnsafe?.user?.id;
+  
+  // Если ID нет, пытаемся обновить данные Telegram
+  if (!realUserId && tg) {
+    // Пытаемся получить данные из initData
+    const initData = tg.initData;
+    if (initData) {
+      // Парсим initData для получения user_id
+      try {
+        const params = new URLSearchParams(initData);
+        const userStr = params.get('user');
+        if (userStr) {
+          const user = JSON.parse(userStr);
+          realUserId = user?.id;
+        }
+      } catch (e) {
+        // Игнорируем ошибки парсинга
+      }
+    }
+    
+    // Если все еще нет ID, пытаемся получить из initDataUnsafe после небольшой задержки
+    if (!realUserId && tg.initDataUnsafe) {
+      // Проверяем еще раз initDataUnsafe (может быть обновлен)
+      realUserId = tg.initDataUnsafe?.user?.id;
+    }
+  }
   
   if (realUserId) {
     return { 'X-Dev-User-Id': realUserId.toString() };

@@ -176,6 +176,23 @@ class ApiClient {
         } else if (typeof payload === 'string') {
           errorMessage = payload;
         }
+        
+        // Специальная обработка ошибок 401 (Unauthorized)
+        if (response.status === 401) {
+          // Если это ошибка аутентификации Telegram, предлагаем обновить страницу
+          const lowerMessage = errorMessage.toLowerCase();
+          if (lowerMessage.includes('telegram') || lowerMessage.includes('устарел') || 
+              lowerMessage.includes('неверные данные') || lowerMessage.includes('недействительная подпись') ||
+              lowerMessage.includes('отсутствует') || lowerMessage.includes('не удалось получить')) {
+            throw new Error('Неверные данные Telegram. Пожалуйста, обновите страницу и попробуйте снова.');
+          }
+          // Если сообщение уже содержит инструкцию об обновлении, используем его как есть
+          if (errorMessage.includes('обновите') || errorMessage.includes('перезапустите')) {
+            throw new Error(errorMessage);
+          }
+          throw new Error(errorMessage || 'Ошибка аутентификации. Пожалуйста, обновите страницу.');
+        }
+        
         throw new Error(errorMessage);
       }
 

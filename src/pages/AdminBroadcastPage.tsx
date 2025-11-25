@@ -73,7 +73,8 @@ export const AdminBroadcastPage = () => {
         message: '',
       });
     } catch (error) {
-      toast.error('Не удалось отправить рассылку');
+      const message = error instanceof Error ? error.message : 'Не удалось отправить рассылку';
+      toast.error(message);
     } finally {
       setSending(false);
     }
