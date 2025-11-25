@@ -1,6 +1,3 @@
-# Минимальная конфигурация Caddy для подавления предупреждений
-# Railway обычно использует свою конфигурацию, но этот файл может помочь
-
 {
   # Отключаем admin endpoint (убирает предупреждение)
   admin off
@@ -8,9 +5,41 @@
   # Подавляем предупреждения о HTTP/2/3 (Railway использует свой TLS прокси)
   log {
     level INFO
-    output discard
   }
 }
 
-# Railway автоматически добавляет свой прокси, поэтому здесь ничего не нужно
+# Основной сервер для статических файлов и SPA
+:8080 {
+  # Корневая директория со статическими файлами
+  root * /app/dist
+  
+  # Проксируем API запросы к FastAPI бэкенду
+  # Если бэкенд на другом сервисе Railway, замените localhost:8000 на его URL
+  handle /api/* {
+    reverse_proxy http://localhost:8000
+  }
+  
+  # Обслуживаем статические файлы (assets, favicon и т.д.)
+  handle /assets/* {
+    file_server
+  }
+  
+  handle /favicon.svg {
+    file_server
+  }
+  
+  handle /robots.txt {
+    file_server
+  }
+  
+  handle /sitemap.xml {
+    file_server
+  }
+  
+  # SPA fallback - все остальные запросы отдаём index.html
+  handle {
+    try_files {path} /index.html
+    file_server
+  }
+}
 
