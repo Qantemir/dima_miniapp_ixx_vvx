@@ -4,6 +4,7 @@ import asyncio
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
+from pymongo.errors import DuplicateKeyError
 
 from ..database import get_db
 from ..schemas import AddToCartRequest, Cart, RemoveFromCartRequest, UpdateCartItemRequest
@@ -103,8 +104,12 @@ async def get_cart_document(db: AsyncIOMotorDatabase, user_id: int, check_expiry
       "created_at": datetime.utcnow(),
       "updated_at": datetime.utcnow(),
     }
-    result = await db.carts.insert_one(cart)
-    cart["_id"] = result.inserted_id
+    try:
+      result = await db.carts.insert_one(cart)
+      cart["_id"] = result.inserted_id
+    except DuplicateKeyError:
+      # Корзина уже была создана параллельным запросом
+      cart = await db.carts.find_one({"user_id": user_id})
   elif check_expiry:
     # Быстрая проверка истечения без возврата товаров (делаем в фоне)
     updated_at = cart.get("updated_at") or cart.get("created_at", datetime.utcnow())
@@ -126,8 +131,11 @@ async def get_cart_document(db: AsyncIOMotorDatabase, user_id: int, check_expiry
         "created_at": datetime.utcnow(),
         "updated_at": datetime.utcnow(),
       }
-      result = await db.carts.insert_one(cart)
-      cart["_id"] = result.inserted_id
+      try:
+        result = await db.carts.insert_one(cart)
+        cart["_id"] = result.inserted_id
+      except DuplicateKeyError:
+        cart = await db.carts.find_one({"user_id": user_id})
   return cart
 
 
