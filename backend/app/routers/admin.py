@@ -8,7 +8,14 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from pymongo.errors import ServerSelectionTimeoutError, ConnectionFailure
 
 from ..database import get_db
-from ..schemas import BroadcastRequest, BroadcastResponse, Order, OrderStatus, UpdateStatusRequest
+from ..schemas import (
+  BroadcastRequest,
+  BroadcastResponse,
+  Order,
+  OrderStatus,
+  PaginatedOrdersResponse,
+  UpdateStatusRequest,
+)
 from ..utils import (
   as_object_id,
   serialize_doc,
@@ -23,11 +30,12 @@ from ..notifications import notify_customer_order_status
 router = APIRouter(tags=["admin"])
 
 
-@router.get("/admin/orders", response_model=List[Order])
+@router.get("/admin/orders", response_model=PaginatedOrdersResponse)
 async def list_orders(
   status_filter: Optional[OrderStatus] = Query(None, alias="status"),
   limit: int = Query(50, ge=1, le=200),
   include_deleted: bool = Query(False, description="Включить удаленные заказы"),
+  cursor: Optional[str] = Query(None, description="ObjectId последнего заказа предыдущей страницы"),
   db: AsyncIOMotorDatabase = Depends(get_db),
   _admin_id: int = Depends(verify_admin),
 ):
@@ -38,8 +46,19 @@ async def list_orders(
     # Исключаем удаленные заказы, если не запрошено иное
     if not include_deleted:
       query["deleted_at"] = {"$exists": False}
-    # Используем to_list для более быстрого получения всех документов
-    docs = await db.orders.find(query).sort("created_at", -1).limit(limit).to_list(length=limit)
+
+    if cursor:
+      try:
+        query["_id"] = {"$lt": as_object_id(cursor)}
+      except ValueError:
+        raise HTTPException(status_code=400, detail="Некорректный cursor")
+
+    docs = await (
+      db.orders.find(query)
+      .sort("_id", -1)
+      .limit(limit + 1)
+      .to_list(length=limit + 1)
+    )
     orders = []
     for doc in docs:
       try:
@@ -50,7 +69,13 @@ async def list_orders(
       except Exception:
         # Пропускаем проблемные заказы
         continue
-    return orders
+
+    next_cursor = None
+    if len(orders) > limit:
+      next_cursor = orders[-1].id
+      orders = orders[:-1]
+
+    return PaginatedOrdersResponse(orders=orders, next_cursor=next_cursor)
   except (ServerSelectionTimeoutError, ConnectionFailure) as e:
     raise HTTPException(
       status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

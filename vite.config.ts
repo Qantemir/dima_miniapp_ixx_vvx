@@ -39,17 +39,17 @@ export default defineConfig(({ mode }) => ({
     minify: 'esbuild', // Быстрый минификатор
     cssCodeSplit: true, // Разделение CSS
     sourcemap: false, // Отключаем sourcemaps в production для скорости
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          // Разделяем большие библиотеки на отдельные чанки
-          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          'vendor-ui': ['@radix-ui/react-dialog', '@radix-ui/react-select'],
-          'vendor-query': ['@tanstack/react-query'],
-          'vendor-animations': ['framer-motion'],
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            // Разделяем большие библиотеки на отдельные чанки
+            'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+            'vendor-ui': ['@radix-ui/react-dialog'],
+            'vendor-query': ['@tanstack/react-query'],
+            'vendor-animations': ['framer-motion'],
+          },
         },
       },
-    },
     chunkSizeWarningLimit: 1000, // Увеличиваем лимит предупреждений
   },
 }));

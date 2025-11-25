@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Package, Filter } from '@/components/icons';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,7 @@ import { ADMIN_IDS } from '@/types/api';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AdminHeader } from '@/components/AdminHeader';
 import { Seo } from '@/components/Seo';
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 
 const STATUS_FILTERS: Array<{ value: OrderStatus | 'all'; label: string }> = [
   { value: 'all', label: 'Все' },
@@ -46,22 +46,34 @@ export const AdminOrdersPage = () => {
   }, [navigate]);
 
   const {
-    data: orders = [],
+    data,
     isLoading: ordersLoading,
     isFetching,
     error: ordersError,
-  } = useQuery({
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
     queryKey: ['admin-orders', selectedStatus],
-    queryFn: () => {
-      const params = selectedStatus !== 'all' ? { status: selectedStatus } : undefined;
+    queryFn: ({ pageParam }) => {
+      const params: { status?: string; cursor?: string } = {};
+      if (selectedStatus !== 'all') params.status = selectedStatus;
+      if (pageParam) params.cursor = pageParam as string;
       return api.getOrders(params);
     },
+    getNextPageParam: lastPage => lastPage.next_cursor ?? undefined,
     enabled: isAuthorized,
-    staleTime: 10_000, // 10 секунд - данные считаются свежими
+    staleTime: 15_000,
     gcTime: 5 * 60 * 1000,
-    refetchInterval: 15_000, // Автоматическое обновление каждые 15 секунд
-    refetchIntervalInBackground: true, // Обновлять даже когда вкладка неактивна
+    refetchInterval: 15_000,
+    refetchIntervalInBackground: true,
+    initialPageParam: undefined,
   });
+
+  const orders = useMemo(() => {
+    if (!data?.pages) return [];
+    return data.pages.flatMap(page => page.orders);
+  }, [data]);
 
   useEffect(() => {
     if (ordersError) {
@@ -181,6 +193,18 @@ export const AdminOrdersPage = () => {
               </div>
             </div>
           ))
+        )}
+        {hasNextPage && (
+          <div className="pt-3">
+            <Button
+              variant="outline"
+              onClick={() => fetchNextPage()}
+              disabled={isFetchingNextPage}
+              className="w-full"
+            >
+              {isFetchingNextPage ? 'Загрузка...' : 'Загрузить ещё'}
+            </Button>
+          </div>
         )}
       </div>
     </div>

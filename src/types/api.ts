@@ -121,6 +121,11 @@ export interface AdminCategoryDetail {
   products: Product[];
 }
 
+export interface AdminOrdersResponse {
+  orders: Order[];
+  next_cursor?: string | null;
+}
+
 export interface StoreStatus {
   is_sleep_mode: boolean;
   sleep_message?: string;

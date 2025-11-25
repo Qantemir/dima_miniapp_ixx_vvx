@@ -103,13 +103,12 @@ class ApiClient {
       const isFormData =
         typeof FormData !== 'undefined' && options?.body instanceof FormData;
       const headers = this.buildHeaders(options?.headers as HeadersInit);
-      // Временно отключаем ETag кэширование для упрощения
-      // if (method === 'GET') {
-      //   const etag = this.getEtag(method, endpoint);
-      //   if (etag) {
-      //     headers.set('If-None-Match', etag);
-      //   }
-      // }
+      if (method === 'GET') {
+        const etag = this.getEtag(method, endpoint);
+        if (etag) {
+          headers.set('If-None-Match', etag);
+        }
+      }
       if (!isFormData && !headers.has('Content-Type')) {
         headers.set('Content-Type', 'application/json');
       }
@@ -127,7 +126,11 @@ class ApiClient {
 
       // Обработка 304 Not Modified - просто делаем повторный запрос
       if (response.status === 304) {
-        // Игнорируем 304 и делаем обычный запрос без кэширования
+        const cached = this.getCachedResponse<T>(method, endpoint);
+        if (cached) {
+          return cached;
+        }
+        // Если кэша нет, повторяем запрос без ETag
         const freshHeaders = this.buildHeaders(options?.headers as HeadersInit);
         freshHeaders.delete('If-None-Match');
         const freshResponse = await fetch(url, {
@@ -140,6 +143,10 @@ class ApiClient {
         const freshContentType = freshResponse.headers.get('content-type') || '';
         const freshIsJson = freshContentType.includes('application/json');
         const freshPayload = freshIsJson ? await freshResponse.json() : await freshResponse.text();
+        if (freshIsJson) {
+          const freshEtag = freshResponse.headers.get('etag');
+          this.cacheResponse(method, endpoint, freshPayload, freshEtag);
+        }
         return freshPayload as T;
       }
 
@@ -178,13 +185,12 @@ class ApiClient {
         );
       }
 
-      // Временно отключаем кэширование
-      // if (method === 'GET' && isJson) {
-      //   const etag = response.headers.get('etag');
-      //   this.cacheResponse(method, endpoint, payload, etag);
-      // } else if (method !== 'GET') {
-      //   this.invalidateCache(endpoint);
-      // }
+      if (method === 'GET' && isJson) {
+        const etag = response.headers.get('etag');
+        this.cacheResponse(method, endpoint, payload, etag);
+      } else if (method !== 'GET') {
+        this.invalidateCache(endpoint);
+      }
 
       return payload as T;
     } catch (error) {
@@ -311,13 +317,15 @@ class ApiClient {
   async getOrders(params?: {
     status?: string;
     limit?: number;
-  }): Promise<Order[]> {
+    cursor?: string;
+  }): Promise<AdminOrdersResponse> {
     const queryParams = new URLSearchParams();
     if (params?.status) queryParams.append('status', params.status);
     if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.cursor) queryParams.append('cursor', params.cursor);
     
     const query = queryParams.toString();
-    return this.request<Order[]>(`/admin/orders?${query}`);
+    return this.request<AdminOrdersResponse>(`/admin/orders?${query}`);
   }
 
   async getAdminOrder(orderId: string): Promise<Order> {

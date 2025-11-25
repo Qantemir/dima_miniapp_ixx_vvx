@@ -202,6 +202,11 @@ class StoreSleepRequest(BaseModel):
     sleep_until: Optional[datetime] = None
 
 
+class PaginatedOrdersResponse(BaseModel):
+    orders: List[Order]
+    next_cursor: Optional[str] = None
+
+
 class CategoryDetail(BaseModel):
     category: Category
     products: List[Product]

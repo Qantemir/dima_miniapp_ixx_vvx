@@ -190,9 +190,8 @@ async def get_catalog(
   if_none_match: str | None = Header(None, alias="If-None-Match"),
 ):
   catalog, etag = await fetch_catalog(db)
-  # Временно отключаем 304 Not Modified для упрощения
-  # if if_none_match and if_none_match == etag:
-  #   return _build_not_modified_response(etag)
+  if if_none_match and if_none_match == etag:
+    return _build_not_modified_response(etag)
   return _build_catalog_response(catalog, etag)
 
 
@@ -204,9 +203,8 @@ async def get_admin_catalog(
 ):
   try:
     catalog, etag = await fetch_catalog(db)
-    # Временно отключаем 304 Not Modified для упрощения
-    # if if_none_match and if_none_match == etag:
-    #   return _build_not_modified_response(etag)
+    if if_none_match and if_none_match == etag:
+      return _build_not_modified_response(etag)
     return _build_catalog_response(catalog, etag)
   except Exception as e:
     import logging

@@ -1,4 +1,5 @@
 // Telegram WebApp utilities
+import { toast } from '@/lib/toast';
 
 const INIT_DATA_PARAM = 'tgWebAppData';
 const INIT_DATA_STORAGE_KEY = 'miniapp_init_data';
@@ -370,10 +371,7 @@ export const hideBackButton = () => {
 
 // Deprecated: используйте toast из '@/lib/toast' вместо showAlert
 export const showAlert = (message: string) => {
-  // Импортируем динамически, чтобы избежать циклических зависимостей
-  import('@/lib/toast').then(({ toast }) => {
-    toast.show(message);
-  });
+  toast.show(message);
 };
 
 export const showPopup = (
