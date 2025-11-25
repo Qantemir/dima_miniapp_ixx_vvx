@@ -4,6 +4,7 @@ import { Moon } from '@/components/icons';
 import { AdminHeader } from '@/components/AdminHeader';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
@@ -121,6 +122,7 @@ export const AdminStoreSettingsPage = () => {
                   onChange={event => setMessage(event.target.value)}
                   placeholder="Например: Мы временно не принимаем заказы. Вернёмся завтра!"
                   disabled={saving}
+                  className="resize-none"
                 />
                 <p className="text-xs text-muted-foreground">
                   Сообщение увидят клиенты на главной странице. Если оставить пустым — будет показан текст по умолчанию. Вы можете ввести сообщение заранее, перед включением режима сна.
@@ -129,12 +131,12 @@ export const AdminStoreSettingsPage = () => {
 
               <div className="space-y-2">
                 <Label>Автоматический выход из режима сна</Label>
-                <input
+                <Input
                   type="datetime-local"
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   value={sleepUntil}
                   onChange={event => setSleepUntil(event.target.value)}
-                  disabled={!sleepEnabled || saving}
+                  disabled={saving}
+                  min={new Date().toISOString().slice(0, 16)}
                 />
                 <p className="text-xs text-muted-foreground">
                   Укажите дату и время, когда магазин снова станет доступен автоматически. Если оставить пустым — режим сна нужно выключить вручную.
