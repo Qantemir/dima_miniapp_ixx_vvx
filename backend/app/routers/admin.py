@@ -9,7 +9,12 @@ from pymongo.errors import ServerSelectionTimeoutError, ConnectionFailure
 
 from ..database import get_db
 from ..schemas import BroadcastRequest, BroadcastResponse, Order, OrderStatus, UpdateStatusRequest
-from ..utils import as_object_id, serialize_doc, restore_variant_quantity
+from ..utils import (
+  as_object_id,
+  serialize_doc,
+  restore_variant_quantity,
+  delete_order_entry,
+)
 from ..config import get_settings
 from ..auth import verify_admin
 from ..notifications import notify_customer_order_status
@@ -91,6 +96,8 @@ async def update_order_status(
     OrderStatus.NEW.value,
     OrderStatus.PROCESSING.value,
   }
+  should_archive = new_status == OrderStatus.DONE.value
+
   doc = await db.orders.find_one_and_update(
     {"_id": as_object_id(order_id)},
     {
@@ -105,6 +112,8 @@ async def update_order_status(
   if not doc:
     raise HTTPException(status_code=404, detail="Заказ не найден")
   
+  order_payload = Order(**serialize_doc(doc) | {"id": str(doc["_id"])})
+
   # Отправляем уведомление клиенту об изменении статуса
   user_id = doc.get("user_id")
   if user_id and old_status != new_status:
@@ -120,7 +129,10 @@ async def update_order_status(
       logger = logging.getLogger(__name__)
       logger.error(f"Ошибка при отправке уведомления клиенту о статусе заказа {order_id}: {e}")
   
-  return Order(**serialize_doc(doc) | {"id": str(doc["_id"])})
+  if should_archive:
+    await delete_order_entry(db, doc)
+
+  return order_payload
 
 
 @router.post("/admin/order/{order_id}/quick-accept", response_model=Order)

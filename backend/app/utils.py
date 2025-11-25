@@ -1,5 +1,24 @@
+import asyncio
 from bson import ObjectId
+from gridfs import GridFS
 from motor.motor_asyncio import AsyncIOMotorDatabase
+from pymongo import MongoClient
+
+from .config import settings
+
+_sync_client: MongoClient | None = None
+_sync_db = None
+
+
+def get_gridfs() -> GridFS:
+  """
+  Возвращает синхронный GridFS клиент для сохранения/удаления файлов чеков.
+  """
+  global _sync_client, _sync_db
+  if _sync_client is None:
+    _sync_client = MongoClient(settings.mongo_uri)
+    _sync_db = _sync_client[settings.mongo_db]
+  return GridFS(_sync_db)
 
 
 def serialize_doc(doc):
@@ -92,3 +111,32 @@ async def restore_variant_quantity(
     quantity_diff=quantity,
     require_available=False,
   )
+
+
+async def delete_order_entry(
+  db: AsyncIOMotorDatabase,
+  order_doc: dict,
+) -> None:
+  """
+  Удаляет заказ из базы и очищает связанные ресурсы (например, чек в GridFS).
+  """
+  order_id = order_doc.get("_id")
+  if order_id:
+    await db.orders.delete_one({"_id": order_id})
+
+  receipt_file_id = order_doc.get("payment_receipt_file_id")
+  if not receipt_file_id:
+    return
+
+  try:
+    receipt_object_id = ObjectId(receipt_file_id)
+  except Exception:
+    return
+
+  fs = get_gridfs()
+  loop = asyncio.get_event_loop()
+  try:
+    await loop.run_in_executor(None, lambda: fs.delete(receipt_object_id))
+  except Exception:
+    # Игнорируем ошибки удаления файла, чтобы не мешать основному потоку
+    pass

@@ -1,10 +1,8 @@
 from datetime import datetime
 from pathlib import Path
 from uuid import uuid4
-from gridfs import GridFS
 from bson import ObjectId
 import asyncio
-from pymongo import MongoClient
 
 from fastapi import (
   APIRouter,
@@ -26,27 +24,11 @@ from ..schemas import (
   OrderStatus,
   UpdateAddressRequest,
 )
-from ..utils import as_object_id, serialize_doc
+from ..utils import as_object_id, serialize_doc, get_gridfs
 from ..security import TelegramUser, get_current_user
 from ..notifications import notify_admins_new_order
 
 router = APIRouter(tags=["orders"])
-
-# Глобальный синхронный клиент для GridFS
-_sync_client: MongoClient | None = None
-_sync_db = None
-
-
-def _get_gridfs():
-  """
-  Получает синхронный GridFS клиент для работы с файлами.
-  """
-  global _sync_client, _sync_db
-  if _sync_client is None:
-    _sync_client = MongoClient(settings.mongo_uri)
-    _sync_db = _sync_client[settings.mongo_db]
-  return GridFS(_sync_db)
-
 
 async def get_cart(db: AsyncIOMotorDatabase, user_id: int) -> Cart | None:
   cart = await db.carts.find_one({"user_id": user_id})
@@ -104,7 +86,7 @@ async def _save_payment_receipt(db: AsyncIOMotorDatabase, file: UploadFile) -> t
   # Сохраняем в GridFS используя синхронный клиент
   # Выполняем в executor, чтобы не блокировать event loop
   loop = asyncio.get_event_loop()
-  fs = _get_gridfs()
+  fs = get_gridfs()
   filename = f"{uuid4().hex}{extension}"
   
   # Определяем content_type для GridFS
@@ -205,7 +187,7 @@ async def create_order(
   except Exception:
     # Если не удалось сохранить заказ, удаляем файл из GridFS
     try:
-      fs = _get_gridfs()
+      fs = get_gridfs()
       loop = asyncio.get_event_loop()
       await loop.run_in_executor(None, lambda: fs.delete(ObjectId(receipt_file_id)))
     except Exception:
@@ -285,7 +267,7 @@ async def get_order_receipt(
     raise HTTPException(status_code=404, detail="Чек не найден")
   
   try:
-    fs = _get_gridfs()
+    fs = get_gridfs()
     loop = asyncio.get_event_loop()
     
     # Получаем файл из GridFS (синхронная операция в executor)

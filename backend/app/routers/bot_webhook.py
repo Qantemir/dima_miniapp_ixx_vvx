@@ -9,7 +9,7 @@ import httpx
 from ..database import get_db
 from ..config import get_settings
 from ..schemas import OrderStatus
-from ..utils import as_object_id, serialize_doc
+from ..utils import as_object_id, delete_order_entry
 from ..auth import verify_admin
 from ..notifications import notify_customer_order_status
 
@@ -287,6 +287,8 @@ async def handle_bot_webhook(
             }
             can_edit_address = new_status_value in editable_statuses
             
+            should_archive = new_status_value == OrderStatus.DONE.value
+
             # Обновляем статус
             try:
                 updated = await db.orders.find_one_and_update(
@@ -349,6 +351,9 @@ async def handle_bot_webhook(
                         )
                     except Exception as e:
                         logger.error(f"Ошибка при отправке уведомления клиенту о статусе заказа {order_id}: {e}")
+
+                if should_archive:
+                    await delete_order_entry(db, updated)
                 
                 logger.info(f"✅ Заказ {order_id} изменён на статус '{new_status_value}' администратором {user_id} через кнопку")
             else:
