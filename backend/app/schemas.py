@@ -202,6 +202,11 @@ class StoreSleepRequest(BaseModel):
     sleep_until: Optional[datetime] = None
 
 
+class CategoryDetail(BaseModel):
+    category: Category
+    products: List[Product]
+
+
 class Customer(BaseModel):
     id: PyObjectId = Field(default_factory=PyObjectId, alias="id")
     telegram_id: int

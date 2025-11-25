@@ -116,6 +116,11 @@ export interface BroadcastResponse {
   failed_count: number;
 }
 
+export interface AdminCategoryDetail {
+  category: Category;
+  products: Product[];
+}
+
 export interface StoreStatus {
   is_sleep_mode: boolean;
   sleep_message?: string;

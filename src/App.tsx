@@ -55,28 +55,25 @@ const RootRoute = () => {
   return <CatalogPage />;
 };
 
-const RootLayout = () => (
-  <>
-    <StoreSleepOverlay />
-    <Outlet />
-  </>
-);
-
 const StoreStatusProviderWrapper = ({ children }: { children: ReactNode }) => {
   const location = useLocation();
   const isAdminRoute = location.pathname.startsWith('/admin');
+  const content = (
+    <>
+      {!isAdminRoute && <StoreSleepOverlay />}
+      <Outlet />
+    </>
+  );
 
   if (isAdminRoute) {
-    return <>{children}</>;
+    return <>{content}</>;
   }
 
-  return <StoreStatusProvider>{children}</StoreStatusProvider>;
+  return <StoreStatusProvider>{content}</StoreStatusProvider>;
 };
 
 const RootLayoutWithProviders = () => (
-  <StoreStatusProviderWrapper>
-    <RootLayout />
-  </StoreStatusProviderWrapper>
+  <StoreStatusProviderWrapper />
 );
 
 // Компонент для загрузки с fallback

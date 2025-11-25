@@ -25,6 +25,7 @@ from ..schemas import (
   CatalogResponse,
   Category,
   CategoryCreate,
+  CategoryDetail,
   CategoryUpdate,
   Product,
   ProductCreate,
@@ -215,6 +216,33 @@ async def get_admin_catalog(
       status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
       detail=f"Ошибка при загрузке каталога: {str(e)}"
     )
+
+@router.get("/admin/category/{category_id}", response_model=CategoryDetail)
+async def get_admin_category_detail(
+  category_id: str,
+  db: AsyncIOMotorDatabase = Depends(get_db),
+  _admin_id: int = Depends(verify_admin),
+):
+  category_doc = await db.categories.find_one({"_id": {"$in": _build_id_candidates(category_id)}})
+  if not category_doc:
+    raise HTTPException(status_code=404, detail="Категория не найдена")
+
+  candidate_values = set(_build_id_candidates(category_id))
+  if category_doc.get("_id"):
+    candidate_values.add(str(category_doc["_id"]))
+
+  products_cursor = db.products.find({"category_id": {"$in": list(candidate_values)}})
+  products_docs = await products_cursor.to_list(length=None)
+
+  category_model = Category(**serialize_doc(category_doc) | {"id": str(category_doc["_id"])})
+  products_models = []
+  for doc in products_docs:
+    try:
+      products_models.append(Product(**serialize_doc(doc) | {"id": str(doc["_id"]) }))
+    except Exception:
+      continue
+
+  return CategoryDetail(category=category_model, products=products_models)
 
 
 def _build_id_candidates(raw_id: str) -> Sequence[object]:

@@ -17,6 +17,7 @@ import {
   type StoreStatus,
   type UpdateStoreStatusRequest,
   type ApiError,
+  type AdminCategoryDetail,
 } from '@/types/api';
 import { getRequestAuthHeaders } from '@/lib/telegram';
 
@@ -341,6 +342,10 @@ class ApiClient {
 
   async getAdminCatalog(): Promise<CatalogResponse> {
     return this.request<CatalogResponse>('/admin/catalog');
+  }
+
+  async getAdminCategory(categoryId: string): Promise<AdminCategoryDetail> {
+    return this.request<AdminCategoryDetail>(`/admin/category/${categoryId}`);
   }
 
   async createProduct(data: ProductPayload): Promise<Product> {

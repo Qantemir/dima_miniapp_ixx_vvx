@@ -36,6 +36,7 @@ import { ADMIN_IDS } from '@/types/api';
 import type { Category, Product, ProductPayload, ProductVariant } from '@/types/api';
 import { Seo } from '@/components/Seo';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 type DialogMode = 'create' | 'edit';
 
@@ -78,15 +79,7 @@ export const AdminCategoryPage = () => {
 
   const fetchCategory = async () => {
     if (!categoryId) throw new Error('Категория не найдена');
-    const data = await api.getAdminCatalog();
-    const current = data.categories.find(cat => cat.id === categoryId);
-    if (!current) {
-      throw new Error('Категория не найдена');
-    }
-    return {
-      category: current,
-      products: data.products.filter(product => product.category_id === categoryId),
-    };
+    return api.getAdminCategory(categoryId);
   };
 
   const {
