@@ -148,7 +148,12 @@ export const AdminCategoryPage = () => {
         try {
           await api.deleteProduct(product.id);
           toast.success('Товар удалён');
-          await queryClient.invalidateQueries({ queryKey: ['admin-category', categoryId] });
+          // Инвалидируем все связанные queryKey для обновления данных
+          await Promise.all([
+            queryClient.invalidateQueries({ queryKey: ['admin-category', categoryId] }),
+            queryClient.invalidateQueries({ queryKey: ['admin-catalog'] }),
+            queryClient.invalidateQueries({ queryKey: ['catalog'] }),
+          ]);
         } catch {
           toast.error('Не удалось удалить товар');
         }
@@ -261,7 +266,12 @@ export const AdminCategoryPage = () => {
         toast.success('Товар обновлён');
       }
       setDialogOpen(false);
-      await queryClient.invalidateQueries({ queryKey: ['admin-category', categoryId] });
+      // Инвалидируем все связанные queryKey для обновления данных
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['admin-category', categoryId] }),
+        queryClient.invalidateQueries({ queryKey: ['admin-catalog'] }),
+        queryClient.invalidateQueries({ queryKey: ['catalog'] }),
+      ]);
     } catch (error) {
       toast.error('Ошибка сохранения товара');
     } finally {
