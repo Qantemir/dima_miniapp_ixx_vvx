@@ -257,8 +257,8 @@ async def send_broadcast(
   concurrency = max(1, settings.broadcast_concurrency)
   customers_cursor = db.customers.find({}, {"telegram_id": 1})
 
-  # Формируем текст сообщения
-  message_text = f"*{payload.title}*\n\n{payload.message}"
+  # Формируем текст сообщения (без Markdown, чтобы избежать ошибок парсинга)
+  message_text = f"{payload.title}\n\n{payload.message}"
   if payload.link:
     message_text += f"\n\n🔗 {payload.link}"
 
@@ -279,7 +279,6 @@ async def send_broadcast(
         json={
           "chat_id": telegram_id,
           "text": message_text,
-          "parse_mode": "Markdown",
         },
       )
       payload = response.json()

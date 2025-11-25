@@ -47,12 +47,13 @@ async def get_or_create_store_status(db: AsyncIOMotorDatabase):
       status_doc = {
         "is_sleep_mode": False,
         "sleep_message": None,
+        "sleep_until": None,
         "updated_at": datetime.utcnow(),
       }
       result = await db.store_status.insert_one(status_doc)
       status_doc["_id"] = result.inserted_id
       return status_doc
-    return doc
+    return await _ensure_awake_if_needed(db, doc)
   except (ServerSelectionTimeoutError, ConnectionFailure) as e:
     raise HTTPException(
       status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -87,11 +88,13 @@ async def toggle_store_sleep(
       "$set": {
         "is_sleep_mode": payload.sleep,
         "sleep_message": payload.message,
+        "sleep_until": payload.sleep_until if payload.sleep else None,
         "updated_at": datetime.utcnow(),
       }
     },
   )
   updated = await db.store_status.find_one({"_id": doc["_id"]})
+  updated = await _ensure_awake_if_needed(db, updated)
   status_model = StoreStatus(**updated)
   await store_status_broadcaster.broadcast(_serialize_store_status(status_model))
   return status_model
@@ -101,6 +104,7 @@ def _serialize_store_status(model: StoreStatus) -> dict:
   return {
     "is_sleep_mode": model.is_sleep_mode,
     "sleep_message": model.sleep_message,
+    "sleep_until": model.sleep_until.isoformat() if model.sleep_until else None,
     "updated_at": model.updated_at.isoformat(),
   }
 
@@ -125,4 +129,49 @@ async def stream_store_status(
       store_status_broadcaster.unregister(queue)
 
   return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+async def _ensure_awake_if_needed(db: AsyncIOMotorDatabase, doc: dict):
+  """
+  Проверяет, нужно ли автоматически вывести магазин из режима сна
+  (если указано время sleep_until и оно уже прошло).
+  """
+  if not doc:
+    return doc
+
+  try:
+    sleep_until = doc.get("sleep_until")
+    is_sleep_mode = doc.get("is_sleep_mode")
+
+    if is_sleep_mode and sleep_until:
+      # Преобразуем sleep_until к datetime, если это строка
+      if isinstance(sleep_until, str):
+        sleep_until_dt = datetime.fromisoformat(sleep_until)
+      else:
+        sleep_until_dt = sleep_until
+
+      if sleep_until_dt <= datetime.utcnow():
+        await db.store_status.update_one(
+          {"_id": doc["_id"]},
+          {
+            "$set": {
+              "is_sleep_mode": False,
+              "sleep_message": None,
+              "sleep_until": None,
+              "updated_at": datetime.utcnow(),
+            }
+          }
+        )
+        doc["is_sleep_mode"] = False
+        doc["sleep_message"] = None
+        doc["sleep_until"] = None
+        doc["updated_at"] = datetime.utcnow()
+        # Рассылаем обновление клиентам
+        await store_status_broadcaster.broadcast(
+          _serialize_store_status(StoreStatus(**doc))
+        )
+  except Exception:
+    pass
+
+  return doc
 

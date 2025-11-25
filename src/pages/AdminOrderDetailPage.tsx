@@ -149,7 +149,7 @@ export const AdminOrderDetailPage = () => {
   };
 
   // Проверяем, можно ли восстановить заказ (завершен и помечен как удаленный)
-  const canRestore = order?.status === 'завершён' && !!(order as any).deleted_at;
+  const canRestore = order?.status === 'завершён' && Boolean(order.deleted_at);
 
   const seoPath = orderId ? `/admin/order/${orderId}` : '/admin/order';
   const seoTitle = order ? `Админ: Заказ ${order.id.slice(-6)}` : "Админ: Заказ";

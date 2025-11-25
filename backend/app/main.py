@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -5,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import settings
 from .database import close_mongo_connection, connect_to_mongo
+from .utils import permanently_delete_order_entry
 from .routers import admin, bot_webhook, cart, catalog, orders, store
 
 app = FastAPI(title="Mini Shop Telegram Backend", version="1.0.0")

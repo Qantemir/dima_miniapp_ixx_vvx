@@ -27,6 +27,7 @@ export const AdminStoreSettingsPage = () => {
   const [saving, setSaving] = useState(false);
   const [sleepEnabled, setSleepEnabled] = useState(false);
   const [message, setMessage] = useState('');
+  const [sleepUntil, setSleepUntil] = useState('');
 
   useEffect(() => {
     const userId = getUserId();
@@ -48,18 +49,32 @@ export const AdminStoreSettingsPage = () => {
     if (status) {
       setSleepEnabled(status.is_sleep_mode);
       setMessage(status.sleep_message || '');
+      if (status.sleep_until) {
+        const date = new Date(status.sleep_until);
+        setSleepUntil(date.toISOString().slice(0, 16));
+      } else {
+        setSleepUntil('');
+      }
     }
   }, [status]);
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      const updated = await api.setStoreSleepMode({
+      const payload = {
         sleep: sleepEnabled,
         message: message || undefined,
-      });
+        sleep_until: sleepEnabled && sleepUntil ? new Date(sleepUntil).toISOString() : null,
+      };
+      const updated = await api.setStoreSleepMode(payload);
       setSleepEnabled(updated.is_sleep_mode);
       setMessage(updated.sleep_message || '');
+      if (updated.sleep_until) {
+        const date = new Date(updated.sleep_until);
+        setSleepUntil(date.toISOString().slice(0, 16));
+      } else {
+        setSleepUntil('');
+      }
       await refresh();
       toast.success('Статус магазина обновлён');
     } catch (error) {
@@ -105,9 +120,24 @@ export const AdminStoreSettingsPage = () => {
                   value={message}
                   onChange={event => setMessage(event.target.value)}
                   placeholder="Например: Мы временно не принимаем заказы. Вернёмся завтра!"
+                  disabled={saving}
                 />
                 <p className="text-xs text-muted-foreground">
                   Сообщение увидят клиенты на главной странице. Если оставить пустым — будет показан текст по умолчанию. Вы можете ввести сообщение заранее, перед включением режима сна.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Автоматический выход из режима сна</Label>
+                <input
+                  type="datetime-local"
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  value={sleepUntil}
+                  onChange={event => setSleepUntil(event.target.value)}
+                  disabled={!sleepEnabled || saving}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Укажите дату и время, когда магазин снова станет доступен автоматически. Если оставить пустым — режим сна нужно выключить вручную.
                 </p>
               </div>
 
@@ -120,9 +150,23 @@ export const AdminStoreSettingsPage = () => {
               <Alert>
                 <AlertTitle>Текущий статус</AlertTitle>
                 <AlertDescription>
-                  {status.is_sleep_mode
-                    ? `Магазин закрыт. Сообщение: ${status.sleep_message || 'используется текст по умолчанию'}.`
-                    : 'Магазин принимает заказы.'}
+                  {status.is_sleep_mode ? (
+                    <>
+                      Магазин закрыт. Сообщение: {status.sleep_message || 'используется текст по умолчанию'}.
+                      {status.sleep_until && (
+                        <>
+                          {' '}Автоматическое открытие: {new Date(status.sleep_until).toLocaleString('ru-RU', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </>
+                      )}
+                    </>
+                  ) : (
+                    'Магазин принимает заказы.'
+                  )}
                 </AlertDescription>
               </Alert>
             )}

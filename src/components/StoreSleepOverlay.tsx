@@ -9,6 +9,7 @@ export const StoreSleepOverlay = () => {
 
   const isAdminRoute = location.pathname.startsWith('/admin');
   const isSleep = status?.is_sleep_mode;
+  const wakeTime = status?.sleep_until ? new Date(status.sleep_until) : null;
 
   if (loading || !isSleep || isAdminRoute) {
     return null;
@@ -25,6 +26,17 @@ export const StoreSleepOverlay = () => {
           <p className="text-sm text-muted-foreground">
             {status?.sleep_message || 'Мы временно не принимаем заказы. Возвращайтесь позже.'}
           </p>
+          {wakeTime && (
+            <p className="text-sm text-muted-foreground">
+              Планируем возобновить работу{' '}
+              {wakeTime.toLocaleString('ru-RU', {
+                day: '2-digit',
+                month: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
+            </p>
+          )}
         </div>
       </Card>
     </div>

@@ -192,12 +192,14 @@ class BroadcastResponse(BaseModel):
 class StoreStatus(BaseModel):
     is_sleep_mode: bool = False
     sleep_message: Optional[str] = None
+    sleep_until: Optional[datetime] = None
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class StoreSleepRequest(BaseModel):
     sleep: bool
     message: Optional[str] = None
+    sleep_until: Optional[datetime] = None
 
 
 class Customer(BaseModel):

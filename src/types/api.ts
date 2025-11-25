@@ -94,6 +94,7 @@ export interface Order {
   total_amount: number;
   created_at: string;
   updated_at?: string;
+  deleted_at?: string;
   can_edit_address: boolean;
   payment_receipt_url?: string;
   payment_receipt_filename?: string;
@@ -118,12 +119,14 @@ export interface BroadcastResponse {
 export interface StoreStatus {
   is_sleep_mode: boolean;
   sleep_message?: string;
+  sleep_until?: string;
   updated_at?: string;
 }
 
 export interface UpdateStoreStatusRequest {
   sleep: boolean;
   message?: string;
+  sleep_until?: string | null;
 }
 
 export interface CreateOrderRequest {
