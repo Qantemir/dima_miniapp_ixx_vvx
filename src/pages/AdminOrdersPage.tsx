@@ -57,9 +57,10 @@ export const AdminOrdersPage = () => {
       return api.getOrders(params);
     },
     enabled: isAuthorized,
-    staleTime: 60_000,
+    staleTime: 10_000, // 10 секунд - данные считаются свежими
     gcTime: 5 * 60 * 1000,
-    keepPreviousData: true,
+    refetchInterval: 15_000, // Автоматическое обновление каждые 15 секунд
+    refetchIntervalInBackground: true, // Обновлять даже когда вкладка неактивна
   });
 
   useEffect(() => {

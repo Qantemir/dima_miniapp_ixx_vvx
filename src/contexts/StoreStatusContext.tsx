@@ -15,6 +15,20 @@ export function StoreStatusProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<StoreStatus | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Начальная загрузка статуса
+  useEffect(() => {
+    const loadInitialStatus = async () => {
+      try {
+        const initial = await api.getStoreStatus();
+        setStatus(initial);
+        setLoading(false);
+      } catch (err) {
+        setLoading(false);
+      }
+    };
+    loadInitialStatus();
+  }, []);
+
   useEffect(() => {
     if (typeof window === 'undefined') {
       return;
@@ -43,6 +57,19 @@ export function StoreStatusProvider({ children }: { children: ReactNode }) {
       const url = buildStreamUrl();
       eventSource = new EventSource(url);
 
+      // Обработка события 'status'
+      eventSource.addEventListener('status', (event: MessageEvent) => {
+        if (!event.data) return;
+        try {
+          const parsed = JSON.parse(event.data) as StoreStatus;
+          setStatus(parsed);
+          setLoading(false);
+        } catch (err) {
+          // Ignore parsing errors
+        }
+      });
+
+      // Fallback на onmessage для совместимости
       eventSource.onmessage = event => {
         if (!event.data) return;
         try {

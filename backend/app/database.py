@@ -99,6 +99,7 @@ async def ensure_indexes(database: AsyncIOMotorDatabase):
   await database.orders.create_index([("user_id", ASCENDING), ("created_at", DESCENDING)])
   await database.orders.create_index([("created_at", DESCENDING)])
   await database.orders.create_index("status")
+  await database.orders.create_index("deleted_at")  # Для фоновой задачи очистки
   await database.orders.create_index([("status", ASCENDING), ("created_at", DESCENDING)])  # Для админки
   
   # Клиенты

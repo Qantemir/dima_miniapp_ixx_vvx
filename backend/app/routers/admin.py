@@ -13,7 +13,8 @@ from ..utils import (
   as_object_id,
   serialize_doc,
   restore_variant_quantity,
-  delete_order_entry,
+  mark_order_as_deleted,
+  restore_order_entry,
 )
 from ..config import get_settings
 from ..auth import verify_admin
@@ -26,6 +27,7 @@ router = APIRouter(tags=["admin"])
 async def list_orders(
   status_filter: Optional[OrderStatus] = Query(None, alias="status"),
   limit: int = Query(50, ge=1, le=200),
+  include_deleted: bool = Query(False, description="Включить удаленные заказы"),
   db: AsyncIOMotorDatabase = Depends(get_db),
   _admin_id: int = Depends(verify_admin),
 ):
@@ -33,6 +35,9 @@ async def list_orders(
     query = {}
     if status_filter:
       query["status"] = status_filter.value
+    # Исключаем удаленные заказы, если не запрошено иное
+    if not include_deleted:
+      query["deleted_at"] = {"$exists": False}
     # Используем to_list для более быстрого получения всех документов
     docs = await db.orders.find(query).sort("created_at", -1).limit(limit).to_list(length=limit)
     orders = []
@@ -129,8 +134,9 @@ async def update_order_status(
       logger = logging.getLogger(__name__)
       logger.error(f"Ошибка при отправке уведомления клиенту о статусе заказа {order_id}: {e}")
   
+  # Помечаем заказ как удаленный (soft delete) вместо полного удаления
   if should_archive:
-    await delete_order_entry(db, doc)
+    await mark_order_as_deleted(db, doc)
 
   return order_payload
 
@@ -188,6 +194,48 @@ async def quick_accept_order(
       import logging
       logger = logging.getLogger(__name__)
       logger.error(f"Ошибка при отправке уведомления клиенту о статусе заказа {order_id}: {e}")
+  
+  return Order(**serialize_doc(updated) | {"id": str(updated["_id"])})
+
+
+@router.post("/admin/order/{order_id}/restore", response_model=Order)
+async def restore_order(
+  order_id: str,
+  db: AsyncIOMotorDatabase = Depends(get_db),
+  _admin_id: int = Depends(verify_admin),
+):
+  """
+  Восстанавливает удаленный заказ в течение 10 минут после завершения.
+  """
+  from datetime import datetime, timedelta
+  
+  order_oid = as_object_id(order_id)
+  doc = await db.orders.find_one({"_id": order_oid})
+  if not doc:
+    raise HTTPException(status_code=404, detail="Заказ не найден")
+  
+  deleted_at = doc.get("deleted_at")
+  if not deleted_at:
+    raise HTTPException(status_code=400, detail="Заказ не был удален")
+  
+  # Проверяем, что прошло не более 10 минут
+  if isinstance(deleted_at, datetime):
+    time_diff = datetime.utcnow() - deleted_at
+    if time_diff > timedelta(minutes=10):
+      raise HTTPException(
+        status_code=400,
+        detail="Время восстановления истекло. Заказ был окончательно удален."
+      )
+  
+  # Восстанавливаем заказ
+  restored = await restore_order_entry(db, order_oid)
+  if not restored:
+    raise HTTPException(status_code=400, detail="Не удалось восстановить заказ")
+  
+  # Получаем обновленный документ
+  updated = await db.orders.find_one({"_id": order_oid})
+  if not updated:
+    raise HTTPException(status_code=404, detail="Заказ не найден после восстановления")
   
   return Order(**serialize_doc(updated) | {"id": str(updated["_id"])})
 

@@ -46,6 +46,7 @@ export const AdminOrderDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [order, setOrder] = useState<Order | null>(null);
   const [updating, setUpdating] = useState(false);
+  const [restoring, setRestoring] = useState(false);
   const [currentStatus, setCurrentStatus] = useState<OrderStatus | ''>('');
   const [pendingStatus, setPendingStatus] = useState<OrderStatus | null>(null);
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
@@ -109,12 +110,12 @@ export const AdminOrderDetailPage = () => {
       setCurrentStatus(updatedOrder.status);
 
       if (isCompleting) {
-        toast.success('Заказ завершён и удалён из списка');
-        navigate('/admin');
-        return;
+        toast.success('Заказ завершён. Можно восстановить в течение 10 минут.');
+        // Перезагружаем заказ, чтобы получить deleted_at
+        await loadOrder();
+      } else {
+        toast.success('Статус заказа обновлён');
       }
-
-      toast.success('Статус заказа обновлён');
     } catch (error) {
       toast.error('Ошибка при обновлении статуса');
     } finally {
@@ -130,6 +131,25 @@ export const AdminOrderDetailPage = () => {
       setPendingStatus(null);
     }
   };
+
+  const handleRestore = async () => {
+    if (!order) return;
+    setRestoring(true);
+    try {
+      const restoredOrder = await api.restoreOrder(order.id);
+      setOrder(restoredOrder);
+      setCurrentStatus(restoredOrder.status);
+      toast.success('Заказ восстановлен');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Ошибка при восстановлении заказа';
+      toast.error(message);
+    } finally {
+      setRestoring(false);
+    }
+  };
+
+  // Проверяем, можно ли восстановить заказ (завершен и помечен как удаленный)
+  const canRestore = order?.status === 'завершён' && !!(order as any).deleted_at;
 
   const seoPath = orderId ? `/admin/order/${orderId}` : '/admin/order';
   const seoTitle = order ? `Админ: Заказ ${order.id.slice(-6)}` : "Админ: Заказ";
@@ -200,6 +220,18 @@ export const AdminOrderDetailPage = () => {
             <span className="text-sm text-muted-foreground">Текущий статус:</span>
             <OrderStatusBadge status={order.status} />
           </div>
+          {canRestore && (
+            <div className="mt-3 pt-3 border-t border-border">
+              <Button
+                onClick={handleRestore}
+                disabled={restoring}
+                variant="outline"
+                className="w-full"
+              >
+                {restoring ? 'Восстановление...' : 'Восстановить заказ (до 10 минут)'}
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Change Status */}

@@ -113,12 +113,53 @@ async def restore_variant_quantity(
   )
 
 
-async def delete_order_entry(
+async def mark_order_as_deleted(
   db: AsyncIOMotorDatabase,
   order_doc: dict,
 ) -> None:
   """
-  Удаляет заказ из базы и очищает связанные ресурсы (например, чек в GridFS).
+  Помечает заказ как удаленный (soft delete) с временной меткой.
+  Заказ можно восстановить в течение 10 минут.
+  """
+  from datetime import datetime, timedelta
+  order_id = order_doc.get("_id")
+  if order_id:
+    await db.orders.update_one(
+      {"_id": order_id},
+      {
+        "$set": {
+          "deleted_at": datetime.utcnow(),
+        }
+      }
+    )
+
+
+async def restore_order_entry(
+  db: AsyncIOMotorDatabase,
+  order_id: ObjectId,
+) -> bool:
+  """
+  Восстанавливает удаленный заказ (убирает метку deleted_at).
+  Возвращает True если заказ был восстановлен, False если не найден или уже окончательно удален.
+  """
+  result = await db.orders.update_one(
+    {"_id": order_id, "deleted_at": {"$exists": True}},
+    {
+      "$unset": {
+        "deleted_at": "",
+      }
+    }
+  )
+  return result.modified_count > 0
+
+
+async def permanently_delete_order_entry(
+  db: AsyncIOMotorDatabase,
+  order_doc: dict,
+) -> None:
+  """
+  Окончательно удаляет заказ из базы и очищает связанные ресурсы (например, чек в GridFS).
+  Используется после истечения 10 минут с момента soft delete.
   """
   order_id = order_doc.get("_id")
   if order_id:

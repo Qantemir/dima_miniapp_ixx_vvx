@@ -9,7 +9,7 @@ import httpx
 from ..database import get_db
 from ..config import get_settings
 from ..schemas import OrderStatus
-from ..utils import as_object_id, delete_order_entry
+from ..utils import as_object_id, mark_order_as_deleted
 from ..auth import verify_admin
 from ..notifications import notify_customer_order_status
 
@@ -353,7 +353,7 @@ async def handle_bot_webhook(
                         logger.error(f"Ошибка при отправке уведомления клиенту о статусе заказа {order_id}: {e}")
 
                 if should_archive:
-                    await delete_order_entry(db, updated)
+                    await mark_order_as_deleted(db, updated)
                 
                 logger.info(f"✅ Заказ {order_id} изменён на статус '{new_status_value}' администратором {user_id} через кнопку")
             else:

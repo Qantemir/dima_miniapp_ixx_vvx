@@ -72,10 +72,51 @@ async def apply_security_headers(request, call_next):
   return response
 
 
+async def cleanup_deleted_orders():
+  """
+  Фоновая задача для окончательного удаления заказов,
+  которые были помечены как удаленные более 10 минут назад.
+  """
+  from datetime import datetime, timedelta
+  from .database import get_db
+  from .utils import permanently_delete_order_entry
+  
+  import asyncio
+  logger = logging.getLogger(__name__)
+  
+  while True:
+    try:
+      # Получаем базу данных
+      db = await get_db()
+      
+      # Находим заказы, удаленные более 10 минут назад
+      cutoff_time = datetime.utcnow() - timedelta(minutes=10)
+      deleted_orders = await db.orders.find({
+        "deleted_at": {"$exists": True, "$lte": cutoff_time}
+      }).to_list(length=100)
+      
+      for order_doc in deleted_orders:
+        try:
+          await permanently_delete_order_entry(db, order_doc)
+          logger.info(f"Окончательно удален заказ {order_doc.get('_id')}")
+        except Exception as e:
+          logger.error(f"Ошибка при окончательном удалении заказа {order_doc.get('_id')}: {e}")
+      
+      # Ждем 1 минуту перед следующей проверкой
+      await asyncio.sleep(60)
+    except Exception as e:
+      logger.error(f"Ошибка в фоновой задаче очистки заказов: {e}")
+      await asyncio.sleep(60)
+
+
 @app.on_event("startup")
 async def startup():
   # Подключаемся к MongoDB при старте для быстрого первого запроса
   await connect_to_mongo()
+  
+  # Запускаем фоновую задачу для очистки удаленных заказов
+  import asyncio
+  asyncio.create_task(cleanup_deleted_orders())
   
   # Настраиваем webhook для Telegram Bot API (если указан публичный URL)
   import logging

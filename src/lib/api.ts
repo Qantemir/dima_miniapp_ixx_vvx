@@ -333,6 +333,12 @@ class ApiClient {
     });
   }
 
+  async restoreOrder(orderId: string): Promise<Order> {
+    return this.request<Order>(`/admin/order/${orderId}/restore`, {
+      method: 'POST',
+    });
+  }
+
   async getAdminCatalog(): Promise<CatalogResponse> {
     return this.request<CatalogResponse>('/admin/catalog');
   }
