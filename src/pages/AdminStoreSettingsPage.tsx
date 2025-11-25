@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Moon } from '@/components/icons';
+import { CalendarClock, Moon, X } from '@/components/icons';
 import { AdminHeader } from '@/components/AdminHeader';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -28,7 +28,8 @@ export const AdminStoreSettingsPage = () => {
   const [saving, setSaving] = useState(false);
   const [sleepEnabled, setSleepEnabled] = useState(false);
   const [message, setMessage] = useState('');
-  const [sleepUntil, setSleepUntil] = useState('');
+  const [sleepDate, setSleepDate] = useState('');
+  const [sleepTime, setSleepTime] = useState('');
 
   useEffect(() => {
     const userId = getUserId();
@@ -58,28 +59,41 @@ export const AdminStoreSettingsPage = () => {
     setMessage(status.sleep_message || '');
     if (status.sleep_until) {
       const date = new Date(status.sleep_until);
-      setSleepUntil(date.toISOString().slice(0, 16));
+      setSleepDate(date.toISOString().slice(0, 10));
+      setSleepTime(date.toISOString().slice(11, 16));
     } else {
-      setSleepUntil('');
+      setSleepDate('');
+      setSleepTime('');
     }
   }, [status]);
 
   const handleSave = async () => {
     setSaving(true);
     try {
+      let sleepUntilIso: string | null = null;
+      if (sleepEnabled && sleepDate) {
+        const combined = `${sleepDate}T${sleepTime || '00:00'}`;
+        const parsed = new Date(combined);
+        if (!Number.isNaN(parsed.getTime())) {
+          sleepUntilIso = parsed.toISOString();
+        }
+      }
+
       const payload = {
         sleep: sleepEnabled,
         message: message || undefined,
-        sleep_until: sleepEnabled && sleepUntil ? new Date(sleepUntil).toISOString() : null,
+        sleep_until: sleepUntilIso,
       };
       const updated = await api.setStoreSleepMode(payload);
       setSleepEnabled(updated.is_sleep_mode);
       setMessage(updated.sleep_message || '');
       if (updated.sleep_until) {
         const date = new Date(updated.sleep_until);
-        setSleepUntil(date.toISOString().slice(0, 16));
+        setSleepDate(date.toISOString().slice(0, 10));
+        setSleepTime(date.toISOString().slice(11, 16));
       } else {
-        setSleepUntil('');
+        setSleepDate('');
+        setSleepTime('');
       }
       await refresh();
       toast.success('Статус магазина обновлён');
@@ -125,15 +139,13 @@ export const AdminStoreSettingsPage = () => {
                   id="sleep-message"
                   rows={4}
                   value={message}
-                  onChange={event => {
-                    setMessage(event.target.value);
-                  }}
-                  onInput={event => {
-                    setMessage((event.target as HTMLTextAreaElement).value);
-                  }}
+                  onChange={event => setMessage(event.target.value)}
                   placeholder="Например: Мы временно не принимаем заказы. Вернёмся завтра!"
                   disabled={saving}
-                  className="resize-none"
+                  className="resize-none bg-background text-foreground placeholder:text-muted-foreground"
+                  autoCapitalize="sentences"
+                  autoCorrect="on"
+                  spellCheck
                 />
                 <p className="text-xs text-muted-foreground">
                   Сообщение увидят клиенты на главной странице. Если оставить пустым — будет показан текст по умолчанию. Вы можете ввести сообщение заранее, перед включением режима сна.
@@ -141,22 +153,46 @@ export const AdminStoreSettingsPage = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="sleep-until">Автоматический выход из режима сна</Label>
-                <Input
-                  id="sleep-until"
-                  type="datetime-local"
-                  value={sleepUntil}
-                  onChange={event => {
-                    setSleepUntil(event.target.value);
-                  }}
-                  onInput={event => {
-                    setSleepUntil((event.target as HTMLInputElement).value);
-                  }}
-                  disabled={saving}
-                  min={new Date().toISOString().slice(0, 16)}
-                />
+                <Label htmlFor="sleep-date" className="flex items-center gap-2">
+                  <CalendarClock className="h-4 w-4 text-primary" />
+                  Автоматический выход из режима сна
+                </Label>
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <Input
+                    id="sleep-date"
+                    type="date"
+                    value={sleepDate}
+                    onChange={event => setSleepDate(event.target.value)}
+                    disabled={saving}
+                    className="bg-background text-foreground placeholder:text-muted-foreground"
+                    min={new Date().toISOString().slice(0, 10)}
+                  />
+                  <Input
+                    id="sleep-time"
+                    type="time"
+                    value={sleepTime}
+                    onChange={event => setSleepTime(event.target.value)}
+                    disabled={saving}
+                    className="bg-background text-foreground placeholder:text-muted-foreground"
+                  />
+                  {(sleepDate || sleepTime) && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="self-start"
+                      onClick={() => {
+                        setSleepDate('');
+                        setSleepTime('');
+                      }}
+                      disabled={saving}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
                 <p className="text-xs text-muted-foreground">
-                  Укажите дату и время, когда магазин снова станет доступен автоматически. Если оставить пустым — режим сна нужно выключить вручную.
+                  Укажите дату и время, когда магазин снова станет доступен автоматически. Достаточно указать только дату — время по умолчанию будет 00:00.
                 </p>
               </div>
 
