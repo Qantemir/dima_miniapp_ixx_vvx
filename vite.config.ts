@@ -7,6 +7,7 @@ import autoprefixer from "autoprefixer";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
+  base: '/', // Абсолютные пути для продакшена
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   css: {
     postcss: {
@@ -52,8 +53,14 @@ export default defineConfig(({ mode }) => ({
         chunkFileNames: 'assets/[name]-[hash].js',
         entryFileNames: 'assets/[name]-[hash].js',
         assetFileNames: 'assets/[name]-[hash].[ext]',
+        // Форматируем имена чанков для лучшей совместимости
+        format: 'es',
       },
     },
     chunkSizeWarningLimit: 1000, // Увеличиваем лимит предупреждений
+    // Улучшаем совместимость модулей
+    commonjsOptions: {
+      include: [/node_modules/],
+    },
   },
 }));
