@@ -8,9 +8,10 @@ import {
   Outlet,
   RouterProvider,
   createBrowserRouter,
+  useLocation,
 } from "react-router-dom";
 // Lazy loading для code splitting и быстрой загрузки
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, type ReactNode } from "react";
 import { CatalogPage } from "./pages/CatalogPage"; // Главная страница - загружаем сразу
 const CartPage = lazy(() => import("./pages/CartPage").then(m => ({ default: m.CartPage })));
 const CheckoutPage = lazy(() => import("./pages/CheckoutPage").then(m => ({ default: m.CheckoutPage })));
@@ -61,10 +62,21 @@ const RootLayout = () => (
   </>
 );
 
+const StoreStatusProviderWrapper = ({ children }: { children: ReactNode }) => {
+  const location = useLocation();
+  const isAdminRoute = location.pathname.startsWith('/admin');
+
+  if (isAdminRoute) {
+    return <>{children}</>;
+  }
+
+  return <StoreStatusProvider>{children}</StoreStatusProvider>;
+};
+
 const RootLayoutWithProviders = () => (
-  <StoreStatusProvider>
+  <StoreStatusProviderWrapper>
     <RootLayout />
-  </StoreStatusProvider>
+  </StoreStatusProviderWrapper>
 );
 
 // Компонент для загрузки с fallback
