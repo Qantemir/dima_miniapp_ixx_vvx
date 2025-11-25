@@ -20,6 +20,40 @@ CART_EXPIRY_MINUTES = 10
 
 router = APIRouter(tags=["cart"])
 
+def normalize_cart(cart: dict) -> dict:
+  """
+  Защищает ответ от битых данных в Mongo: удаляет некорректные items,
+  гарантирует обязательные поля и пересчитывает total_amount.
+  Это предотвращает ResponseValidationError (500) при возврате схемы Cart.
+  """
+  items = cart.get("items") or []
+  normalized_items = []
+  for item in items:
+    if not isinstance(item, dict):
+      continue
+    quantity = item.get("quantity") or 0
+    product_id = item.get("product_id")
+    product_name = item.get("product_name")
+    price = item.get("price")
+    # Отбрасываем явно битые записи
+    if not product_id or price is None:
+      continue
+    # Минимальная правка для защиты схемы
+    safe_item = {
+      "id": item.get("id") or uuid4().hex,
+      "product_id": product_id,
+      "product_name": product_name or "Товар",
+      "quantity": max(1, int(quantity)) if isinstance(quantity, (int, float)) else 1,
+      "price": float(price),
+      "image": item.get("image"),
+      "variant_id": item.get("variant_id"),
+      "variant_name": item.get("variant_name"),
+    }
+    normalized_items.append(safe_item)
+  cart["items"] = normalized_items
+  recalculate_total(cart)
+  return cart
+
 
 async def cleanup_expired_cart(db: AsyncIOMotorDatabase, cart: dict):
   """Очищает просроченную корзину и возвращает товары на склад"""
@@ -98,7 +132,10 @@ async def get_cart_document(db: AsyncIOMotorDatabase, user_id: int, check_expiry
 
 
 def recalculate_total(cart):
-  cart["total_amount"] = round(sum(item["price"] * item["quantity"] for item in cart["items"]), 2)
+  cart["total_amount"] = round(sum(
+    (item.get("price") or 0) * (item.get("quantity") or 0)
+    for item in cart.get("items", [])
+  ), 2)
   return cart
 
 
@@ -110,7 +147,8 @@ async def get_cart(
   # Быстрое получение корзины без блокирующей проверки истечения
   user_id = current_user.id
   cart = await get_cart_document(db, user_id, check_expiry=True)
-  return Cart(**serialize_doc(cart) | {"id": str(cart["_id"])})
+  safe_cart = normalize_cart(cart)
+  return Cart(**serialize_doc(safe_cart) | {"id": str(cart["_id"])})
 
 
 @router.post("/cart", response_model=Cart)
@@ -288,7 +326,8 @@ async def add_to_cart(
   # Запускаем в фоне, не ждем завершения
   asyncio.create_task(update_customer_background())
   
-  return Cart(**serialize_doc(final_cart) | {"id": str(final_cart["_id"])})
+  safe_cart = normalize_cart(final_cart)
+  return Cart(**serialize_doc(safe_cart) | {"id": str(final_cart["_id"])})
 
 
 @router.patch("/cart/item", response_model=Cart)
@@ -349,7 +388,8 @@ async def update_cart_item(
   cart["updated_at"] = datetime.utcnow()
   cart = recalculate_total(cart)
   await db.carts.update_one({"_id": cart["_id"]}, {"$set": cart})
-  return Cart(**serialize_doc(cart) | {"id": str(cart["_id"])})
+  safe_cart = normalize_cart(cart)
+  return Cart(**serialize_doc(safe_cart) | {"id": str(cart["_id"])})
 
 
 @router.delete("/cart/item", response_model=Cart)
@@ -376,5 +416,5 @@ async def remove_from_cart(
   cart["updated_at"] = datetime.utcnow()
   cart = recalculate_total(cart)
   await db.carts.update_one({"_id": cart["_id"]}, {"$set": cart})
-  return Cart(**serialize_doc(cart) | {"id": str(cart["_id"])})
-
+  safe_cart = normalize_cart(cart)
+  return Cart(**serialize_doc(safe_cart) | {"id": str(cart["_id"])})
