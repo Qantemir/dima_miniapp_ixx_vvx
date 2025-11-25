@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Moon } from '@/components/icons';
 import { AdminHeader } from '@/components/AdminHeader';
@@ -46,16 +46,21 @@ export const AdminStoreSettingsPage = () => {
     };
   }, [navigate]);
 
+  const initializedRef = useRef(false);
+
+  // Инициализируем только один раз при первой загрузке
   useEffect(() => {
-    if (status) {
-      setSleepEnabled(status.is_sleep_mode);
-      setMessage(status.sleep_message || '');
-      if (status.sleep_until) {
-        const date = new Date(status.sleep_until);
-        setSleepUntil(date.toISOString().slice(0, 16));
-      } else {
-        setSleepUntil('');
-      }
+    if (!status || initializedRef.current) {
+      return;
+    }
+    initializedRef.current = true;
+    setSleepEnabled(status.is_sleep_mode);
+    setMessage(status.sleep_message || '');
+    if (status.sleep_until) {
+      const date = new Date(status.sleep_until);
+      setSleepUntil(date.toISOString().slice(0, 16));
+    } else {
+      setSleepUntil('');
     }
   }, [status]);
 
@@ -115,11 +120,17 @@ export const AdminStoreSettingsPage = () => {
               </div>
 
               <div className="space-y-2">
-                <Label>Сообщение для клиентов</Label>
+                <Label htmlFor="sleep-message">Сообщение для клиентов</Label>
                 <Textarea
+                  id="sleep-message"
                   rows={4}
                   value={message}
-                  onChange={event => setMessage(event.target.value)}
+                  onChange={event => {
+                    setMessage(event.target.value);
+                  }}
+                  onInput={event => {
+                    setMessage((event.target as HTMLTextAreaElement).value);
+                  }}
                   placeholder="Например: Мы временно не принимаем заказы. Вернёмся завтра!"
                   disabled={saving}
                   className="resize-none"
@@ -130,11 +141,17 @@ export const AdminStoreSettingsPage = () => {
               </div>
 
               <div className="space-y-2">
-                <Label>Автоматический выход из режима сна</Label>
+                <Label htmlFor="sleep-until">Автоматический выход из режима сна</Label>
                 <Input
+                  id="sleep-until"
                   type="datetime-local"
                   value={sleepUntil}
-                  onChange={event => setSleepUntil(event.target.value)}
+                  onChange={event => {
+                    setSleepUntil(event.target.value);
+                  }}
+                  onInput={event => {
+                    setSleepUntil((event.target as HTMLInputElement).value);
+                  }}
                   disabled={saving}
                   min={new Date().toISOString().slice(0, 16)}
                 />
