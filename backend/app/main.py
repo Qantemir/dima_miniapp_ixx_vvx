@@ -187,7 +187,19 @@ async def startup():
 
 @app.on_event("shutdown")
 async def shutdown():
-  await close_mongo_connection()
+  """
+  Обработка shutdown события.
+  Примечание: ошибки gzip (RuntimeError: lost gzip_file) при остановке контейнера
+  не критичны - они уже помечены как "Exception ignored" в Python и не влияют
+  на работу приложения. Это происходит потому что файловые дескрипторы закрываются
+  раньше, чем gzip-стримы успевают закрыться.
+  """
+  logger = logging.getLogger(__name__)
+  try:
+    await close_mongo_connection()
+    logger.info("MongoDB соединение закрыто")
+  except Exception as e:
+    logger.warning(f"Ошибка при закрытии соединения с MongoDB: {e}")
 
 
 app.include_router(catalog.router, prefix=settings.api_prefix)

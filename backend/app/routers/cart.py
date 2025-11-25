@@ -108,8 +108,19 @@ async def get_cart_document(db: AsyncIOMotorDatabase, user_id: int, check_expiry
       result = await db.carts.insert_one(cart)
       cart["_id"] = result.inserted_id
     except DuplicateKeyError:
-      # Корзина уже была создана параллельным запросом
+      # Корзина уже была создана параллельным запросом - получаем её
       cart = await db.carts.find_one({"user_id": user_id})
+      if not cart:
+        # Если всё ещё не найдена (крайне редкий случай), создаём заново
+        cart = {
+          "user_id": user_id,
+          "items": [],
+          "total_amount": 0,
+          "created_at": datetime.utcnow(),
+          "updated_at": datetime.utcnow(),
+        }
+        result = await db.carts.insert_one(cart)
+        cart["_id"] = result.inserted_id
   elif check_expiry:
     # Быстрая проверка истечения без возврата товаров (делаем в фоне)
     updated_at = cart.get("updated_at") or cart.get("created_at", datetime.utcnow())
@@ -135,7 +146,19 @@ async def get_cart_document(db: AsyncIOMotorDatabase, user_id: int, check_expiry
         result = await db.carts.insert_one(cart)
         cart["_id"] = result.inserted_id
       except DuplicateKeyError:
+        # Корзина уже была создана параллельным запросом - получаем её
         cart = await db.carts.find_one({"user_id": user_id})
+        if not cart:
+          # Если всё ещё не найдена, создаём заново
+          cart = {
+            "user_id": user_id,
+            "items": [],
+            "total_amount": 0,
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow(),
+          }
+          result = await db.carts.insert_one(cart)
+          cart["_id"] = result.inserted_id
   return cart
 
 
