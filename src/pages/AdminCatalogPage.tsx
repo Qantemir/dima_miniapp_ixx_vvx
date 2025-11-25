@@ -42,11 +42,11 @@ import {
 import { toast } from '@/lib/toast';
 import { ADMIN_IDS } from '@/types/api';
 import type {
-  CatalogResponse,
   Category,
   CategoryPayload,
 } from '@/types/api';
 import { Seo } from '@/components/Seo';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 type DialogMode = 'create' | 'edit';
 
@@ -56,9 +56,8 @@ const createEmptyCategory = (): CategoryPayload => ({
 
 export const AdminCatalogPage = () => {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
-  const [catalog, setCatalog] = useState<CatalogResponse | null>(null);
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [categoryDialogMode, setCategoryDialogMode] = useState<DialogMode>('create');
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
@@ -66,6 +65,8 @@ export const AdminCatalogPage = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  const [isAuthorized, setIsAuthorized] = useState(false);
 
   useEffect(() => {
     const userId = getUserId();
@@ -77,26 +78,23 @@ export const AdminCatalogPage = () => {
       return;
     }
 
-    loadCatalog();
+    setIsAuthorized(true);
     showBackButton(() => navigate('/'));
     return () => {
       hideBackButton();
     };
   }, [navigate]);
 
-  const loadCatalog = async () => {
-    setLoading(true);
-    try {
-      const data = await api.getAdminCatalog();
-      setCatalog(data);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Ошибка загрузки каталога';
-      console.error('Ошибка загрузки каталога:', error);
-      toast.error(`Ошибка загрузки каталога: ${message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const {
+    data: catalog,
+    isLoading: catalogLoading,
+  } = useQuery({
+    queryKey: ['admin-catalog'],
+    queryFn: () => api.getAdminCatalog(),
+    enabled: isAuthorized,
+    staleTime: 30_000,
+    gcTime: 5 * 60 * 1000,
+  });
 
   const openCategoryDialog = (category?: Category) => {
     if (category) {
@@ -131,7 +129,7 @@ export const AdminCatalogPage = () => {
       }
       setCategoryDialogOpen(false);
       setCategoryForm(createEmptyCategory());
-      await loadCatalog();
+      await queryClient.invalidateQueries({ queryKey: ['admin-catalog'] });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Ошибка сохранения категории';
       toast.error(errorMessage);
@@ -163,7 +161,7 @@ export const AdminCatalogPage = () => {
       toast.success('Категория удалена');
       setDeleteDialogOpen(false);
       setCategoryToDelete(null);
-      await loadCatalog();
+      await queryClient.invalidateQueries({ queryKey: ['admin-catalog'] });
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Не удалось удалить категорию';
@@ -180,7 +178,7 @@ export const AdminCatalogPage = () => {
     noIndex: true,
   };
 
-  if (loading || !catalog) {
+  if (!isAuthorized || catalogLoading || !catalog) {
     return (
       <>
         <Seo {...seoProps} />

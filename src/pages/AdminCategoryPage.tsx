@@ -1,4 +1,4 @@
-import { ChangeEvent, useCallback, useEffect, useState } from 'react';
+import { ChangeEvent, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Boxes, MoreVertical, Plus, Trash2, X } from '@/components/icons';
 import { AdminHeader } from '@/components/AdminHeader';
@@ -35,6 +35,7 @@ import { toast } from '@/lib/toast';
 import { ADMIN_IDS } from '@/types/api';
 import type { Category, Product, ProductPayload, ProductVariant } from '@/types/api';
 import { Seo } from '@/components/Seo';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 type DialogMode = 'create' | 'edit';
 
@@ -51,10 +52,9 @@ const createEmptyProduct = (categoryId: string): ProductPayload => ({
 export const AdminCategoryPage = () => {
   const { categoryId } = useParams<{ categoryId: string }>();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const [isAuthorized, setIsAuthorized] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [category, setCategory] = useState<Category | null>(null);
-  const [products, setProducts] = useState<Product[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<DialogMode>('create');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -71,40 +71,48 @@ export const AdminCategoryPage = () => {
       return;
     }
 
+    setIsAuthorized(true);
     showBackButton(() => navigate('/admin/catalog'));
     return () => hideBackButton();
   }, [navigate]);
 
-  const loadCategory = useCallback(async () => {
-    if (!categoryId) {
-      navigate('/admin/catalog');
-      return;
+  const fetchCategory = async () => {
+    if (!categoryId) throw new Error('Категория не найдена');
+    const data = await api.getAdminCatalog();
+    const current = data.categories.find(cat => cat.id === categoryId);
+    if (!current) {
+      throw new Error('Категория не найдена');
     }
-    setLoading(true);
-    try {
-      const data = await api.getAdminCatalog();
-      const current = data.categories.find(cat => cat.id === categoryId);
-      if (!current) {
-        toast.error('Категория не найдена');
-        navigate('/admin/catalog');
-        return;
-      }
-      setCategory(current);
-      setProducts(data.products.filter(product => product.category_id === categoryId));
-      setFormData(createEmptyProduct(categoryId));
-    } catch (error) {
+    return {
+      category: current,
+      products: data.products.filter(product => product.category_id === categoryId),
+    };
+  };
+
+  const {
+    data: categoryData,
+    isLoading: categoryLoading,
+  } = useQuery({
+    queryKey: ['admin-category', categoryId],
+    queryFn: fetchCategory,
+    enabled: isAuthorized && Boolean(categoryId),
+    staleTime: 30_000,
+    gcTime: 5 * 60 * 1000,
+    onError: error => {
       const message = error instanceof Error ? error.message : 'Не удалось загрузить категорию';
-      console.error('Ошибка загрузки категории:', error);
-      toast.error(`Не удалось загрузить категорию: ${message}`);
+      toast.error(message);
       navigate('/admin/catalog');
-    } finally {
-      setLoading(false);
-    }
-  }, [categoryId, navigate]);
+    },
+  });
+
+  const category = categoryData?.category ?? null;
+  const products = categoryData?.products ?? [];
 
   useEffect(() => {
-    loadCategory();
-  }, [loadCategory]);
+    if (category && categoryId) {
+      setFormData(prev => prev ?? createEmptyProduct(categoryId));
+    }
+  }, [category, categoryId]);
 
   const openCreateDialog = () => {
     if (!categoryId) return;
@@ -147,7 +155,7 @@ export const AdminCategoryPage = () => {
         try {
           await api.deleteProduct(product.id);
           toast.success('Товар удалён');
-          await loadCategory();
+          await queryClient.invalidateQueries({ queryKey: ['admin-category', categoryId] });
         } catch {
           toast.error('Не удалось удалить товар');
         }
@@ -260,7 +268,7 @@ export const AdminCategoryPage = () => {
         toast.success('Товар обновлён');
       }
       setDialogOpen(false);
-      await loadCategory();
+      await queryClient.invalidateQueries({ queryKey: ['admin-category', categoryId] });
     } catch (error) {
       toast.error('Ошибка сохранения товара');
     } finally {
@@ -277,7 +285,7 @@ export const AdminCategoryPage = () => {
     noIndex: true,
   };
 
-  if (loading || !category || !formData) {
+  if (!isAuthorized || categoryLoading || !category || !formData) {
     return (
       <>
         <Seo {...seoProps} />
