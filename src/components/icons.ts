@@ -15,7 +15,6 @@ export { default as Dot } from 'lucide-react/dist/esm/icons/dot.js';
 export { default as Filter } from 'lucide-react/dist/esm/icons/filter.js';
 export { default as GripVertical } from 'lucide-react/dist/esm/icons/grip-vertical.js';
 export { default as HelpCircle } from 'lucide-react/dist/esm/icons/help-circle.js';
-export { default as CalendarClock } from 'lucide-react/dist/esm/icons/calendar-clock.js';
 export { default as MapPin } from 'lucide-react/dist/esm/icons/map-pin.js';
 export { default as Megaphone } from 'lucide-react/dist/esm/icons/megaphone.js';
 export { default as Minus } from 'lucide-react/dist/esm/icons/minus.js';

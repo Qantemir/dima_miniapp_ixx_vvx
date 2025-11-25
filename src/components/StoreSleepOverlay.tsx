@@ -7,7 +7,9 @@ export const StoreSleepOverlay = () => {
   const { status, loading } = useStoreStatus();
   const location = useLocation();
 
-  const isAdminRoute = location.pathname.startsWith('/admin');
+  // Support deployments under /app where pathname becomes /app/admin/...
+  const path = location.pathname.toLowerCase().replace(/^\/app/, '');
+  const isAdminRoute = /\/admin(\/|$)/.test(path);
   const isSleep = status?.is_sleep_mode;
   const wakeTime = status?.sleep_until ? new Date(status.sleep_until) : null;
 
@@ -42,4 +44,3 @@ export const StoreSleepOverlay = () => {
     </div>
   );
 };
-
