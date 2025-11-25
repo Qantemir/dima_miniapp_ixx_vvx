@@ -121,12 +121,14 @@ export const AdminStoreSettingsPage = () => {
                   rows={4}
                   value={message}
                   onChange={event => setMessage(event.target.value)}
+                  onInput={event => setMessage((event.target as HTMLTextAreaElement).value)}
                   placeholder="Например: Мы временно не принимаем заказы. Вернёмся завтра!"
                   disabled={saving}
                   className="resize-none bg-background text-foreground placeholder:text-muted-foreground"
                   autoCapitalize="sentences"
                   autoCorrect="on"
                   spellCheck
+                  inputMode="text"
                 />
                 <p className="text-xs text-muted-foreground">
                   Сообщение увидят клиенты на главной странице. Если оставить пустым — будет показан текст по умолчанию. Вы можете ввести сообщение заранее, перед включением режима сна.

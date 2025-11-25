@@ -211,10 +211,12 @@ export const CheckoutPage = () => {
               id="address"
               value={formData.address}
               onChange={e => setFormData(prev => ({ ...prev, address: e.target.value }))}
+              onInput={e => setFormData(prev => ({ ...prev, address: (e.target as HTMLTextAreaElement).value }))}
               placeholder="Укажите полный адрес доставки"
               rows={3}
               disabled={submitting}
               className="text-base resize-none"
+              inputMode="text"
             />
           </div>
 
@@ -224,9 +226,11 @@ export const CheckoutPage = () => {
               id="comment"
               value={formData.comment}
               onChange={e => setFormData(prev => ({ ...prev, comment: e.target.value }))}
+              onInput={e => setFormData(prev => ({ ...prev, comment: (e.target as HTMLTextAreaElement).value }))}
               placeholder="Дополнительная информация о заказе"
               rows={2}
               disabled={submitting}
+              inputMode="text"
               className="text-base resize-none"
             />
           </div>

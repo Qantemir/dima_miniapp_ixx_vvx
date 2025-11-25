@@ -403,8 +403,19 @@ export const AdminCategoryPage = () => {
                       : prev
                   )
                 }
+                onInput={event =>
+                  setFormData(prev =>
+                    prev
+                      ? {
+                          ...prev,
+                          description: (event.target as HTMLTextAreaElement).value,
+                        }
+                      : prev
+                  )
+                }
                 rows={3}
                 placeholder="Краткое описание товара"
+                inputMode="text"
               />
             </div>
 

@@ -204,9 +204,11 @@ export const OrderPage = () => {
               <Textarea
                 value={newAddress}
                 onChange={e => setNewAddress(e.target.value)}
+                onInput={e => setNewAddress((e.target as HTMLTextAreaElement).value)}
                 rows={3}
                 disabled={saving}
                 placeholder="Укажите адрес доставки"
+                inputMode="text"
               />
               <div className="flex gap-2">
                 <Button

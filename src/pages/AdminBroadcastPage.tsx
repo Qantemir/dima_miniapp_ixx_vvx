@@ -114,7 +114,14 @@ export const AdminBroadcastPage = () => {
                       message: event.target.value,
                     }))
                   }
+                  onInput={event =>
+                    setFormData(prev => ({
+                      ...prev,
+                      message: (event.target as HTMLTextAreaElement).value,
+                    }))
+                  }
                   placeholder="Расскажите клиентам о новостях и акциях"
+                  inputMode="text"
                 />
               </div>
 
