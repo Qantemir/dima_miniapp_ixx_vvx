@@ -42,6 +42,7 @@ import {
 import { toast } from '@/lib/toast';
 import { ADMIN_IDS } from '@/types/api';
 import type {
+  CatalogResponse,
   Category,
   CategoryPayload,
   Product,
@@ -128,6 +129,7 @@ export const AdminCatalogPage = () => {
     
     // Оптимистичное обновление
     const previousCatalog = queryClient.getQueryData<{ categories: Category[]; products: Product[] }>(['admin-catalog']);
+    const previousPublicCatalog = queryClient.getQueryData<CatalogResponse>(['catalog']);
     
     let newCategory: Category | null = null;
     let updatedCategory: Category | null = null;
@@ -145,6 +147,12 @@ export const AdminCatalogPage = () => {
           categories: [...previousCatalog.categories, newCategory],
         });
       }
+      if (previousPublicCatalog) {
+        queryClient.setQueryData(['catalog'], {
+          ...previousPublicCatalog,
+          categories: [...previousPublicCatalog.categories, newCategory],
+        });
+      }
     } else if (selectedCategory) {
       // Обновляем категорию оптимистично
       updatedCategory = {
@@ -156,6 +164,14 @@ export const AdminCatalogPage = () => {
         queryClient.setQueryData(['admin-catalog'], {
           ...previousCatalog,
           categories: previousCatalog.categories.map(c => 
+            c.id === selectedCategory.id ? updatedCategory : c
+          ),
+        });
+      }
+      if (previousPublicCatalog) {
+        queryClient.setQueryData(['catalog'], {
+          ...previousPublicCatalog,
+          categories: previousPublicCatalog.categories.map(c =>
             c.id === selectedCategory.id ? updatedCategory : c
           ),
         });
@@ -190,6 +206,19 @@ export const AdminCatalogPage = () => {
             : [...oldData.categories, createdOrUpdatedCategory],
         };
       });
+
+      queryClient.setQueryData(['catalog'], (oldData: CatalogResponse | undefined) => {
+        if (!oldData) return oldData;
+        const tempId = categoryDialogMode === 'create' ? newCategory?.id : selectedCategory?.id;
+        if (!tempId) return oldData;
+        const exists = oldData.categories.some(c => c.id === tempId);
+        return {
+          ...oldData,
+          categories: exists
+            ? oldData.categories.map(c => (c.id === tempId ? createdOrUpdatedCategory : c))
+            : [...oldData.categories, createdOrUpdatedCategory],
+        };
+      });
       
       const detailQueryKey = ['admin-category', createdOrUpdatedCategory.id];
 
@@ -207,6 +236,9 @@ export const AdminCatalogPage = () => {
       // Откатываем изменения при ошибке
       if (previousCatalog) {
         queryClient.setQueryData(['admin-catalog'], previousCatalog);
+      }
+      if (previousPublicCatalog) {
+        queryClient.setQueryData(['catalog'], previousPublicCatalog);
       }
       setCategoryDialogOpen(true); // Открываем диалог обратно при ошибке
       if (categoryDialogMode === 'create') {
@@ -245,11 +277,19 @@ export const AdminCatalogPage = () => {
     
     // Оптимистичное обновление - сразу удаляем категорию из UI
     const previousCatalog = queryClient.getQueryData<{ categories: Category[]; products: Product[] }>(['admin-catalog']);
+    const previousPublicCatalog = queryClient.getQueryData<CatalogResponse>(['catalog']);
     if (previousCatalog) {
       queryClient.setQueryData(['admin-catalog'], {
         ...previousCatalog,
         categories: previousCatalog.categories.filter(c => c.id !== categoryToDelete.id),
         products: previousCatalog.products.filter(p => p.category_id !== categoryToDelete.id),
+      });
+    }
+    if (previousPublicCatalog) {
+      queryClient.setQueryData(['catalog'], {
+        ...previousPublicCatalog,
+        categories: previousPublicCatalog.categories.filter(c => c.id !== categoryToDelete.id),
+        products: previousPublicCatalog.products.filter(p => p.category_id !== categoryToDelete.id),
       });
     }
     
@@ -277,6 +317,9 @@ export const AdminCatalogPage = () => {
       // Откатываем изменения при ошибке
       if (previousCatalog) {
         queryClient.setQueryData(['admin-catalog'], previousCatalog);
+      }
+      if (previousPublicCatalog) {
+        queryClient.setQueryData(['catalog'], previousPublicCatalog);
       }
       setDeleteDialogOpen(true);
       setCategoryToDelete(deletedCategory);

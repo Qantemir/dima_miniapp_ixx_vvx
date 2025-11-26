@@ -33,7 +33,7 @@ import {
 } from '@/lib/telegram';
 import { toast } from '@/lib/toast';
 import { ADMIN_IDS } from '@/types/api';
-import type { Category, Product, ProductPayload, ProductVariant } from '@/types/api';
+import type { CatalogResponse, Category, Product, ProductPayload, ProductVariant } from '@/types/api';
 import { Seo } from '@/components/Seo';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -149,6 +149,7 @@ export const AdminCategoryPage = () => {
         // Сохраняем предыдущие данные для отката
         const previousData = queryClient.getQueryData<{ category: Category; products: Product[] }>(['admin-category', categoryId]);
         const previousCatalog = queryClient.getQueryData<{ categories: Category[]; products: Product[] }>(['admin-catalog']);
+        const previousPublicCatalog = queryClient.getQueryData<CatalogResponse>(['catalog']);
         
         // МГНОВЕННО скрываем товар из UI через локальное состояние (это происходит синхронно)
         setDeletingProductIds(prev => new Set(prev).add(product.id));
@@ -165,6 +166,13 @@ export const AdminCategoryPage = () => {
           queryClient.setQueryData(['admin-catalog'], {
             ...previousCatalog,
             products: previousCatalog.products.filter(p => p.id !== product.id),
+          });
+        }
+        
+        if (previousPublicCatalog) {
+          queryClient.setQueryData(['catalog'], {
+            ...previousPublicCatalog,
+            products: previousPublicCatalog.products.filter(p => p.id !== product.id),
           });
         }
         
@@ -194,6 +202,9 @@ export const AdminCategoryPage = () => {
           }
           if (previousCatalog) {
             queryClient.setQueryData(['admin-catalog'], previousCatalog);
+          }
+          if (previousPublicCatalog) {
+            queryClient.setQueryData(['catalog'], previousPublicCatalog);
           }
           toast.error('Не удалось удалить товар');
         }
@@ -301,6 +312,7 @@ export const AdminCategoryPage = () => {
     // Оптимистичное обновление
     const previousData = queryClient.getQueryData<{ category: Category; products: Product[] }>(['admin-category', categoryId]);
     const previousCatalog = queryClient.getQueryData<{ categories: Category[]; products: Product[] }>(['admin-catalog']);
+    const previousPublicCatalog = queryClient.getQueryData<CatalogResponse>(['catalog']);
     
     let newProduct: Product | null = null;
     let updatedProduct: Product | null = null;
@@ -332,6 +344,13 @@ export const AdminCategoryPage = () => {
           products: [...previousCatalog.products, newProduct],
         });
       }
+      
+      if (previousPublicCatalog) {
+        queryClient.setQueryData(['catalog'], {
+          ...previousPublicCatalog,
+          products: [...previousPublicCatalog.products, newProduct],
+        });
+      }
     } else if (selectedProduct) {
       // Обновляем товар оптимистично
       updatedProduct = {
@@ -358,6 +377,15 @@ export const AdminCategoryPage = () => {
         queryClient.setQueryData(['admin-catalog'], {
           ...previousCatalog,
           products: previousCatalog.products.map(p => 
+            p.id === selectedProduct.id ? updatedProduct : p
+          ),
+        });
+      }
+      
+      if (previousPublicCatalog) {
+        queryClient.setQueryData(['catalog'], {
+          ...previousPublicCatalog,
+          products: previousPublicCatalog.products.map(p =>
             p.id === selectedProduct.id ? updatedProduct : p
           ),
         });
@@ -402,6 +430,17 @@ export const AdminCategoryPage = () => {
         };
       });
       
+      queryClient.setQueryData(['catalog'], (oldData: CatalogResponse | undefined) => {
+        if (!oldData || !tempId) return oldData;
+        const exists = oldData.products.some(p => p.id === tempId);
+        return {
+          ...oldData,
+          products: exists
+            ? oldData.products.map(p => (p.id === tempId ? createdOrUpdatedProduct : p))
+            : [...oldData.products, createdOrUpdatedProduct],
+        };
+      });
+      
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['admin-category', categoryId] }),
         queryClient.invalidateQueries({ queryKey: ['admin-catalog'] }),
@@ -420,6 +459,9 @@ export const AdminCategoryPage = () => {
       }
       if (previousCatalog) {
         queryClient.setQueryData(['admin-catalog'], previousCatalog);
+      }
+      if (previousPublicCatalog) {
+        queryClient.setQueryData(['catalog'], previousPublicCatalog);
       }
       setDialogOpen(true); // Открываем диалог обратно при ошибке
       toast.error('Ошибка сохранения товара');
