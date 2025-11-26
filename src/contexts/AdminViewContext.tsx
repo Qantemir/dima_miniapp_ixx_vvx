@@ -7,28 +7,8 @@ type AdminViewContextValue = {
 
 const AdminViewContext = createContext<AdminViewContextValue | undefined>(undefined);
 
-const STORAGE_KEY = 'admin_force_client_view';
-
-const getInitialValue = () => {
-  if (typeof window === 'undefined') {
-    return false;
-  }
-  return localStorage.getItem(STORAGE_KEY) === 'true';
-};
-
 export const AdminViewProvider = ({ children }: { children: ReactNode }) => {
-  const [forceClientView, setForceClientViewState] = useState<boolean>(getInitialValue);
-
-  const setForceClientView = (value: boolean) => {
-    setForceClientViewState(value);
-    if (typeof window !== 'undefined') {
-      if (value) {
-        localStorage.setItem(STORAGE_KEY, 'true');
-      } else {
-        localStorage.removeItem(STORAGE_KEY);
-      }
-    }
-  };
+  const [forceClientView, setForceClientView] = useState<boolean>(false);
 
   const value = useMemo(
     () => ({

@@ -2,8 +2,6 @@
 import { toast } from '@/lib/toast';
 
 const INIT_DATA_PARAM = 'tgWebAppData';
-const INIT_DATA_STORAGE_KEY = 'miniapp_init_data';
-
 let cachedInitData: string | null = null;
 let waitForInitDataPromise: Promise<string | null> | null = null;
 let activeMainButtonHandler: (() => void) | null = null;
@@ -87,42 +85,16 @@ const serializeInitDataUnsafe = (
 
 const persistInitData = (value: string) => {
   cachedInitData = value;
-  if (typeof window !== 'undefined') {
-    try {
-      window.sessionStorage.setItem(INIT_DATA_STORAGE_KEY, value);
-    } catch (error) {
-      // Ignore storage errors
-    }
-  }
 };
 
 export const refreshTelegramData = (): void => {
   // Очищаем кэш, чтобы при следующем запросе данные обновились
   cachedInitData = null;
-  try {
-    if (typeof window !== 'undefined' && window.sessionStorage) {
-      window.sessionStorage.removeItem(INIT_DATA_STORAGE_KEY);
-    }
-  } catch (e) {
-    // Игнорируем ошибки sessionStorage
-  }
 };
 
 const readStoredInitData = (): string | null => {
   if (cachedInitData) {
     return cachedInitData;
-  }
-  if (typeof window === 'undefined') {
-    return null;
-  }
-  try {
-    const stored = window.sessionStorage.getItem(INIT_DATA_STORAGE_KEY);
-    if (stored) {
-      cachedInitData = stored;
-      return stored;
-    }
-  } catch (error) {
-    // Ignore storage errors
   }
   return null;
 };
