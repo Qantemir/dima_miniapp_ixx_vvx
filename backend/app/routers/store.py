@@ -128,7 +128,10 @@ async def stream_store_status(
     finally:
       store_status_broadcaster.unregister(queue)
 
-  return StreamingResponse(event_generator(), media_type="text/event-stream")
+  response = StreamingResponse(event_generator(), media_type="text/event-stream")
+  # Явно отключаем gzip для SSE, чтобы избежать ошибок с закрытыми файлами
+  response.headers["Content-Encoding"] = "identity"
+  return response
 
 
 async def _ensure_awake_if_needed(db: AsyncIOMotorDatabase, doc: dict):

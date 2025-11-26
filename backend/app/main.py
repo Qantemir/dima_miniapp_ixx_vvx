@@ -12,33 +12,35 @@ from .routers import admin, bot_webhook, cart, catalog, orders, store
 
 app = FastAPI(title="Mini Shop Telegram Backend", version="1.0.0")
 
+# Добавляем сжатие ответов для ускорения передачи данных (уменьшает размер на 70-80%)
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
 # Middleware для исключения streaming responses из gzip сжатия
-# Должен быть добавлен ПЕРЕД GZipMiddleware, чтобы выполняться первым
+# Должен быть ПОСЛЕ GZipMiddleware, чтобы переопределить заголовки ответа
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import StreamingResponse
 
 class SkipGzipForStreamingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
-        if path.endswith("/stream"):
-            # Убираем Accept-Encoding заголовок для streaming эндпоинтов
-            # чтобы GZipMiddleware не применялся
-            if "accept-encoding" in request.headers:
-                # Создаем новый scope без accept-encoding
-                new_headers = [
-                    (k, v) for k, v in request.scope.get("headers", [])
-                    if k.lower() != b"accept-encoding"
-                ]
-                request.scope["headers"] = new_headers
-        
         response = await call_next(request)
+        
+        # Если это streaming response или SSE эндпоинт, отключаем gzip
+        if path.endswith("/stream") or (hasattr(response, 'body_iterator') and hasattr(response, 'media_type') and response.media_type == "text/event-stream"):
+            # Удаляем gzip заголовки, если они были установлены
+            if "content-encoding" in response.headers:
+                encoding = response.headers.get("content-encoding", "").lower()
+                if "gzip" in encoding:
+                    # Удаляем gzip из content-encoding или устанавливаем identity
+                    response.headers["Content-Encoding"] = "identity"
+            else:
+                # Явно устанавливаем identity, чтобы предотвратить gzip
+                response.headers["Content-Encoding"] = "identity"
+        
         return response
 
-# Добавляем middleware для исключения streaming из gzip ПЕРЕД GZipMiddleware
+# Добавляем middleware для исключения streaming из gzip ПОСЛЕ GZipMiddleware
 app.add_middleware(SkipGzipForStreamingMiddleware)
-
-# Добавляем сжатие ответов для ускорения передачи данных (уменьшает размер на 70-80%)
-# Примечание: streaming responses (SSE) исключаются через middleware выше
-app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 app.add_middleware(
   CORSMiddleware,
