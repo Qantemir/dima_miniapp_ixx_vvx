@@ -349,6 +349,15 @@ export const CatalogPage = () => {
             </section>
 
             <section>
+              <h3 className="text-sm font-semibold text-foreground">Как прикрепить чек</h3>
+              <ul className="mt-1 text-sm text-muted-foreground space-y-1 list-disc pl-4">
+                <li>Сфотографируйте или экспортируйте чек в формате JPG/PNG/PDF (до 10 МБ).</li>
+                <li>В форме оформления нажмите «Прикрепить чек» и выберите файл из галереи или «Сохранённые файлы».</li>
+                <li>Если загрузка не начинается, обновите страницу мини‑приложения и попробуйте снова.</li>
+              </ul>
+            </section>
+
+            <section>
               <h3 className="text-sm font-semibold text-foreground">Доставка</h3>
               <p className="text-sm text-muted-foreground mt-1">
                 Доступны самовывоз и курьер. Время и стоимость рассчитываются индивидуально и зависят от района. Мы заранее предупредим, если потребуется доплата.
@@ -363,10 +372,26 @@ export const CatalogPage = () => {
             </section>
 
             <section>
+              <h3 className="text-sm font-semibold text-foreground">Если магазин спит</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                При включённом режиме сна оформление заказов временно недоступно. Мы покажем сообщение с причиной и временем возвращения. Нажмите «Обновить» позже — магазин автоматически откроется, как только администратор выключит паузу.
+              </p>
+            </section>
+
+            <section>
               <h3 className="text-sm font-semibold text-foreground">Поддержка</h3>
               <p className="text-sm text-muted-foreground mt-1">
                 Нужна помощь? Напишите в чат мини‑приложения или напрямую в Telegram @your_support_bot. Мы отвечаем ежедневно с 9:00 до 22:00.
               </p>
+            </section>
+
+            <section>
+              <h3 className="text-sm font-semibold text-foreground">Частые вопросы</h3>
+              <ul className="mt-1 text-sm text-muted-foreground space-y-1 list-disc pl-4">
+                <li>Не получается ввести текст? Обновите мини‑приложение и убедитесь, что Telegram не в режиме «мультиокон».</li>
+                <li>Не видите загруженный чек? Нажмите «Очистить» и выберите файл снова — индикатор покажет имя файла.</li>
+                <li>Хотите уточнить доставку? Добавьте комментарий в поле «Сообщение» на шаге оформления — его увидит оператор.</li>
+              </ul>
             </section>
           </div>
 

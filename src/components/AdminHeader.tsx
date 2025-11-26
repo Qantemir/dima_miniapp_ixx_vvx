@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useAdminView } from '@/contexts/AdminViewContext';
 import type { LucideIcon } from 'lucide-react';
-import { Boxes, Megaphone, Moon, Package, UserRound } from '@/components/icons';
+import { Boxes, Megaphone, Moon, Package, UserRound, LifeBuoy } from '@/components/icons';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 interface AdminHeaderProps {
@@ -20,6 +20,7 @@ const NAV_LINKS: Array<{
   { to: '/admin/catalog', label: 'Каталог', icon: Boxes },
   { to: '/admin/broadcast', label: 'Рассылка', icon: Megaphone },
   { to: '/admin/store', label: 'Режим сна', icon: Moon },
+  { to: '/admin/help', label: 'Помощь', icon: LifeBuoy },
 ];
 
 export const AdminHeader = ({ title, description, icon }: AdminHeaderProps) => {

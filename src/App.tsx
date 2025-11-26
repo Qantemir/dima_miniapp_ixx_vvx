@@ -20,6 +20,7 @@ const AdminCatalogPage = lazy(() => import("./pages/AdminCatalogPage").then(m =>
 const AdminCategoryPage = lazy(() => import("./pages/AdminCategoryPage").then(m => ({ default: m.AdminCategoryPage })));
 const AdminBroadcastPage = lazy(() => import("./pages/AdminBroadcastPage").then(m => ({ default: m.AdminBroadcastPage })));
 const AdminStoreSettingsPage = lazy(() => import("./pages/AdminStoreSettingsPage").then(m => ({ default: m.AdminStoreSettingsPage })));
+const AdminHelpPage = lazy(() => import("./pages/AdminHelpPage").then(m => ({ default: m.AdminHelpPage })));
 import { initTelegram, getUserId, isAdmin } from "./lib/telegram";
 import { ADMIN_IDS } from "./types/api";
 import NotFound from "./pages/NotFound";
@@ -156,6 +157,14 @@ const router = createBrowserRouter(
           element: (
             <Suspense fallback={<PageLoader />}>
               <AdminStoreSettingsPage />
+            </Suspense>
+          )
+        },
+        { 
+          path: "/admin/help", 
+          element: (
+            <Suspense fallback={<PageLoader />}>
+              <AdminHelpPage />
             </Suspense>
           )
         },
