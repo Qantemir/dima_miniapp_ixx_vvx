@@ -166,8 +166,8 @@ export const CheckoutPage = () => {
       <div 
         className="sticky bg-card/95 backdrop-blur-sm border-b border-border px-4 py-3 sm:px-6 sm:py-4 shadow-sm" 
         style={{ 
-          top: 'calc(env(safe-area-inset-top, 0px) + var(--tg-header-height, 0px))',
-          zIndex: 1
+          top: 'calc(env(safe-area-inset-top, 0px) + var(--tg-header-height, 44px) + 56px)',
+          zIndex: 0
         }}
       >
         <div className="flex items-center gap-3">
