@@ -60,6 +60,7 @@ export const AdminCategoryPage = () => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [formData, setFormData] = useState<ProductPayload | null>(null);
   const [variants, setVariants] = useState<ProductVariant[]>([]);
+  const [deletingProductIds, setDeletingProductIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const userId = getUserId();
@@ -145,8 +146,14 @@ export const AdminCategoryPage = () => {
       async buttonId => {
         if (buttonId !== 'confirm') return;
         
-        // Оптимистичное обновление - сразу удаляем товар из UI
+        // Сохраняем предыдущие данные для отката
         const previousData = queryClient.getQueryData<{ category: Category; products: Product[] }>(['admin-category', categoryId]);
+        const previousCatalog = queryClient.getQueryData<{ categories: Category[]; products: Product[] }>(['admin-catalog']);
+        
+        // МГНОВЕННО скрываем товар из UI через локальное состояние (это происходит синхронно)
+        setDeletingProductIds(prev => new Set(prev).add(product.id));
+        
+        // Оптимистичное обновление кэша - сразу удаляем товар
         if (previousData) {
           queryClient.setQueryData(['admin-category', categoryId], {
             ...previousData,
@@ -154,8 +161,6 @@ export const AdminCategoryPage = () => {
           });
         }
         
-        // Также обновляем админский каталог оптимистично
-        const previousCatalog = queryClient.getQueryData<{ categories: Category[]; products: Product[] }>(['admin-catalog']);
         if (previousCatalog) {
           queryClient.setQueryData(['admin-catalog'], {
             ...previousCatalog,
@@ -163,15 +168,27 @@ export const AdminCategoryPage = () => {
           });
         }
         
+        // Теперь отправляем запрос на сервер
         try {
           await api.deleteProduct(product.id);
           toast.success('Товар удалён');
+          // Убираем из списка удаляемых (на случай если что-то еще использует это состояние)
+          setDeletingProductIds(prev => {
+            const next = new Set(prev);
+            next.delete(product.id);
+            return next;
+          });
           // Инвалидируем для синхронизации с сервером в фоне
           queryClient.invalidateQueries({ queryKey: ['admin-category', categoryId] });
           queryClient.invalidateQueries({ queryKey: ['admin-catalog'] });
           queryClient.invalidateQueries({ queryKey: ['catalog'] });
         } catch {
           // Откатываем изменения при ошибке
+          setDeletingProductIds(prev => {
+            const next = new Set(prev);
+            next.delete(product.id);
+            return next;
+          });
           if (previousData) {
             queryClient.setQueryData(['admin-category', categoryId], previousData);
           }
@@ -467,7 +484,9 @@ export const AdminCategoryPage = () => {
             {products.length === 0 ? (
               <p className="p-4 text-sm text-muted-foreground">В этой категории пока нет товаров</p>
             ) : (
-              products.map(product => (
+              products
+                .filter(product => !deletingProductIds.has(product.id))
+                .map(product => (
                 <div
                   key={product.id}
                   className="p-4 flex items-start gap-3 sm:items-center sm:justify-between relative"
