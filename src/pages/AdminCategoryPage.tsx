@@ -378,28 +378,27 @@ export const AdminCategoryPage = () => {
         throw new Error('Неизвестный режим диалога');
       }
       
-      // Обновляем с реальными данными с сервера
+      const tempId = dialogMode === 'create' ? newProduct?.id : selectedProduct?.id;
+      
       queryClient.setQueryData(['admin-category', categoryId], (oldData: { category: Category; products: Product[] } | undefined) => {
-        if (!oldData) return oldData;
+        if (!oldData || !tempId) return oldData;
+        const exists = oldData.products.some(p => p.id === tempId);
         return {
           ...oldData,
-          products: oldData.products.map(p =>
-            dialogMode === 'create'
-              ? (p.id === newProduct!.id ? createdOrUpdatedProduct : p)
-              : (selectedProduct && p.id === selectedProduct.id ? createdOrUpdatedProduct : p)
-          ),
+          products: exists
+            ? oldData.products.map(p => (p.id === tempId ? createdOrUpdatedProduct : p))
+            : [...oldData.products, createdOrUpdatedProduct],
         };
       });
       
       queryClient.setQueryData(['admin-catalog'], (oldData: { categories: Category[]; products: Product[] } | undefined) => {
-        if (!oldData) return oldData;
+        if (!oldData || !tempId) return oldData;
+        const exists = oldData.products.some(p => p.id === tempId);
         return {
           ...oldData,
-          products: oldData.products.map(p =>
-            dialogMode === 'create'
-              ? (p.id === newProduct!.id ? createdOrUpdatedProduct : p)
-              : (selectedProduct && p.id === selectedProduct.id ? createdOrUpdatedProduct : p)
-          ),
+          products: exists
+            ? oldData.products.map(p => (p.id === tempId ? createdOrUpdatedProduct : p))
+            : [...oldData.products, createdOrUpdatedProduct],
         };
       });
       

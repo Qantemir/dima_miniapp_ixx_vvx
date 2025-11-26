@@ -177,11 +177,12 @@ export const AdminCatalogPage = () => {
         if (!oldData) return oldData;
         const tempId = categoryDialogMode === 'create' ? newCategory?.id : selectedCategory?.id;
         if (!tempId) return oldData;
+        const exists = oldData.categories.some(c => c.id === tempId);
         return {
           ...oldData,
-          categories: oldData.categories.map(c =>
-            c.id === tempId ? createdOrUpdatedCategory : c
-          ),
+          categories: exists
+            ? oldData.categories.map(c => (c.id === tempId ? createdOrUpdatedCategory : c))
+            : [...oldData.categories, createdOrUpdatedCategory],
         };
       });
       
