@@ -175,12 +175,12 @@ export const AdminCatalogPage = () => {
       // Обновляем с реальными данными с сервера
       queryClient.setQueryData(['admin-catalog'], (oldData: { categories: Category[]; products: Product[] } | undefined) => {
         if (!oldData) return oldData;
+        const tempId = categoryDialogMode === 'create' ? newCategory?.id : selectedCategory?.id;
+        if (!tempId) return oldData;
         return {
           ...oldData,
           categories: oldData.categories.map(c =>
-            categoryDialogMode === 'create'
-              ? (c.id === newCategory!.id ? createdOrUpdatedCategory : c)
-              : (selectedCategory && c.id === selectedCategory.id ? createdOrUpdatedCategory : c)
+            c.id === tempId ? createdOrUpdatedCategory : c
           ),
         };
       });
