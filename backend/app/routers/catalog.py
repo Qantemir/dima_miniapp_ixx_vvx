@@ -129,19 +129,18 @@ async def fetch_catalog(
   *,
   force_refresh: bool = False,
 ) -> Tuple[CatalogResponse, str]:
+  global _catalog_cache, _catalog_cache_etag, _catalog_cache_expiration
   ttl = settings.catalog_cache_ttl_seconds
   if ttl <= 0 or force_refresh:
     catalog = await _load_catalog_from_db(db)
     etag = _compute_catalog_etag(catalog)
     if ttl > 0:
       # Даже при принудительном обновлении сохраняем снимок для публичного кеша
-      global _catalog_cache, _catalog_cache_etag, _catalog_cache_expiration
       _catalog_cache = catalog
       _catalog_cache_etag = etag
       _catalog_cache_expiration = datetime.utcnow() + timedelta(seconds=ttl)
     return catalog, etag
 
-  global _catalog_cache, _catalog_cache_expiration, _catalog_cache_etag
   now = datetime.utcnow()
   if (
     _catalog_cache
