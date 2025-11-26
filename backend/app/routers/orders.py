@@ -24,7 +24,7 @@ from ..schemas import (
   OrderStatus,
   UpdateAddressRequest,
 )
-from ..utils import as_object_id, serialize_doc, get_gridfs
+from ..utils import as_object_id, serialize_doc, get_gridfs, ensure_store_is_awake
 from ..security import TelegramUser, get_current_user
 from ..notifications import notify_admins_new_order
 
@@ -129,6 +129,7 @@ async def create_order(
   current_user: TelegramUser = Depends(get_current_user),
 ):
   user_id = current_user.id
+  await ensure_store_is_awake(db)
   cart = await get_cart(db, user_id)
   if not cart:
     raise HTTPException(status_code=400, detail="Корзина пуста")

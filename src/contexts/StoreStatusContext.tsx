@@ -109,6 +109,19 @@ export function StoreStatusProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Периодический опрос как fallback, если SSE недоступен (например, Telegram WebView убивает соединение)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      refresh().catch(() => {
+        // Игнорируем ошибки, очередная попытка выполнится через интервал
+      });
+    }, 30_000); // каждые 30 секунд
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [refresh]);
+
   const value = useMemo(
     () => ({
       status,

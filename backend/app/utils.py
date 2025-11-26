@@ -1,5 +1,6 @@
 import asyncio
 from bson import ObjectId
+from fastapi import HTTPException, status
 from gridfs import GridFS
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pymongo import MongoClient
@@ -181,3 +182,22 @@ async def permanently_delete_order_entry(
   except Exception:
     # Игнорируем ошибки удаления файла, чтобы не мешать основному потоку
     pass
+
+
+async def ensure_store_is_awake(
+  db: AsyncIOMotorDatabase,
+) -> None:
+  """
+  Проверяет, что магазин не находится в режиме сна.
+  Если магазин спит — бросает HTTP 423 с сообщением для клиента.
+  """
+  doc = await db.store_status.find_one({})
+  if not doc:
+    return
+
+  if doc.get("is_sleep_mode"):
+    message = doc.get("sleep_message") or "Магазин временно не принимает заказы"
+    raise HTTPException(
+      status_code=status.HTTP_423_LOCKED,
+      detail=message,
+    )
