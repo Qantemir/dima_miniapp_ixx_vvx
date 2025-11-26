@@ -46,7 +46,6 @@ export const AdminOrderDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [order, setOrder] = useState<Order | null>(null);
   const [updating, setUpdating] = useState(false);
-  const [restoring, setRestoring] = useState(false);
   const [currentStatus, setCurrentStatus] = useState<OrderStatus | ''>('');
   const [pendingStatus, setPendingStatus] = useState<OrderStatus | null>(null);
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
@@ -101,7 +100,6 @@ export const AdminOrderDetailPage = () => {
     }
     const targetStatus = pendingStatus;
     const isCompleting = targetStatus === 'завершён';
-    const wasSoftDeleted = Boolean(order.deleted_at);
 
     setUpdating(true);
     try {
@@ -112,22 +110,11 @@ export const AdminOrderDetailPage = () => {
       if (isCompleting) {
         setOrder(updatedOrder);
         setCurrentStatus(updatedOrder.status);
-        toast.success('Заказ завершён. Можно восстановить в течение 10 минут.');
-        // Перезагружаем заказ, чтобы получить deleted_at
-        await loadOrder();
+        toast.success('Заказ завершён.');
       } else {
-        let finalOrderState = updatedOrder;
-
-        if (wasSoftDeleted) {
-          // Если заказ был помечен как удаленный, восстанавливаем его при переходе на другой статус
-          finalOrderState = await api.restoreOrder(order.id);
-          toast.success('Статус обновлён, заказ восстановлен');
-        } else {
-          toast.success('Статус заказа обновлён');
-        }
-
-        setOrder(finalOrderState);
-        setCurrentStatus(finalOrderState.status);
+        toast.success('Статус заказа обновлён');
+        setOrder(updatedOrder);
+        setCurrentStatus(updatedOrder.status);
       }
     } catch (error) {
       toast.error('Ошибка при обновлении статуса');
@@ -144,25 +131,6 @@ export const AdminOrderDetailPage = () => {
       setPendingStatus(null);
     }
   };
-
-  const handleRestore = async () => {
-    if (!order) return;
-    setRestoring(true);
-    try {
-      const restoredOrder = await api.restoreOrder(order.id);
-      setOrder(restoredOrder);
-      setCurrentStatus(restoredOrder.status);
-      toast.success('Заказ восстановлен');
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Ошибка при восстановлении заказа';
-      toast.error(message);
-    } finally {
-      setRestoring(false);
-    }
-  };
-
-  // Проверяем, можно ли восстановить заказ (завершен и помечен как удаленный)
-  const canRestore = order?.status === 'завершён' && Boolean(order.deleted_at);
 
   const seoPath = orderId ? `/admin/order/${orderId}` : '/admin/order';
   const seoTitle = order ? `Админ: Заказ ${order.id.slice(-6)}` : "Админ: Заказ";
@@ -233,18 +201,6 @@ export const AdminOrderDetailPage = () => {
             <span className="text-sm text-muted-foreground">Текущий статус:</span>
             <OrderStatusBadge status={order.status} />
           </div>
-          {canRestore && (
-            <div className="mt-3 pt-3 border-t border-border">
-              <Button
-                onClick={handleRestore}
-                disabled={restoring}
-                variant="outline"
-                className="w-full"
-              >
-                {restoring ? 'Восстановление...' : 'Восстановить заказ (до 10 минут)'}
-              </Button>
-            </div>
-          )}
         </div>
 
         {/* Change Status */}

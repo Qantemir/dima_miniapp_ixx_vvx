@@ -128,19 +128,21 @@ async def update_order_status(
   }
   should_archive = new_status == OrderStatus.DONE.value
 
-  update_fields = {
-    "status": payload.status.value,
-    "updated_at": datetime.utcnow(),
-    "can_edit_address": payload.status.value in editable_statuses,
+  update_operations: dict[str, dict] = {
+    "$set": {
+      "status": payload.status.value,
+      "updated_at": datetime.utcnow(),
+      "can_edit_address": payload.status.value in editable_statuses,
+    }
   }
 
-  # Если заказ был завершён и мы изменяем статус, убираем метку deleted_at
+  # Если заказ был завершён и мы изменяем статус, убираем метку deleted_at полностью
   if old_status == OrderStatus.DONE.value and new_status != OrderStatus.DONE.value:
-    update_fields["deleted_at"] = None
+    update_operations["$unset"] = {"deleted_at": ""}
 
   doc = await db.orders.find_one_and_update(
     {"_id": as_object_id(order_id)},
-    {"$set": update_fields},
+    update_operations,
     return_document=True,
   )
   if not doc:
