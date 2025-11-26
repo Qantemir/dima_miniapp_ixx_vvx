@@ -2,7 +2,6 @@ import logging
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from .config import settings
@@ -12,35 +11,79 @@ from .routers import admin, bot_webhook, cart, catalog, orders, store
 
 app = FastAPI(title="Mini Shop Telegram Backend", version="1.0.0")
 
-# Добавляем сжатие ответов для ускорения передачи данных (уменьшает размер на 70-80%)
-app.add_middleware(GZipMiddleware, minimum_size=1000)
-
-# Middleware для исключения streaming responses из gzip сжатия
-# Должен быть ПОСЛЕ GZipMiddleware, чтобы переопределить заголовки ответа
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import StreamingResponse
+from starlette.responses import StreamingResponse, Response
+from starlette.concurrency import iterate_in_threadpool
+import gzip
+import io
 
-class SkipGzipForStreamingMiddleware(BaseHTTPMiddleware):
+
+class SafeGZipMiddleware(BaseHTTPMiddleware):
+    """
+    Собственная реализация GZip, которая не ломается на закрытых стримах
+    и пропускает SSE/streaming/HEAD/304 ответы.
+    """
+
+    def __init__(self, app, minimum_size: int = 1000):
+        super().__init__(app)
+        self.minimum_size = minimum_size
+
     async def dispatch(self, request: Request, call_next):
-        path = request.url.path
         response = await call_next(request)
-        
-        # Если это streaming response или SSE эндпоинт, отключаем gzip
-        if path.endswith("/stream") or (hasattr(response, 'body_iterator') and hasattr(response, 'media_type') and response.media_type == "text/event-stream"):
-            # Удаляем gzip заголовки, если они были установлены
-            if "content-encoding" in response.headers:
-                encoding = response.headers.get("content-encoding", "").lower()
-                if "gzip" in encoding:
-                    # Удаляем gzip из content-encoding или устанавливаем identity
-                    response.headers["Content-Encoding"] = "identity"
-            else:
-                # Явно устанавливаем identity, чтобы предотвратить gzip
-                response.headers["Content-Encoding"] = "identity"
-        
-        return response
 
-# Добавляем middleware для исключения streaming из gzip ПОСЛЕ GZipMiddleware
-app.add_middleware(SkipGzipForStreamingMiddleware)
+        if request.method == "HEAD":
+            return response
+        if response.status_code in (204, 304):
+            return response
+        if isinstance(response, StreamingResponse) or (
+            getattr(response, "media_type", None) == "text/event-stream"
+        ):
+            return response
+
+        accept_encoding = request.headers.get("accept-encoding", "")
+        if "gzip" not in accept_encoding.lower():
+            return response
+        if "content-encoding" in response.headers:
+            return response
+
+        if getattr(response, "body_iterator", None) is not None:
+            chunks = []
+            async for chunk in response.body_iterator:
+                chunks.append(chunk)
+            body = b"".join(chunks)
+        else:
+            body = getattr(response, "body", b"") or b""
+
+        if len(body) < self.minimum_size:
+            response.body_iterator = iterate_in_threadpool(iter([body]))
+            return response
+
+        buffer = io.BytesIO()
+        with gzip.GzipFile(fileobj=buffer, mode="wb") as gzip_file:
+            gzip_file.write(body)
+        compressed_body = buffer.getvalue()
+
+        new_response = Response(
+            content=compressed_body,
+            status_code=response.status_code,
+            headers=dict(response.headers),
+            media_type=response.media_type,
+            background=response.background,
+        )
+        new_response.headers["Content-Encoding"] = "gzip"
+        new_response.headers["Content-Length"] = str(len(compressed_body))
+        vary = new_response.headers.get("Vary")
+        if vary:
+            if "accept-encoding" not in vary.lower():
+                new_response.headers["Vary"] = f"{vary}, Accept-Encoding"
+        else:
+            new_response.headers["Vary"] = "Accept-Encoding"
+
+        return new_response
+
+
+# Добавляем безопасный GZip middleware
+app.add_middleware(SafeGZipMiddleware, minimum_size=1000)
 
 app.add_middleware(
   CORSMiddleware,
