@@ -165,8 +165,11 @@ export const CatalogPage = () => {
       />
     <main className="min-h-screen bg-background pb-20" role="main">
       <header
-        className="sticky top-0 z-10 bg-card/95 backdrop-blur-sm border-b border-border px-4 py-3 sm:px-6 sm:py-4 shadow-sm"
-        style={{ top: 'calc(env(safe-area-inset-top, 0px) + var(--tg-header-height, 0px))' }}
+        className="sticky bg-card/95 backdrop-blur-sm border-b border-border px-4 py-3 sm:px-6 sm:py-4 shadow-sm"
+        style={{ 
+          top: 'calc(env(safe-area-inset-top, 0px) + var(--tg-header-height, 0px))',
+          zIndex: 1
+        }}
       >
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0 flex-shrink">
