@@ -173,23 +173,17 @@ export const AdminCatalogPage = () => {
       }
       
       // Обновляем с реальными данными с сервера
-      if (previousCatalog) {
-        if (categoryDialogMode === 'create') {
-          queryClient.setQueryData(['admin-catalog'], {
-            ...previousCatalog,
-            categories: previousCatalog.categories.map(c => 
-              c.id === newCategory!.id ? createdOrUpdatedCategory : c
-            ),
-          });
-        } else {
-          queryClient.setQueryData(['admin-catalog'], {
-            ...previousCatalog,
-            categories: previousCatalog.categories.map(c => 
-              c.id === selectedCategory.id ? createdOrUpdatedCategory : c
-            ),
-          });
-        }
-      }
+      queryClient.setQueryData(['admin-catalog'], (oldData: { categories: Category[]; products: Product[] } | undefined) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          categories: oldData.categories.map(c =>
+            categoryDialogMode === 'create'
+              ? (c.id === newCategory!.id ? createdOrUpdatedCategory : c)
+              : (selectedCategory && c.id === selectedCategory.id ? createdOrUpdatedCategory : c)
+          ),
+        };
+      });
       
       // Инвалидируем для синхронизации с сервером в фоне
       queryClient.invalidateQueries({ queryKey: ['admin-catalog'] });

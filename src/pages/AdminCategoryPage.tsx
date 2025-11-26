@@ -379,41 +379,29 @@ export const AdminCategoryPage = () => {
       }
       
       // Обновляем с реальными данными с сервера
-      if (previousData) {
-        if (dialogMode === 'create') {
-          queryClient.setQueryData(['admin-category', categoryId], {
-            ...previousData,
-            products: previousData.products.map(p => 
-              p.id === newProduct!.id ? createdOrUpdatedProduct : p
-            ),
-          });
-        } else {
-          queryClient.setQueryData(['admin-category', categoryId], {
-            ...previousData,
-            products: previousData.products.map(p => 
-              p.id === selectedProduct.id ? createdOrUpdatedProduct : p
-            ),
-          });
-        }
-      }
+      queryClient.setQueryData(['admin-category', categoryId], (oldData: { category: Category; products: Product[] } | undefined) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          products: oldData.products.map(p =>
+            dialogMode === 'create'
+              ? (p.id === newProduct!.id ? createdOrUpdatedProduct : p)
+              : (selectedProduct && p.id === selectedProduct.id ? createdOrUpdatedProduct : p)
+          ),
+        };
+      });
       
-      if (previousCatalog) {
-        if (dialogMode === 'create') {
-          queryClient.setQueryData(['admin-catalog'], {
-            ...previousCatalog,
-            products: previousCatalog.products.map(p => 
-              p.id === newProduct!.id ? createdOrUpdatedProduct : p
-            ),
-          });
-        } else {
-          queryClient.setQueryData(['admin-catalog'], {
-            ...previousCatalog,
-            products: previousCatalog.products.map(p => 
-              p.id === selectedProduct.id ? createdOrUpdatedProduct : p
-            ),
-          });
-        }
-      }
+      queryClient.setQueryData(['admin-catalog'], (oldData: { categories: Category[]; products: Product[] } | undefined) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          products: oldData.products.map(p =>
+            dialogMode === 'create'
+              ? (p.id === newProduct!.id ? createdOrUpdatedProduct : p)
+              : (selectedProduct && p.id === selectedProduct.id ? createdOrUpdatedProduct : p)
+          ),
+        };
+      });
       
       // Инвалидируем для синхронизации с сервером в фоне
       queryClient.invalidateQueries({ queryKey: ['admin-category', categoryId] });
