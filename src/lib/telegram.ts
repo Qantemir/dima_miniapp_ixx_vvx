@@ -228,15 +228,19 @@ export const initTelegram = () => {
 
     // Устанавливаем отступ для статус-бара Telegram
     const setHeaderOffset = () => {
-      // Вычисляем высоту статус-бара на основе разницы viewport
+      // Высота статус-бара Telegram = разница между viewport и стабильной высотой
       const viewportHeight = tg.viewportHeight || window.innerHeight;
       const viewportStableHeight = tg.viewportStableHeight || viewportHeight;
       const headerHeight = Math.max(0, viewportHeight - viewportStableHeight);
-      
-      // Если высота статус-бара не определена, используем фиксированный отступ
-      const finalHeight = headerHeight > 0 ? headerHeight : 44; // 44px - стандартная высота статус-бара
-      
-      document.documentElement.style.setProperty('--tg-header-height', `${finalHeight}px`);
+
+      // Если Telegram не сообщает точную высоту, используем дефолт 44px (статус-бар iOS)
+      const finalStatusHeight = headerHeight > 0 ? headerHeight : 44;
+
+      // Панель навигации Telegram (с кнопками) имеет разную высоту на iOS/Android
+      const navButtonsHeight = tg.platform === 'ios' ? 64 : 56;
+
+      document.documentElement.style.setProperty('--tg-header-height', `${finalStatusHeight}px`);
+      document.documentElement.style.setProperty('--tg-nav-height', `${navButtonsHeight}px`);
       document.body.classList.add('telegram-app');
     };
 

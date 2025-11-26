@@ -126,10 +126,15 @@
   /* Дополнительный отступ для статус-бара Telegram */
   html {
     --tg-header-height: 0px;
+    --tg-nav-height: 0px;
   }
 
   body.telegram-app {
-    padding-top: calc(env(safe-area-inset-top, 0px) + var(--tg-header-height, 0px));
+    padding-top: calc(
+      env(safe-area-inset-top, 0px) +
+      var(--tg-header-height, 0px) +
+      var(--tg-nav-height, 0px)
+    );
   }
 
   /* Предотвращаем автоматический зум iOS Safari при фокусе на input/textarea */
