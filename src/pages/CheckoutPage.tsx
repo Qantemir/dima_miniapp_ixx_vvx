@@ -163,7 +163,7 @@ export const CheckoutPage = () => {
       <PageTransition>
       <div className="min-h-screen bg-background pb-32 sm:pb-24">
       {/* Header */}
-      <div className="sticky z-10 bg-card/95 backdrop-blur-sm border-b border-border px-4 py-3 sm:px-6 sm:py-4 shadow-sm" style={{ top: 'calc(env(safe-area-inset-top, 0px) + var(--tg-header-height, 0px))' }}>
+      <div className="sticky top-0 z-10 bg-card/95 backdrop-blur-sm border-b border-border px-4 py-3 sm:px-6 sm:py-4 shadow-sm" style={{ top: 'calc(env(safe-area-inset-top, 0px) + var(--tg-header-height, 0px))' }}>
         <div className="flex items-center gap-3">
           <Button
             variant="ghost"

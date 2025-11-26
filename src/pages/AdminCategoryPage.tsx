@@ -153,6 +153,8 @@ export const AdminCategoryPage = () => {
             queryClient.invalidateQueries({ queryKey: ['admin-category', categoryId] }),
             queryClient.invalidateQueries({ queryKey: ['admin-catalog'] }),
             queryClient.invalidateQueries({ queryKey: ['catalog'] }),
+            queryClient.refetchQueries({ queryKey: ['admin-category', categoryId] }), // Сразу обновляем страницу категории
+            queryClient.refetchQueries({ queryKey: ['admin-catalog'] }), // Сразу обновляем админский каталог
           ]);
         } catch {
           toast.error('Не удалось удалить товар');
@@ -271,6 +273,8 @@ export const AdminCategoryPage = () => {
         queryClient.invalidateQueries({ queryKey: ['admin-category', categoryId] }),
         queryClient.invalidateQueries({ queryKey: ['admin-catalog'] }),
         queryClient.invalidateQueries({ queryKey: ['catalog'] }),
+        queryClient.refetchQueries({ queryKey: ['admin-category', categoryId] }), // Сразу обновляем страницу категории
+        queryClient.refetchQueries({ queryKey: ['admin-catalog'] }), // Сразу обновляем админский каталог
       ]);
     } catch (error) {
       toast.error('Ошибка сохранения товара');

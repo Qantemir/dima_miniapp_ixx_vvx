@@ -129,10 +129,11 @@ export const AdminCatalogPage = () => {
       }
       setCategoryDialogOpen(false);
       setCategoryForm(createEmptyCategory());
-      // Инвалидируем оба queryKey для обновления данных
+      // Инвалидируем все связанные queryKey для обновления данных
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['admin-catalog'] }),
         queryClient.invalidateQueries({ queryKey: ['catalog'] }),
+        queryClient.refetchQueries({ queryKey: ['admin-catalog'] }), // Сразу обновляем админский каталог
       ]);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Ошибка сохранения категории';
@@ -165,10 +166,11 @@ export const AdminCatalogPage = () => {
       toast.success('Категория удалена');
       setDeleteDialogOpen(false);
       setCategoryToDelete(null);
-      // Инвалидируем оба queryKey для обновления данных
+      // Инвалидируем все связанные queryKey для обновления данных
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['admin-catalog'] }),
         queryClient.invalidateQueries({ queryKey: ['catalog'] }),
+        queryClient.refetchQueries({ queryKey: ['admin-catalog'] }), // Сразу обновляем админский каталог
       ]);
     } catch (error) {
       const errorMessage =

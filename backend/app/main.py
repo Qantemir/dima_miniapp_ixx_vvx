@@ -1,6 +1,6 @@
 import logging
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -12,7 +12,32 @@ from .routers import admin, bot_webhook, cart, catalog, orders, store
 
 app = FastAPI(title="Mini Shop Telegram Backend", version="1.0.0")
 
+# Middleware для исключения streaming responses из gzip сжатия
+# Должен быть добавлен ПЕРЕД GZipMiddleware, чтобы выполняться первым
+from starlette.middleware.base import BaseHTTPMiddleware
+
+class SkipGzipForStreamingMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        path = request.url.path
+        if path.endswith("/stream"):
+            # Убираем Accept-Encoding заголовок для streaming эндпоинтов
+            # чтобы GZipMiddleware не применялся
+            if "accept-encoding" in request.headers:
+                # Создаем новый scope без accept-encoding
+                new_headers = [
+                    (k, v) for k, v in request.scope.get("headers", [])
+                    if k.lower() != b"accept-encoding"
+                ]
+                request.scope["headers"] = new_headers
+        
+        response = await call_next(request)
+        return response
+
+# Добавляем middleware для исключения streaming из gzip ПЕРЕД GZipMiddleware
+app.add_middleware(SkipGzipForStreamingMiddleware)
+
 # Добавляем сжатие ответов для ускорения передачи данных (уменьшает размер на 70-80%)
+# Примечание: streaming responses (SSE) исключаются через middleware выше
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 app.add_middleware(
