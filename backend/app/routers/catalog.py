@@ -124,11 +124,22 @@ def _compute_catalog_etag(payload: CatalogResponse) -> str:
   return sha256(serialized.encode("utf-8")).hexdigest()
 
 
-async def fetch_catalog(db: AsyncIOMotorDatabase) -> Tuple[CatalogResponse, str]:
+async def fetch_catalog(
+  db: AsyncIOMotorDatabase,
+  *,
+  force_refresh: bool = False,
+) -> Tuple[CatalogResponse, str]:
   ttl = settings.catalog_cache_ttl_seconds
-  if ttl <= 0:
+  if ttl <= 0 or force_refresh:
     catalog = await _load_catalog_from_db(db)
-    return catalog, _compute_catalog_etag(catalog)
+    etag = _compute_catalog_etag(catalog)
+    if ttl > 0:
+      # Даже при принудительном обновлении сохраняем снимок для публичного кеша
+      global _catalog_cache, _catalog_cache_etag, _catalog_cache_expiration
+      _catalog_cache = catalog
+      _catalog_cache_etag = etag
+      _catalog_cache_expiration = datetime.utcnow() + timedelta(seconds=ttl)
+    return catalog, etag
 
   global _catalog_cache, _catalog_cache_expiration, _catalog_cache_etag
   now = datetime.utcnow()
@@ -167,7 +178,7 @@ def invalidate_catalog_cache():
 
 async def _refresh_catalog_cache(db: AsyncIOMotorDatabase):
   try:
-    await fetch_catalog(db)
+    await fetch_catalog(db, force_refresh=True)
   except Exception as exc:
     logger.warning("Failed to warm catalog cache after mutation: %s", exc)
 
@@ -211,7 +222,7 @@ async def get_admin_catalog(
   if_none_match: str | None = Header(None, alias="If-None-Match"),
 ):
   try:
-    catalog, etag = await fetch_catalog(db)
+    catalog, etag = await fetch_catalog(db, force_refresh=True)
     if if_none_match and if_none_match == etag:
       return _build_not_modified_response(etag)
     return _build_catalog_response(catalog, etag)
