@@ -136,10 +136,14 @@ async def update_order_status(
     }
   }
 
-  # Если заказ был завершён и мы изменяем статус, убираем метку deleted_at полностью
+  # Если заказ был завершён и мы изменяем статус на другой, убираем метку deleted_at полностью
   if old_status == OrderStatus.DONE.value and new_status != OrderStatus.DONE.value:
     update_operations["$unset"] = {"deleted_at": ""}
+  # Если заказ завершается, сразу помечаем как удаленный (в одной атомарной операции)
+  elif should_archive:
+    update_operations["$set"]["deleted_at"] = datetime.utcnow()
 
+  # Атомарно обновляем заказ - только один раз, без дополнительных операций
   doc = await db.orders.find_one_and_update(
     {"_id": as_object_id(order_id)},
     update_operations,
@@ -164,10 +168,6 @@ async def update_order_status(
       import logging
       logger = logging.getLogger(__name__)
       logger.error(f"Ошибка при отправке уведомления клиенту о статусе заказа {order_id}: {e}")
-  
-  # Помечаем заказ как удаленный (soft delete) вместо полного удаления
-  if should_archive:
-    await mark_order_as_deleted(db, doc)
 
   return order_payload
 

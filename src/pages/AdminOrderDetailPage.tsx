@@ -95,33 +95,27 @@ export const AdminOrderDetailPage = () => {
   };
 
   const confirmStatusChange = async () => {
-    if (!order || !pendingStatus) {
+    if (!order || !pendingStatus || updating) {
       return;
     }
     const targetStatus = pendingStatus;
-    const isCompleting = targetStatus === 'завершён';
 
     setUpdating(true);
+    setStatusDialogOpen(false);
     try {
       const updatedOrder = await api.updateOrderStatus(order.id, {
         status: targetStatus,
       });
 
-      if (isCompleting) {
-        setOrder(updatedOrder);
-        setCurrentStatus(updatedOrder.status);
-        toast.success('Заказ завершён.');
-      } else {
-        toast.success('Статус заказа обновлён');
-        setOrder(updatedOrder);
-        setCurrentStatus(updatedOrder.status);
-      }
+      setOrder(updatedOrder);
+      setCurrentStatus(updatedOrder.status);
+      toast.success('Статус заказа обновлён');
     } catch (error) {
       toast.error('Ошибка при обновлении статуса');
+      setStatusDialogOpen(true);
     } finally {
       setUpdating(false);
       setPendingStatus(null);
-      setStatusDialogOpen(false);
     }
   };
 
