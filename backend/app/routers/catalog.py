@@ -40,7 +40,9 @@ logger = logging.getLogger(__name__)
 _catalog_cache: CatalogResponse | None = None
 _catalog_cache_etag: str | None = None
 _catalog_cache_expiration: datetime | None = None
+_catalog_cache_version: str | None = None
 _catalog_cache_lock = asyncio.Lock()
+_CATALOG_CACHE_STATE_ID = "catalog_cache_state"
 
 
 async def _load_catalog_from_db(db: AsyncIOMotorDatabase) -> CatalogResponse:
@@ -124,55 +126,105 @@ def _compute_catalog_etag(payload: CatalogResponse) -> str:
   return sha256(serialized.encode("utf-8")).hexdigest()
 
 
+def _generate_cache_version() -> str:
+  return str(ObjectId())
+
+
+async def _get_catalog_cache_version(db: AsyncIOMotorDatabase) -> str:
+  doc = await db.cache_state.find_one({"_id": _CATALOG_CACHE_STATE_ID})
+  if doc and doc.get("version"):
+    return doc["version"]
+
+  version = _generate_cache_version()
+  await db.cache_state.update_one(
+    {"_id": _CATALOG_CACHE_STATE_ID},
+    {
+      "$set": {
+        "version": version,
+        "updated_at": datetime.utcnow(),
+      }
+    },
+    upsert=True,
+  )
+  return version
+
+
+async def _bump_catalog_cache_version(db: AsyncIOMotorDatabase) -> str:
+  version = _generate_cache_version()
+  await db.cache_state.update_one(
+    {"_id": _CATALOG_CACHE_STATE_ID},
+    {
+      "$set": {
+        "version": version,
+        "updated_at": datetime.utcnow(),
+      }
+    },
+    upsert=True,
+  )
+  return version
+
+
 async def fetch_catalog(
   db: AsyncIOMotorDatabase,
   *,
   force_refresh: bool = False,
 ) -> Tuple[CatalogResponse, str]:
-  global _catalog_cache, _catalog_cache_etag, _catalog_cache_expiration
+  global _catalog_cache, _catalog_cache_etag, _catalog_cache_expiration, _catalog_cache_version
   ttl = settings.catalog_cache_ttl_seconds
-  if ttl <= 0 or force_refresh:
-    catalog = await _load_catalog_from_db(db)
-    etag = _compute_catalog_etag(catalog)
-    if ttl > 0:
-      # Даже при принудительном обновлении сохраняем снимок для публичного кеша
-      _catalog_cache = catalog
-      _catalog_cache_etag = etag
-      _catalog_cache_expiration = datetime.utcnow() + timedelta(seconds=ttl)
-    return catalog, etag
-
   now = datetime.utcnow()
+  current_version = await _get_catalog_cache_version(db)
+
   if (
-    _catalog_cache
+    not force_refresh
+    and ttl > 0
+    and _catalog_cache
     and _catalog_cache_etag
     and _catalog_cache_expiration
     and _catalog_cache_expiration > now
+    and _catalog_cache_version == current_version
   ):
     return _catalog_cache, _catalog_cache_etag
 
   async with _catalog_cache_lock:
+    current_version = await _get_catalog_cache_version(db)
     now = datetime.utcnow()
     if (
-      _catalog_cache
+      not force_refresh
+      and ttl > 0
+      and _catalog_cache
       and _catalog_cache_etag
       and _catalog_cache_expiration
       and _catalog_cache_expiration > now
+      and _catalog_cache_version == current_version
     ):
       return _catalog_cache, _catalog_cache_etag
 
     data = await _load_catalog_from_db(db)
     etag = _compute_catalog_etag(data)
-    _catalog_cache = data
-    _catalog_cache_etag = etag
-    _catalog_cache_expiration = now + timedelta(seconds=ttl)
+
+    if ttl > 0:
+      _catalog_cache = data
+      _catalog_cache_etag = etag
+      _catalog_cache_expiration = now + timedelta(seconds=ttl)
+      _catalog_cache_version = current_version
+    else:
+      _catalog_cache = None
+      _catalog_cache_etag = None
+      _catalog_cache_expiration = None
+      _catalog_cache_version = None
+
     return data, etag
 
 
-def invalidate_catalog_cache():
-  global _catalog_cache, _catalog_cache_expiration, _catalog_cache_etag
+async def invalidate_catalog_cache(db: AsyncIOMotorDatabase | None = None):
+  global _catalog_cache, _catalog_cache_expiration, _catalog_cache_etag, _catalog_cache_version
   _catalog_cache = None
   _catalog_cache_expiration = None
   _catalog_cache_etag = None
+  _catalog_cache_version = None
+
+  if db is not None:
+    _catalog_cache_version = await _bump_catalog_cache_version(db)
 
 
 async def _refresh_catalog_cache(db: AsyncIOMotorDatabase):
@@ -293,7 +345,7 @@ async def create_category(
   doc = await db.categories.find_one({"_id": result.inserted_id})
   if not doc:
     raise HTTPException(status_code=500, detail="Ошибка при создании категории")
-  invalidate_catalog_cache()
+  await invalidate_catalog_cache(db)
   await _refresh_catalog_cache(db)
   logger.info("Admin %s created category %s (%s)", _admin_id, doc.get("name"), doc.get("_id"))
   return Category(**serialize_doc(doc) | {"id": str(doc["_id"])})
@@ -333,7 +385,7 @@ async def update_category(
   )
   if not result:
     raise HTTPException(status_code=404, detail="Категория не найдена")
-  invalidate_catalog_cache()
+  await invalidate_catalog_cache(db)
   await _refresh_catalog_cache(db)
   logger.info("Admin %s updated category %s (%s)", _admin_id, result.get("name"), result.get("_id"))
   return Category(**serialize_doc(result) | {"id": str(result["_id"])})
@@ -365,7 +417,7 @@ async def delete_category(
   if delete_result.deleted_count == 0:
     raise HTTPException(status_code=404, detail="Категория не найдена")
 
-  invalidate_catalog_cache()
+  await invalidate_catalog_cache(db)
   await _refresh_catalog_cache(db)
   logger.info(
     "Admin %s deleted category %s (%s) cleanup_values=%s",
@@ -395,7 +447,7 @@ async def create_product(
     data["image"] = data["images"][0]
   result = await db.products.insert_one(data)
   doc = await db.products.find_one({"_id": result.inserted_id})
-  invalidate_catalog_cache()
+  await invalidate_catalog_cache(db)
   await _refresh_catalog_cache(db)
   return Product(**serialize_doc(doc) | {"id": str(doc["_id"])})
 
@@ -421,7 +473,7 @@ async def update_product(
   )
   if not doc:
     raise HTTPException(status_code=404, detail="Товар не найден")
-  invalidate_catalog_cache()
+  await invalidate_catalog_cache(db)
   await _refresh_catalog_cache(db)
   return Product(**serialize_doc(doc) | {"id": str(doc["_id"])})
 
@@ -438,7 +490,7 @@ async def delete_product(
   result = await db.products.delete_one({"_id": as_object_id(product_id)})
   if result.deleted_count == 0:
     raise HTTPException(status_code=404, detail="Товар не найден")
-  invalidate_catalog_cache()
+  await invalidate_catalog_cache(db)
   await _refresh_catalog_cache(db)
   return {"status": "ok"}
 
