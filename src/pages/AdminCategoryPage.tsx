@@ -36,7 +36,6 @@ import { ADMIN_IDS } from '@/types/api';
 import type { Category, Product, ProductPayload, ProductVariant } from '@/types/api';
 import { Seo } from '@/components/Seo';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 type DialogMode = 'create' | 'edit';
 
@@ -145,18 +144,40 @@ export const AdminCategoryPage = () => {
       },
       async buttonId => {
         if (buttonId !== 'confirm') return;
+        
+        // Оптимистичное обновление - сразу удаляем товар из UI
+        const previousData = queryClient.getQueryData<{ category: Category; products: Product[] }>(['admin-category', categoryId]);
+        if (previousData) {
+          queryClient.setQueryData(['admin-category', categoryId], {
+            ...previousData,
+            products: previousData.products.filter(p => p.id !== product.id),
+          });
+        }
+        
+        // Также обновляем админский каталог оптимистично
+        const previousCatalog = queryClient.getQueryData<{ categories: Category[]; products: Product[] }>(['admin-catalog']);
+        if (previousCatalog) {
+          queryClient.setQueryData(['admin-catalog'], {
+            ...previousCatalog,
+            products: previousCatalog.products.filter(p => p.id !== product.id),
+          });
+        }
+        
         try {
           await api.deleteProduct(product.id);
           toast.success('Товар удалён');
-          // Инвалидируем все связанные queryKey для обновления данных
-          await Promise.all([
-            queryClient.invalidateQueries({ queryKey: ['admin-category', categoryId] }),
-            queryClient.invalidateQueries({ queryKey: ['admin-catalog'] }),
-            queryClient.invalidateQueries({ queryKey: ['catalog'] }),
-            queryClient.refetchQueries({ queryKey: ['admin-category', categoryId] }), // Сразу обновляем страницу категории
-            queryClient.refetchQueries({ queryKey: ['admin-catalog'] }), // Сразу обновляем админский каталог
-          ]);
+          // Инвалидируем для синхронизации с сервером в фоне
+          queryClient.invalidateQueries({ queryKey: ['admin-category', categoryId] });
+          queryClient.invalidateQueries({ queryKey: ['admin-catalog'] });
+          queryClient.invalidateQueries({ queryKey: ['catalog'] });
         } catch {
+          // Откатываем изменения при ошибке
+          if (previousData) {
+            queryClient.setQueryData(['admin-category', categoryId], previousData);
+          }
+          if (previousCatalog) {
+            queryClient.setQueryData(['admin-catalog'], previousCatalog);
+          }
           toast.error('Не удалось удалить товар');
         }
       }
@@ -259,24 +280,137 @@ export const AdminCategoryPage = () => {
     };
 
     setSaving(true);
+    
+    // Оптимистичное обновление
+    const previousData = queryClient.getQueryData<{ category: Category; products: Product[] }>(['admin-category', categoryId]);
+    const previousCatalog = queryClient.getQueryData<{ categories: Category[]; products: Product[] }>(['admin-catalog']);
+    
+    let newProduct: Product | null = null;
+    let updatedProduct: Product | null = null;
+    
+    if (dialogMode === 'create') {
+      // Создаём временный товар для оптимистичного обновления
+      newProduct = {
+        id: `temp-${Date.now()}`,
+        name: payload.name,
+        description: payload.description || '',
+        price: payload.price,
+        image: payload.image || payload.images?.[0] || '',
+        images: payload.images || [],
+        category_id: payload.category_id,
+        available: payload.available ?? true,
+        variants: payload.variants || [],
+      } as Product;
+      
+      if (previousData) {
+        queryClient.setQueryData(['admin-category', categoryId], {
+          ...previousData,
+          products: [...previousData.products, newProduct],
+        });
+      }
+      
+      if (previousCatalog) {
+        queryClient.setQueryData(['admin-catalog'], {
+          ...previousCatalog,
+          products: [...previousCatalog.products, newProduct],
+        });
+      }
+    } else if (selectedProduct) {
+      // Обновляем товар оптимистично
+      updatedProduct = {
+        ...selectedProduct,
+        name: payload.name,
+        description: payload.description || '',
+        price: payload.price,
+        image: payload.image || payload.images?.[0] || '',
+        images: payload.images || [],
+        available: payload.available ?? true,
+        variants: payload.variants || [],
+      };
+      
+      if (previousData) {
+        queryClient.setQueryData(['admin-category', categoryId], {
+          ...previousData,
+          products: previousData.products.map(p => 
+            p.id === selectedProduct.id ? updatedProduct : p
+          ),
+        });
+      }
+      
+      if (previousCatalog) {
+        queryClient.setQueryData(['admin-catalog'], {
+          ...previousCatalog,
+          products: previousCatalog.products.map(p => 
+            p.id === selectedProduct.id ? updatedProduct : p
+          ),
+        });
+      }
+    }
+    
+    setDialogOpen(false);
+    
     try {
+      let createdOrUpdatedProduct: Product;
       if (dialogMode === 'create') {
-        await api.createProduct(payload);
+        createdOrUpdatedProduct = await api.createProduct(payload);
         toast.success('Товар создан');
       } else if (selectedProduct) {
-        await api.updateProduct(selectedProduct.id, payload);
+        createdOrUpdatedProduct = await api.updateProduct(selectedProduct.id, payload);
         toast.success('Товар обновлён');
+      } else {
+        throw new Error('Неизвестный режим диалога');
       }
-      setDialogOpen(false);
-      // Инвалидируем все связанные queryKey для обновления данных
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['admin-category', categoryId] }),
-        queryClient.invalidateQueries({ queryKey: ['admin-catalog'] }),
-        queryClient.invalidateQueries({ queryKey: ['catalog'] }),
-        queryClient.refetchQueries({ queryKey: ['admin-category', categoryId] }), // Сразу обновляем страницу категории
-        queryClient.refetchQueries({ queryKey: ['admin-catalog'] }), // Сразу обновляем админский каталог
-      ]);
+      
+      // Обновляем с реальными данными с сервера
+      if (previousData) {
+        if (dialogMode === 'create') {
+          queryClient.setQueryData(['admin-category', categoryId], {
+            ...previousData,
+            products: previousData.products.map(p => 
+              p.id === newProduct!.id ? createdOrUpdatedProduct : p
+            ),
+          });
+        } else {
+          queryClient.setQueryData(['admin-category', categoryId], {
+            ...previousData,
+            products: previousData.products.map(p => 
+              p.id === selectedProduct.id ? createdOrUpdatedProduct : p
+            ),
+          });
+        }
+      }
+      
+      if (previousCatalog) {
+        if (dialogMode === 'create') {
+          queryClient.setQueryData(['admin-catalog'], {
+            ...previousCatalog,
+            products: previousCatalog.products.map(p => 
+              p.id === newProduct!.id ? createdOrUpdatedProduct : p
+            ),
+          });
+        } else {
+          queryClient.setQueryData(['admin-catalog'], {
+            ...previousCatalog,
+            products: previousCatalog.products.map(p => 
+              p.id === selectedProduct.id ? createdOrUpdatedProduct : p
+            ),
+          });
+        }
+      }
+      
+      // Инвалидируем для синхронизации с сервером в фоне
+      queryClient.invalidateQueries({ queryKey: ['admin-category', categoryId] });
+      queryClient.invalidateQueries({ queryKey: ['admin-catalog'] });
+      queryClient.invalidateQueries({ queryKey: ['catalog'] });
     } catch (error) {
+      // Откатываем изменения при ошибке
+      if (previousData) {
+        queryClient.setQueryData(['admin-category', categoryId], previousData);
+      }
+      if (previousCatalog) {
+        queryClient.setQueryData(['admin-catalog'], previousCatalog);
+      }
+      setDialogOpen(true); // Открываем диалог обратно при ошибке
       toast.error('Ошибка сохранения товара');
     } finally {
       setSaving(false);

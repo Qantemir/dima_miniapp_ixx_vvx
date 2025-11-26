@@ -449,3 +449,30 @@ async def remove_from_cart(
   await db.carts.update_one({"_id": cart["_id"]}, {"$set": cart})
   safe_cart = normalize_cart(cart)
   return Cart(**serialize_doc(safe_cart) | {"id": str(cart["_id"])})
+
+
+@router.delete("/cart", response_model=Cart)
+async def clear_cart(
+  db: AsyncIOMotorDatabase = Depends(get_db),
+  current_user: TelegramUser = Depends(get_current_user),
+):
+  """Очищает корзину и возвращает все товары на склад"""
+  cart = await get_cart_document(db, current_user.id, check_expiry=False)
+  
+  # Возвращаем все товары на склад
+  for item in cart.get("items", []):
+    if item.get("variant_id"):
+      await restore_variant_quantity(
+        db,
+        item.get("product_id"),
+        item.get("variant_id"),
+        item.get("quantity", 0)
+      )
+  
+  # Очищаем корзину
+  cart["items"] = []
+  cart["total_amount"] = 0
+  cart["updated_at"] = datetime.utcnow()
+  await db.carts.update_one({"_id": cart["_id"]}, {"$set": cart})
+  safe_cart = normalize_cart(cart)
+  return Cart(**serialize_doc(safe_cart) | {"id": str(cart["_id"])})

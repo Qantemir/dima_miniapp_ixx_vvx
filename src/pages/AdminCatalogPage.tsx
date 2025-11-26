@@ -44,6 +44,7 @@ import { ADMIN_IDS } from '@/types/api';
 import type {
   Category,
   CategoryPayload,
+  Product,
 } from '@/types/api';
 import { Seo } from '@/components/Seo';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -119,23 +120,92 @@ export const AdminCatalogPage = () => {
     }
 
     setSaving(true);
+    
+    // Оптимистичное обновление
+    const previousCatalog = queryClient.getQueryData<{ categories: Category[]; products: Product[] }>(['admin-catalog']);
+    
+    let newCategory: Category | null = null;
+    let updatedCategory: Category | null = null;
+    
+    if (categoryDialogMode === 'create') {
+      // Создаём временную категорию для оптимистичного обновления
+      newCategory = {
+        id: `temp-${Date.now()}`,
+        name: trimmedName,
+      } as Category;
+      
+      if (previousCatalog) {
+        queryClient.setQueryData(['admin-catalog'], {
+          ...previousCatalog,
+          categories: [...previousCatalog.categories, newCategory],
+        });
+      }
+    } else if (selectedCategory) {
+      // Обновляем категорию оптимистично
+      updatedCategory = {
+        ...selectedCategory,
+        name: trimmedName,
+      };
+      
+      if (previousCatalog) {
+        queryClient.setQueryData(['admin-catalog'], {
+          ...previousCatalog,
+          categories: previousCatalog.categories.map(c => 
+            c.id === selectedCategory.id ? updatedCategory : c
+          ),
+        });
+      }
+    }
+    
+    setCategoryDialogOpen(false);
+    setCategoryForm(createEmptyCategory());
+    
     try {
+      let createdOrUpdatedCategory: Category;
       if (categoryDialogMode === 'create') {
-        await api.createCategory({ name: trimmedName });
+        createdOrUpdatedCategory = await api.createCategory({ name: trimmedName });
         toast.success('Категория создана');
       } else if (selectedCategory) {
-        await api.updateCategory(selectedCategory.id, { name: trimmedName });
+        createdOrUpdatedCategory = await api.updateCategory(selectedCategory.id, { name: trimmedName });
         toast.success('Категория обновлена');
+      } else {
+        throw new Error('Неизвестный режим диалога');
       }
-      setCategoryDialogOpen(false);
-      setCategoryForm(createEmptyCategory());
-      // Инвалидируем все связанные queryKey для обновления данных
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['admin-catalog'] }),
-        queryClient.invalidateQueries({ queryKey: ['catalog'] }),
-        queryClient.refetchQueries({ queryKey: ['admin-catalog'] }), // Сразу обновляем админский каталог
-      ]);
+      
+      // Обновляем с реальными данными с сервера
+      if (previousCatalog) {
+        if (categoryDialogMode === 'create') {
+          queryClient.setQueryData(['admin-catalog'], {
+            ...previousCatalog,
+            categories: previousCatalog.categories.map(c => 
+              c.id === newCategory!.id ? createdOrUpdatedCategory : c
+            ),
+          });
+        } else {
+          queryClient.setQueryData(['admin-catalog'], {
+            ...previousCatalog,
+            categories: previousCatalog.categories.map(c => 
+              c.id === selectedCategory.id ? createdOrUpdatedCategory : c
+            ),
+          });
+        }
+      }
+      
+      // Инвалидируем для синхронизации с сервером в фоне
+      queryClient.invalidateQueries({ queryKey: ['admin-catalog'] });
+      queryClient.invalidateQueries({ queryKey: ['catalog'] });
     } catch (error) {
+      // Откатываем изменения при ошибке
+      if (previousCatalog) {
+        queryClient.setQueryData(['admin-catalog'], previousCatalog);
+      }
+      setCategoryDialogOpen(true); // Открываем диалог обратно при ошибке
+      if (categoryDialogMode === 'create') {
+        setCategoryForm({ name: trimmedName });
+      } else if (selectedCategory) {
+        setCategoryForm({ name: trimmedName });
+        setSelectedCategory(selectedCategory);
+      }
       const errorMessage = error instanceof Error ? error.message : 'Ошибка сохранения категории';
       toast.error(errorMessage);
     } finally {
@@ -161,18 +231,34 @@ export const AdminCatalogPage = () => {
   const confirmDeleteCategory = async () => {
     if (!categoryToDelete) return;
     setDeleting(true);
+    
+    // Оптимистичное обновление - сразу удаляем категорию из UI
+    const previousCatalog = queryClient.getQueryData<{ categories: Category[]; products: Product[] }>(['admin-catalog']);
+    if (previousCatalog) {
+      queryClient.setQueryData(['admin-catalog'], {
+        ...previousCatalog,
+        categories: previousCatalog.categories.filter(c => c.id !== categoryToDelete.id),
+        products: previousCatalog.products.filter(p => p.category_id !== categoryToDelete.id),
+      });
+    }
+    
+    setDeleteDialogOpen(false);
+    const deletedCategory = categoryToDelete;
+    setCategoryToDelete(null);
+    
     try {
-      await api.deleteCategory(categoryToDelete.id);
+      await api.deleteCategory(deletedCategory.id);
       toast.success('Категория удалена');
-      setDeleteDialogOpen(false);
-      setCategoryToDelete(null);
-      // Инвалидируем все связанные queryKey для обновления данных
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['admin-catalog'] }),
-        queryClient.invalidateQueries({ queryKey: ['catalog'] }),
-        queryClient.refetchQueries({ queryKey: ['admin-catalog'] }), // Сразу обновляем админский каталог
-      ]);
+      // Инвалидируем для синхронизации с сервером в фоне
+      queryClient.invalidateQueries({ queryKey: ['admin-catalog'] });
+      queryClient.invalidateQueries({ queryKey: ['catalog'] });
     } catch (error) {
+      // Откатываем изменения при ошибке
+      if (previousCatalog) {
+        queryClient.setQueryData(['admin-catalog'], previousCatalog);
+      }
+      setDeleteDialogOpen(true);
+      setCategoryToDelete(deletedCategory);
       const errorMessage =
         error instanceof Error ? error.message : 'Не удалось удалить категорию';
       toast.error(`Ошибка удаления: ${errorMessage}`);
