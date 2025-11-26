@@ -8,7 +8,8 @@ export const OrderStatusBadge = ({ status }: OrderStatusBadgeProps) => {
   const getStatusConfig = (status: OrderStatus) => {
     switch (status) {
       case 'новый':
-        return { label: 'Новый', className: 'bg-primary/10 text-primary' };
+        // Старые заказы со статусом "новый" показываем как "В обработке"
+        return { label: 'В обработке', className: 'bg-warning/10 text-warning' };
       case 'в обработке':
         return { label: 'В обработке', className: 'bg-warning/10 text-warning' };
       case 'принят':

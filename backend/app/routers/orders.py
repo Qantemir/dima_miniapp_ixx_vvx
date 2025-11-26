@@ -299,7 +299,6 @@ async def update_order_address(
   if not doc or doc["user_id"] != current_user.id:
     raise HTTPException(status_code=404, detail="Заказ не найден")
   editable_statuses = {
-    OrderStatus.NEW.value,
     OrderStatus.PROCESSING.value,
   }
   if doc["status"] not in editable_statuses:

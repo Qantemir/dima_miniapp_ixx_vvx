@@ -83,8 +83,8 @@ export const CheckoutPage = () => {
         payment_receipt: paymentReceipt,
       });
 
-      toast.success('Заказ успешно оформлен!');
-      navigate(`/order/${order.id}`);
+      toast.success('Заказ оформлен');
+      navigate('/');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Ошибка при оформлении заказа';
       toast.error(message);

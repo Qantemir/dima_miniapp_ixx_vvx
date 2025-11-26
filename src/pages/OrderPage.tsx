@@ -135,7 +135,7 @@ export const OrderPage = () => {
 
   const canEditAddress =
     order.can_edit_address &&
-    (order.status === 'новый' || order.status === 'в обработке');
+    order.status === 'в обработке';
   const receiptUrl = order.payment_receipt_url ? buildApiAssetUrl(order.payment_receipt_url) : null;
   const orderJsonLd = {
     ...jsonLdBase,
@@ -244,7 +244,7 @@ export const OrderPage = () => {
                 </Button>
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  Адрес нельзя изменить после того, как заказ выехал
+                  Адрес нельзя изменить после того, как заказ принят
                 </p>
               )}
             </>

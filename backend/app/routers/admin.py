@@ -42,7 +42,12 @@ async def list_orders(
   try:
     query = {}
     if status_filter:
-      query["status"] = status_filter.value
+      # Статус "новый" и "в обработке" - это одно и то же для клиента
+      # При фильтрации по "в обработке" показываем и старые заказы со статусом "новый"
+      if status_filter == OrderStatus.PROCESSING:
+        query["status"] = {"$in": [OrderStatus.PROCESSING.value, OrderStatus.NEW.value]}
+      else:
+        query["status"] = status_filter.value
     # Исключаем удаленные заказы, если не запрошено иное
     if not include_deleted:
       query["deleted_at"] = {"$exists": False}
@@ -123,7 +128,6 @@ async def update_order_status(
         )
   
   editable_statuses = {
-    OrderStatus.NEW.value,
     OrderStatus.PROCESSING.value,
   }
   should_archive = new_status == OrderStatus.DONE.value

@@ -288,18 +288,29 @@ async def handle_bot_webhook(
             can_edit_address = new_status_value in editable_statuses
             
             should_archive = new_status_value == OrderStatus.DONE.value
+            old_status = current_status
 
-            # Обновляем статус
+            # Формируем операцию обновления
+            update_operations: dict = {
+                "$set": {
+                    "status": new_status_value,
+                    "updated_at": datetime.utcnow(),
+                    "can_edit_address": can_edit_address,
+                }
+            }
+
+            # Если заказ был завершён и мы изменяем статус на другой, убираем метку deleted_at полностью
+            if old_status == OrderStatus.DONE.value and new_status_value != OrderStatus.DONE.value:
+                update_operations["$unset"] = {"deleted_at": ""}
+            # Если заказ завершается, сразу помечаем как удаленный (в одной атомарной операции)
+            elif should_archive:
+                update_operations["$set"]["deleted_at"] = datetime.utcnow()
+
+            # Атомарно обновляем заказ - только один раз, без дополнительных операций
             try:
                 updated = await db.orders.find_one_and_update(
                     {"_id": as_object_id(order_id)},
-                    {
-                        "$set": {
-                            "status": new_status_value,
-                            "updated_at": datetime.utcnow(),
-                            "can_edit_address": can_edit_address,
-                        }
-                    },
+                    update_operations,
                     return_document=True,
                 )
                 logger.info(f"Update result: updated={updated is not None}")
@@ -315,8 +326,8 @@ async def handle_bot_webhook(
             if updated:
                 # Формируем сообщение подтверждения
                 status_messages = {
-                    OrderStatus.ACCEPTED.value: "✅ Заказ принят!",
                     OrderStatus.PROCESSING.value: "🔄 Статус изменён на 'В обработке'",
+                    OrderStatus.ACCEPTED.value: "✅ Заказ принят!",
                     OrderStatus.SHIPPED.value: "🚚 Заказ выехал!",
                     OrderStatus.DONE.value: "🎉 Заказ завершён!",
                     OrderStatus.CANCELED.value: "❌ Заказ отменён!",
@@ -341,7 +352,7 @@ async def handle_bot_webhook(
                 
                 # Отправляем уведомление клиенту об изменении статуса
                 customer_user_id = updated.get("user_id")
-                if customer_user_id:
+                if customer_user_id and old_status != new_status_value:
                     try:
                         await notify_customer_order_status(
                             user_id=customer_user_id,
@@ -351,9 +362,6 @@ async def handle_bot_webhook(
                         )
                     except Exception as e:
                         logger.error(f"Ошибка при отправке уведомления клиенту о статусе заказа {order_id}: {e}")
-
-                if should_archive:
-                    await mark_order_as_deleted(db, updated)
                 
                 logger.info(f"✅ Заказ {order_id} изменён на статус '{new_status_value}' администратором {user_id} через кнопку")
             else:
