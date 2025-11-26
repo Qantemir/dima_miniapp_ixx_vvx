@@ -93,8 +93,11 @@ export const AdminCatalogPage = () => {
     queryKey: ['admin-catalog'],
     queryFn: () => api.getAdminCatalog(),
     enabled: isAuthorized,
-    staleTime: 30_000,
-    gcTime: 5 * 60 * 1000,
+    staleTime: 0,
+    gcTime: 60 * 1000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
   const openCategoryDialog = (category?: Category) => {
@@ -119,6 +122,8 @@ export const AdminCatalogPage = () => {
       return;
     }
 
+    await queryClient.cancelQueries({ queryKey: ['admin-catalog'], exact: true });
+    await queryClient.cancelQueries({ queryKey: ['catalog'] });
     setSaving(true);
     
     // Оптимистичное обновление
@@ -186,6 +191,8 @@ export const AdminCatalogPage = () => {
         };
       });
       
+      const detailQueryKey = ['admin-category', createdOrUpdatedCategory.id];
+
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['admin-catalog'] }),
         queryClient.invalidateQueries({ queryKey: ['catalog'] }),
@@ -195,6 +202,7 @@ export const AdminCatalogPage = () => {
         queryClient.refetchQueries({ queryKey: ['admin-catalog'], type: 'active' }),
         queryClient.refetchQueries({ queryKey: ['catalog'], type: 'active' }),
       ]);
+      queryClient.removeQueries({ queryKey: detailQueryKey, exact: true });
     } catch (error) {
       // Откатываем изменения при ошибке
       if (previousCatalog) {
@@ -231,6 +239,8 @@ export const AdminCatalogPage = () => {
 
   const confirmDeleteCategory = async () => {
     if (!categoryToDelete) return;
+    await queryClient.cancelQueries({ queryKey: ['admin-catalog'], exact: true });
+    await queryClient.cancelQueries({ queryKey: ['catalog'] });
     setDeleting(true);
     
     // Оптимистичное обновление - сразу удаляем категорию из UI
@@ -251,6 +261,8 @@ export const AdminCatalogPage = () => {
       await api.deleteCategory(deletedCategory.id);
       toast.success('Категория удалена');
       // Инвалидируем для синхронизации с сервером в фоне
+      const detailQueryKey = ['admin-category', deletedCategory.id];
+
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['admin-catalog'] }),
         queryClient.invalidateQueries({ queryKey: ['catalog'] }),
@@ -260,6 +272,7 @@ export const AdminCatalogPage = () => {
         queryClient.refetchQueries({ queryKey: ['admin-catalog'], type: 'active' }),
         queryClient.refetchQueries({ queryKey: ['catalog'], type: 'active' }),
       ]);
+      queryClient.removeQueries({ queryKey: detailQueryKey, exact: true });
     } catch (error) {
       // Откатываем изменения при ошибке
       if (previousCatalog) {

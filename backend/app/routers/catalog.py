@@ -3,6 +3,7 @@ from typing import List, Sequence, Tuple
 
 import asyncio
 import json
+import logging
 from hashlib import sha256
 from bson import ObjectId
 from fastapi import (
@@ -34,6 +35,7 @@ from ..schemas import (
 from ..utils import as_object_id, serialize_doc
 
 router = APIRouter(tags=["catalog"])
+logger = logging.getLogger(__name__)
 
 _catalog_cache: CatalogResponse | None = None
 _catalog_cache_etag: str | None = None
@@ -163,6 +165,13 @@ def invalidate_catalog_cache():
   _catalog_cache_etag = None
 
 
+async def _refresh_catalog_cache(db: AsyncIOMotorDatabase):
+  try:
+    await fetch_catalog(db)
+  except Exception as exc:
+    logger.warning("Failed to warm catalog cache after mutation: %s", exc)
+
+
 def _build_catalog_response(catalog: CatalogResponse, etag: str) -> JSONResponse:
   response = JSONResponse(content=_catalog_to_dict(catalog))
   response.headers["ETag"] = etag
@@ -275,6 +284,8 @@ async def create_category(
   if not doc:
     raise HTTPException(status_code=500, detail="Ошибка при создании категории")
   invalidate_catalog_cache()
+  await _refresh_catalog_cache(db)
+  logger.info("Admin %s created category %s (%s)", _admin_id, doc.get("name"), doc.get("_id"))
   return Category(**serialize_doc(doc) | {"id": str(doc["_id"])})
 
 
@@ -313,6 +324,8 @@ async def update_category(
   if not result:
     raise HTTPException(status_code=404, detail="Категория не найдена")
   invalidate_catalog_cache()
+  await _refresh_catalog_cache(db)
+  logger.info("Admin %s updated category %s (%s)", _admin_id, result.get("name"), result.get("_id"))
   return Category(**serialize_doc(result) | {"id": str(result["_id"])})
 
 
@@ -343,6 +356,14 @@ async def delete_category(
     raise HTTPException(status_code=404, detail="Категория не найдена")
 
   invalidate_catalog_cache()
+  await _refresh_catalog_cache(db)
+  logger.info(
+    "Admin %s deleted category %s (%s) cleanup_values=%s",
+    _admin_id,
+    category_doc.get("name"),
+    category_doc.get("_id"),
+    list(cleanup_values),
+  )
   return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -365,6 +386,7 @@ async def create_product(
   result = await db.products.insert_one(data)
   doc = await db.products.find_one({"_id": result.inserted_id})
   invalidate_catalog_cache()
+  await _refresh_catalog_cache(db)
   return Product(**serialize_doc(doc) | {"id": str(doc["_id"])})
 
 
@@ -390,6 +412,7 @@ async def update_product(
   if not doc:
     raise HTTPException(status_code=404, detail="Товар не найден")
   invalidate_catalog_cache()
+  await _refresh_catalog_cache(db)
   return Product(**serialize_doc(doc) | {"id": str(doc["_id"])})
 
 
@@ -406,5 +429,6 @@ async def delete_product(
   if result.deleted_count == 0:
     raise HTTPException(status_code=404, detail="Товар не найден")
   invalidate_catalog_cache()
+  await _refresh_catalog_cache(db)
   return {"status": "ok"}
 
