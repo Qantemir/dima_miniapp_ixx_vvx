@@ -56,9 +56,12 @@ export const AdminOrdersPage = () => {
   } = useInfiniteQuery({
     queryKey: ['admin-orders', selectedStatus],
     queryFn: ({ pageParam }) => {
-      const params: { status?: string; cursor?: string } = {};
+      const params: { status?: string; cursor?: string; includeDeleted?: boolean } = {};
       if (selectedStatus !== 'all') params.status = selectedStatus;
       if (pageParam) params.cursor = pageParam as string;
+      if (selectedStatus === 'завершён') {
+        params.includeDeleted = true;
+      }
       return api.getOrders(params);
     },
     getNextPageParam: lastPage => lastPage.next_cursor ?? undefined,

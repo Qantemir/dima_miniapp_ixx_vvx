@@ -335,11 +335,13 @@ class ApiClient {
     status?: string;
     limit?: number;
     cursor?: string;
+    includeDeleted?: boolean;
   }): Promise<AdminOrdersResponse> {
     const queryParams = new URLSearchParams();
     if (params?.status) queryParams.append('status', params.status);
     if (params?.limit) queryParams.append('limit', params.limit.toString());
     if (params?.cursor) queryParams.append('cursor', params.cursor);
+    if (params?.includeDeleted) queryParams.append('include_deleted', 'true');
     
     const query = queryParams.toString();
     return this.request<AdminOrdersResponse>(`/admin/orders?${query}`);
