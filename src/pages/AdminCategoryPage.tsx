@@ -402,10 +402,17 @@ export const AdminCategoryPage = () => {
         };
       });
       
-      // Инвалидируем для синхронизации с сервером в фоне
-      queryClient.invalidateQueries({ queryKey: ['admin-category', categoryId] });
-      queryClient.invalidateQueries({ queryKey: ['admin-catalog'] });
-      queryClient.invalidateQueries({ queryKey: ['catalog'] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['admin-category', categoryId] }),
+        queryClient.invalidateQueries({ queryKey: ['admin-catalog'] }),
+        queryClient.invalidateQueries({ queryKey: ['catalog'] }),
+      ]);
+      
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ['admin-category', categoryId], type: 'active' }),
+        queryClient.refetchQueries({ queryKey: ['admin-catalog'], type: 'active' }),
+        queryClient.refetchQueries({ queryKey: ['catalog'], type: 'active' }),
+      ]);
     } catch (error) {
       // Откатываем изменения при ошибке
       if (previousData) {

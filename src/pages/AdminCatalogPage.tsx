@@ -186,9 +186,15 @@ export const AdminCatalogPage = () => {
         };
       });
       
-      // Инвалидируем для синхронизации с сервером в фоне
-      queryClient.invalidateQueries({ queryKey: ['admin-catalog'] });
-      queryClient.invalidateQueries({ queryKey: ['catalog'] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['admin-catalog'] }),
+        queryClient.invalidateQueries({ queryKey: ['catalog'] }),
+      ]);
+      
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ['admin-catalog'], type: 'active' }),
+        queryClient.refetchQueries({ queryKey: ['catalog'], type: 'active' }),
+      ]);
     } catch (error) {
       // Откатываем изменения при ошибке
       if (previousCatalog) {
@@ -245,8 +251,15 @@ export const AdminCatalogPage = () => {
       await api.deleteCategory(deletedCategory.id);
       toast.success('Категория удалена');
       // Инвалидируем для синхронизации с сервером в фоне
-      queryClient.invalidateQueries({ queryKey: ['admin-catalog'] });
-      queryClient.invalidateQueries({ queryKey: ['catalog'] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['admin-catalog'] }),
+        queryClient.invalidateQueries({ queryKey: ['catalog'] }),
+      ]);
+      
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ['admin-catalog'], type: 'active' }),
+        queryClient.refetchQueries({ queryKey: ['catalog'], type: 'active' }),
+      ]);
     } catch (error) {
       // Откатываем изменения при ошибке
       if (previousCatalog) {
