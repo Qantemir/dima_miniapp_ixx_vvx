@@ -101,20 +101,33 @@ export const AdminOrderDetailPage = () => {
     }
     const targetStatus = pendingStatus;
     const isCompleting = targetStatus === 'завершён';
+    const wasSoftDeleted = Boolean(order.deleted_at);
+
     setUpdating(true);
     try {
       const updatedOrder = await api.updateOrderStatus(order.id, {
         status: targetStatus,
       });
-      setOrder(updatedOrder);
-      setCurrentStatus(updatedOrder.status);
 
       if (isCompleting) {
+        setOrder(updatedOrder);
+        setCurrentStatus(updatedOrder.status);
         toast.success('Заказ завершён. Можно восстановить в течение 10 минут.');
         // Перезагружаем заказ, чтобы получить deleted_at
         await loadOrder();
       } else {
-        toast.success('Статус заказа обновлён');
+        let finalOrderState = updatedOrder;
+
+        if (wasSoftDeleted) {
+          // Если заказ был помечен как удаленный, восстанавливаем его при переходе на другой статус
+          finalOrderState = await api.restoreOrder(order.id);
+          toast.success('Статус обновлён, заказ восстановлен');
+        } else {
+          toast.success('Статус заказа обновлён');
+        }
+
+        setOrder(finalOrderState);
+        setCurrentStatus(finalOrderState.status);
       }
     } catch (error) {
       toast.error('Ошибка при обновлении статуса');
