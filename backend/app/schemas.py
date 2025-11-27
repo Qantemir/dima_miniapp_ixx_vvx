@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import Enum
 from typing import List, Optional
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, validator, AnyHttpUrl
 
 
 class PyObjectId(str):
@@ -193,6 +193,7 @@ class StoreStatus(BaseModel):
     is_sleep_mode: bool = False
     sleep_message: Optional[str] = None
     sleep_until: Optional[datetime] = None
+    payment_link: Optional[str] = None
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -200,6 +201,13 @@ class StoreSleepRequest(BaseModel):
     sleep: bool
     message: Optional[str] = None
     sleep_until: Optional[datetime] = None
+
+
+class PaymentLinkRequest(BaseModel):
+    url: Optional[AnyHttpUrl] = Field(
+        default=None,
+        description="Ссылка на страницу оплаты (например, Kaspi Pay)",
+    )
 
 
 class PaginatedOrdersResponse(BaseModel):

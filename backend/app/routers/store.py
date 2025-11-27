@@ -9,7 +9,7 @@ from pymongo.errors import ServerSelectionTimeoutError, ConnectionFailure
 
 from ..auth import verify_admin
 from ..database import get_db
-from ..schemas import StoreSleepRequest, StoreStatus
+from ..schemas import StoreSleepRequest, StoreStatus, PaymentLinkRequest
 
 router = APIRouter(tags=["store"])
 
@@ -48,11 +48,18 @@ async def get_or_create_store_status(db: AsyncIOMotorDatabase):
         "is_sleep_mode": False,
         "sleep_message": None,
         "sleep_until": None,
+        "payment_link": None,
         "updated_at": datetime.utcnow(),
       }
       result = await db.store_status.insert_one(status_doc)
       status_doc["_id"] = result.inserted_id
       return status_doc
+    if "payment_link" not in doc:
+      await db.store_status.update_one(
+        {"_id": doc["_id"]},
+        {"$set": {"payment_link": None}},
+      )
+      doc["payment_link"] = None
     return await _ensure_awake_if_needed(db, doc)
   except (ServerSelectionTimeoutError, ConnectionFailure) as e:
     raise HTTPException(
@@ -105,6 +112,7 @@ def _serialize_store_status(model: StoreStatus) -> dict:
     "is_sleep_mode": model.is_sleep_mode,
     "sleep_message": model.sleep_message,
     "sleep_until": model.sleep_until.isoformat() if model.sleep_until else None,
+    "payment_link": model.payment_link,
     "updated_at": model.updated_at.isoformat(),
   }
 
@@ -132,6 +140,30 @@ async def stream_store_status(
   # Явно отключаем gzip для SSE, чтобы избежать ошибок с закрытыми файлами
   response.headers["Content-Encoding"] = "identity"
   return response
+
+
+@router.patch("/admin/store/payment-link", response_model=StoreStatus)
+async def update_payment_link(
+  payload: PaymentLinkRequest,
+  db: AsyncIOMotorDatabase = Depends(get_db),
+  _admin_id: int = Depends(verify_admin),
+):
+  doc = await get_or_create_store_status(db)
+  payment_link = str(payload.url) if payload.url else None
+  await db.store_status.update_one(
+    {"_id": doc["_id"]},
+    {
+      "$set": {
+        "payment_link": payment_link,
+        "updated_at": datetime.utcnow(),
+      }
+    },
+  )
+  updated = await db.store_status.find_one({"_id": doc["_id"]})
+  updated = await _ensure_awake_if_needed(db, updated)
+  status_model = StoreStatus(**updated)
+  await store_status_broadcaster.broadcast(_serialize_store_status(status_model))
+  return status_model
 
 
 async def _ensure_awake_if_needed(db: AsyncIOMotorDatabase, doc: dict):

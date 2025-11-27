@@ -3,7 +3,7 @@ import { AdminPageLayout } from '@/components/AdminPageLayout';
 import { Seo } from '@/components/Seo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { LifeBuoy, Package, Boxes, Megaphone, Moon, AlertTriangle } from '@/components/icons';
+import { LifeBuoy, Package, Boxes, Megaphone, Moon, AlertTriangle, CreditCard } from '@/components/icons';
 import { useAdminGuard } from '@/hooks/useAdminGuard';
 
 const QUICK_LINKS = [
@@ -30,6 +30,12 @@ const QUICK_LINKS = [
     description: 'Включите паузу в работе магазина и задайте сообщение.',
     to: '/admin/store',
     icon: Moon,
+  },
+  {
+    label: 'Подключение оплаты',
+    description: 'Вставьте ссылку Kaspi Pay, чтобы показать кнопку «Оплатить».',
+    to: '/admin/payments',
+    icon: CreditCard,
   },
 ];
 

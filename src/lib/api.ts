@@ -16,6 +16,7 @@ import {
   type BroadcastResponse,
   type StoreStatus,
   type UpdateStoreStatusRequest,
+  type UpdatePaymentLinkRequest,
   type ApiError,
   type AdminCategoryDetail,
 } from '@/types/api';
@@ -355,6 +356,15 @@ class ApiClient {
     data: UpdateStoreStatusRequest
   ): Promise<StoreStatus> {
     return this.request<StoreStatus>('/admin/store/sleep', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async setPaymentLink(
+    data: UpdatePaymentLinkRequest
+  ): Promise<StoreStatus> {
+    return this.request<StoreStatus>('/admin/store/payment-link', {
       method: 'PATCH',
       body: JSON.stringify(data),
     });

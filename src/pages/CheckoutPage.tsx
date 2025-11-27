@@ -10,7 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { api } from '@/lib/api';
 import { Seo } from '@/components/Seo';
 import { buildCanonicalUrl } from '@/lib/seo';
-import { showBackButton, hideBackButton, hideMainButton } from '@/lib/telegram';
+import { showBackButton, hideBackButton, hideMainButton, getTelegram } from '@/lib/telegram';
 import { toast } from '@/lib/toast';
 import { useStoreStatus } from '@/contexts/StoreStatusContext';
 import { useCart } from '@/hooks/useCart';
@@ -125,6 +125,22 @@ export const CheckoutPage = () => {
     ],
   );
 
+  const paymentLink = storeStatus?.payment_link?.trim() ? storeStatus.payment_link.trim() : null;
+
+  const handlePaymentLinkClick = useCallback(() => {
+    if (!paymentLink) return;
+    const tg = getTelegram();
+    try {
+      if (tg?.openLink) {
+        tg.openLink(paymentLink);
+      } else {
+        window.open(paymentLink, '_blank', 'noopener');
+      }
+    } catch {
+      window.open(paymentLink, '_blank', 'noopener');
+    }
+  }, [paymentLink]);
+
   const handleReceiptChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) {
@@ -194,6 +210,28 @@ export const CheckoutPage = () => {
         }}
       >
       <div className="px-4 py-5 sm:px-6 sm:py-6 space-y-6">
+        {paymentLink && (
+          <Card className="p-4 sm:p-5 border border-primary/30 bg-primary/5 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-foreground">Онлайн-оплата</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Оплатите заказ по ссылке Kaspi Pay, затем вернитесь и прикрепите чек.
+                </p>
+              </div>
+              <Button
+                type="button"
+                className="w-full sm:w-auto"
+                onClick={handlePaymentLinkClick}
+              >
+                Оплатить
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Ссылка откроется в новом окне Telegram. После оплаты вернитесь к форме и загрузите чек.
+            </p>
+          </Card>
+        )}
         <div className="space-y-5">
           <div className="space-y-2.5">
             <Label htmlFor="name" className="text-sm font-medium">Имя *</Label>

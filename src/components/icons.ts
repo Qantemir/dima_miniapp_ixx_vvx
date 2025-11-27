@@ -11,6 +11,7 @@ export { default as ChevronUp } from 'lucide-react/dist/esm/icons/chevron-up.js'
 export { default as Circle } from 'lucide-react/dist/esm/icons/circle.js';
 export { default as Download } from 'lucide-react/dist/esm/icons/download.js';
 export { default as ClipboardList } from 'lucide-react/dist/esm/icons/clipboard-list.js';
+export { default as CreditCard } from 'lucide-react/dist/esm/icons/credit-card.js';
 export { default as Dot } from 'lucide-react/dist/esm/icons/dot.js';
 export { default as Filter } from 'lucide-react/dist/esm/icons/filter.js';
 export { default as GripVertical } from 'lucide-react/dist/esm/icons/grip-vertical.js';
@@ -22,6 +23,7 @@ export { default as Minus } from 'lucide-react/dist/esm/icons/minus.js';
 export { default as Moon } from 'lucide-react/dist/esm/icons/moon.js';
 export { default as MoreHorizontal } from 'lucide-react/dist/esm/icons/more-horizontal.js';
 export { default as MoreVertical } from 'lucide-react/dist/esm/icons/more-vertical.js';
+export { default as ExternalLink } from 'lucide-react/dist/esm/icons/external-link.js';
 export { default as PanelLeft } from 'lucide-react/dist/esm/icons/panel-left.js';
 export { default as Package } from 'lucide-react/dist/esm/icons/package.js';
 export { default as Phone } from 'lucide-react/dist/esm/icons/phone.js';

@@ -130,6 +130,7 @@ export interface StoreStatus {
   is_sleep_mode: boolean;
   sleep_message?: string;
   sleep_until?: string;
+  payment_link?: string | null;
   updated_at?: string;
 }
 
@@ -137,6 +138,10 @@ export interface UpdateStoreStatusRequest {
   sleep: boolean;
   message?: string;
   sleep_until?: string | null;
+}
+
+export interface UpdatePaymentLinkRequest {
+  url?: string | null;
 }
 
 export interface CreateOrderRequest {
