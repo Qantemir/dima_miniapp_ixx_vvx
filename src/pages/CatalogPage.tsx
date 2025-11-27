@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/dialog';
 import { AnimatedList, AnimatedItem } from '@/components/animations';
 import { motion } from 'framer-motion';
+import { useFixedHeaderOffset } from '@/hooks/useFixedHeaderOffset';
 
 export const CatalogPage = () => {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -46,6 +47,8 @@ export const CatalogPage = () => {
   const catalogProducts = useMemo(() => catalog?.products ?? [], [catalog]);
   const { data: cartData } = useCart(Boolean(userId));
   const cartItemsCount = cartData?.items.length ?? 0;
+  const { headerRef, headerHeight } = useFixedHeaderOffset(96);
+  const headerTopOffset = 'calc(env(safe-area-inset-top, 0px) + var(--tg-header-height, 0px))';
 
   const catalogJsonLd = useMemo(() => {
     if (!catalogProducts.length) return undefined;
@@ -163,12 +166,12 @@ export const CatalogPage = () => {
         path="/"
         jsonLd={catalogJsonLd}
       />
-    <main className="min-h-screen bg-background pb-20" role="main">
-      <header
-        className="sticky bg-card/95 backdrop-blur-sm border-b border-border px-4 py-3 sm:px-6 sm:py-4 shadow-sm"
+      <div
+        ref={headerRef}
+        className="fixed inset-x-0 bg-card/95 backdrop-blur-sm border-b border-border px-4 py-3 sm:px-6 sm:py-4 shadow-sm"
         style={{
-          top: 'calc(env(safe-area-inset-top, 0px) + var(--tg-header-height, 0px))',
-          zIndex: 5
+          top: headerTopOffset,
+          zIndex: 10,
         }}
       >
         <div className="flex items-center justify-between gap-3">
@@ -234,7 +237,14 @@ export const CatalogPage = () => {
             </div>
           </div>
         </div>
-      </header>
+      </div>
+      <main
+        className="min-h-screen bg-background pb-20"
+        role="main"
+        style={{
+          paddingTop: `calc(${headerHeight}px + env(safe-area-inset-top, 0px) + var(--tg-header-height, 0px))`,
+        }}
+      >
 
       {storeStatus?.is_sleep_mode && (
         <section className="p-4" aria-label="Статус магазина">

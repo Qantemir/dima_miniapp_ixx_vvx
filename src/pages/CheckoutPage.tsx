@@ -15,6 +15,7 @@ import { toast } from '@/lib/toast';
 import { useStoreStatus } from '@/contexts/StoreStatusContext';
 import { useCart } from '@/hooks/useCart';
 import { PageTransition } from '@/components/animations';
+import { useFixedHeaderOffset } from '@/hooks/useFixedHeaderOffset';
 
 const RECEIPT_MAX_SIZE = 10 * 1024 * 1024; // 10 MB
 const RECEIPT_ALLOWED_TYPES = [
@@ -50,6 +51,8 @@ export const CheckoutPage = () => {
   const { status: storeStatus } = useStoreStatus();
   const [paymentReceipt, setPaymentReceipt] = useState<File | null>(null);
   const [receiptError, setReceiptError] = useState<string | null>(null);
+  const { headerRef, headerHeight } = useFixedHeaderOffset(80);
+  const headerTopOffset = 'calc(env(safe-area-inset-top, 0px) + var(--tg-header-height, 0px))';
 
   const handleSubmit = useCallback(async () => {
     if (!formData.name || !formData.phone || !formData.address) {
@@ -161,13 +164,13 @@ export const CheckoutPage = () => {
     <>
       <Seo title="Оформление заказа" description="Введите контактные данные для подтверждения заказа." path="/checkout" jsonLd={checkoutJsonLd} />
       <PageTransition>
-      <div className="min-h-screen bg-background pb-32 sm:pb-24">
-      {/* Header */}
+      <>
       <div 
-        className="sticky bg-card/95 backdrop-blur-sm border-b border-border px-4 py-3 sm:px-6 sm:py-4 shadow-sm" 
+        ref={headerRef}
+        className="fixed inset-x-0 bg-card/95 backdrop-blur-sm border-b border-border px-4 py-3 sm:px-6 sm:py-4 shadow-sm" 
         style={{
-          top: 'calc(env(safe-area-inset-top, 0px) + var(--tg-header-height, 0px))',
-          zIndex: 5
+          top: headerTopOffset,
+          zIndex: 10
         }}
       >
         <div className="flex items-center gap-3">
@@ -184,6 +187,12 @@ export const CheckoutPage = () => {
       </div>
 
       {/* Form */}
+      <div 
+        className="min-h-screen bg-background pb-32 sm:pb-24"
+        style={{
+          paddingTop: `calc(${headerHeight}px + env(safe-area-inset-top, 0px) + var(--tg-header-height, 0px))`
+        }}
+      >
       <div className="px-4 py-5 sm:px-6 sm:py-6 space-y-6">
         <div className="space-y-5">
           <div className="space-y-2.5">
@@ -343,8 +352,9 @@ export const CheckoutPage = () => {
         >
           {submitting ? 'Отправка...' : 'Подтвердить заказ'}
         </Button>
-        </div>
       </div>
+      </div>
+      </>
       </PageTransition>
     </>
   );
