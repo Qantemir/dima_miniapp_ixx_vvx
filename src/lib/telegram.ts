@@ -5,6 +5,7 @@ const INIT_DATA_PARAM = 'tgWebAppData';
 let cachedInitData: string | null = null;
 let waitForInitDataPromise: Promise<string | null> | null = null;
 let activeMainButtonHandler: (() => void) | null = null;
+let swipePreventionCleanup: (() => void) | null = null;
 
 const hasTelegramInitContext = (tg?: TelegramWebApp | null): tg is TelegramWebApp => {
   if (!tg) {
@@ -29,11 +30,14 @@ export const isTelegramWebApp = () => hasTelegramInitContext(getTelegram());
 
 // Более щадящая проверка окружения: используем, когда нужно понять,
 // что приложение открыто в Telegram (включая Desktop), даже если initData пуст.
+type TelegramWithPlatform = TelegramWebApp & { platform?: string };
+
 export const isTelegramEnvironment = () => {
   const tg = getTelegram();
   if (!tg) return false;
   if (hasTelegramInitContext(tg)) return true;
-  return Boolean(tg.platform && tg.platform !== 'unknown');
+  const platform = (tg as TelegramWithPlatform).platform;
+  return Boolean(platform && platform !== 'unknown');
 };
 
 const extractInitDataFromString = (raw?: string | null) => {
@@ -181,6 +185,45 @@ const isVersionSupported = (minVersion: string) => {
   return compareVersions(tg.version, minVersion);
 };
 
+type ExtendedTelegramWebApp = TelegramWebApp & {
+  disableVerticalSwipes?: () => void;
+  enableVerticalSwipes?: () => void;
+};
+
+const preventPullDownToClose = (tg?: ExtendedTelegramWebApp | null) => {
+  if (tg && typeof tg.disableVerticalSwipes === 'function') {
+    tg.disableVerticalSwipes();
+    return () => {
+      if (typeof tg.enableVerticalSwipes === 'function') {
+        tg.enableVerticalSwipes();
+      }
+    };
+  }
+
+  let startY = 0;
+  const getScrollTop = () => document.scrollingElement?.scrollTop ?? window.scrollY;
+
+  const handleTouchStart = (event: TouchEvent) => {
+    startY = event.touches[0]?.clientY ?? 0;
+  };
+
+  const handleTouchMove = (event: TouchEvent) => {
+    const currentY = event.touches[0]?.clientY ?? 0;
+    const isPullingDown = currentY - startY > 8;
+    if (isPullingDown && getScrollTop() <= 0) {
+      event.preventDefault();
+    }
+  };
+
+  document.addEventListener('touchstart', handleTouchStart, { passive: true });
+  document.addEventListener('touchmove', handleTouchMove, { passive: false });
+
+  return () => {
+    document.removeEventListener('touchstart', handleTouchStart);
+    document.removeEventListener('touchmove', handleTouchMove);
+  };
+};
+
 export const initTelegram = () => {
   const tg = getTelegram();
   if (tg) {
@@ -222,6 +265,12 @@ export const initTelegram = () => {
     
     // Также обновляем при изменении размера окна (fallback)
     window.addEventListener('resize', setHeaderOffset);
+
+    if (swipePreventionCleanup) {
+      swipePreventionCleanup();
+      swipePreventionCleanup = null;
+    }
+    swipePreventionCleanup = preventPullDownToClose(tg as ExtendedTelegramWebApp);
   }
   return tg;
 };
