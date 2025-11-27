@@ -30,7 +30,7 @@ export const AdminPaymentPage = () => {
   });
 
   useEffect(() => {
-    if (typeof status?.payment_link !== 'undefined' && status.payment_link !== paymentLink) {
+    if (status?.payment_link !== undefined) {
       setPaymentLink(status.payment_link ?? '');
     }
   }, [status?.payment_link]);
