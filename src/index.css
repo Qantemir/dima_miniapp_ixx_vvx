@@ -126,7 +126,6 @@
   /* Дополнительный отступ для статус-бара Telegram */
   html {
     --tg-header-height: 0px;
-    --tg-nav-height: 0px;
   }
 
   body.telegram-app {

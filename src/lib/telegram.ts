@@ -208,11 +208,7 @@ export const initTelegram = () => {
       // Если Telegram не сообщает точную высоту, используем дефолт 44px (статус-бар iOS)
       const finalStatusHeight = headerHeight > 0 ? headerHeight : 44;
 
-      // Панель навигации Telegram (с кнопками) имеет разную высоту на iOS/Android
-      const navButtonsHeight = tg.platform === 'ios' ? 64 : 56;
-
       document.documentElement.style.setProperty('--tg-header-height', `${finalStatusHeight}px`);
-      document.documentElement.style.setProperty('--tg-nav-height', `${navButtonsHeight}px`);
       document.body.classList.add('telegram-app');
     };
 

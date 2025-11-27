@@ -126,7 +126,7 @@ export const CartPage = () => {
           <header
             className="sticky bg-card border-b border-border px-3 py-2.5 sm:px-4 sm:py-4"
             style={{
-              top: 'calc(env(safe-area-inset-top, 0px) + var(--tg-header-height, 0px) + var(--tg-nav-height, 0px))',
+              top: 'calc(env(safe-area-inset-top, 0px) + var(--tg-header-height, 0px))',
               zIndex: 5
             }}
           >

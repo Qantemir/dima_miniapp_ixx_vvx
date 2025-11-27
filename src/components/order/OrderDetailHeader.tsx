@@ -16,7 +16,7 @@ export const OrderDetailHeader = ({ orderNumber, onBack, className }: OrderDetai
         className,
       )}
       style={{
-        top: 'calc(env(safe-area-inset-top, 0px) + var(--tg-header-height, 0px) + var(--tg-nav-height, 0px))',
+        top: 'calc(env(safe-area-inset-top, 0px) + var(--tg-header-height, 0px))',
         zIndex: 5,
       }}
     >
