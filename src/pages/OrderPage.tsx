@@ -1,10 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, MapPin, Package } from '@/components/icons';
+import { Package } from '@/components/icons';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { OrderStatusBadge } from '@/components/OrderStatusBadge';
 import { api } from '@/lib/api';
 import { buildApiAssetUrl } from '@/lib/utils';
 import { hideMainButton, showBackButton, hideBackButton } from '@/lib/telegram';
@@ -13,8 +10,13 @@ import type { Order } from '@/types/api';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Seo } from '@/components/Seo';
 import { buildCanonicalUrl } from '@/lib/seo';
-import { ReceiptDialog } from '@/components/ReceiptDialog';
 import { PageTransition } from '@/components/animations';
+import { OrderHeader } from '@/components/order/OrderHeader';
+import { OrderStatusSection } from '@/components/order/OrderStatusSection';
+import { OrderAddressSection } from '@/components/order/OrderAddressSection';
+import { OrderItemsSection } from '@/components/order/OrderItemsSection';
+import { OrderCustomerSection } from '@/components/order/OrderCustomerSection';
+import { OrderReceiptSection } from '@/components/order/OrderReceiptSection';
 
 export const OrderPage = () => {
   const { orderId } = useParams<{ orderId: string }>();
@@ -167,156 +169,43 @@ export const OrderPage = () => {
         jsonLd={orderJsonLd}
       />
       <PageTransition>
-      <div className="min-h-screen bg-background pb-24">
-      {/* Header */}
-      <div 
-        className="sticky bg-card border-b border-border px-3 py-2.5 sm:px-4 sm:py-4" 
-        style={{
-          top: 'calc(env(safe-area-inset-top, 0px) + var(--tg-header-height, 0px) + var(--tg-nav-height, 0px))',
-          zIndex: 5
-        }}
-      >
-        <div className="flex items-center gap-2 sm:gap-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate('/')}
-            className="h-9 w-9 sm:h-10 sm:w-10"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <h1 className="text-lg sm:text-xl font-bold text-foreground truncate">Заказ #{order.id.slice(-6)}</h1>
-        </div>
-      </div>
+        <div className="min-h-screen bg-background pb-24">
+          <OrderHeader shortOrderId={order.id.slice(-6)} onBack={() => navigate('/')} />
 
-      <div className="px-3 py-4 sm:px-4 sm:py-6 space-y-4 sm:space-y-6">
-        {/* Status */}
-        <div className="bg-card rounded-lg p-3 sm:p-4 border border-border">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Статус заказа:</span>
-            <OrderStatusBadge status={order.status} />
-          </div>
-        </div>
+          <div className="px-3 py-4 sm:px-4 sm:py-6 space-y-4 sm:space-y-6">
+            <OrderStatusSection status={order.status} />
 
-        {/* Address */}
-        <div className="bg-card rounded-lg p-3 sm:p-4 border border-border space-y-3">
-          <div className="flex items-center gap-2">
-            <MapPin className="h-5 w-5 text-primary" />
-            <Label className="text-base font-semibold">Адрес доставки</Label>
-          </div>
-
-          {editingAddress ? (
-            <div className="space-y-3">
-              <Textarea
-                value={newAddress}
-                onChange={e => setNewAddress(e.target.value)}
-                onInput={e => setNewAddress((e.target as HTMLTextAreaElement).value)}
-                rows={3}
-                disabled={saving}
-                placeholder="Укажите адрес доставки"
-                inputMode="text"
-              />
-              <div className="flex gap-2">
-                <Button
-                  onClick={handleSaveAddress}
-                  disabled={saving}
-                  className="flex-1"
-                >
-                  {saving ? 'Сохранение...' : 'Сохранить'}
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setEditingAddress(false);
-                    setNewAddress(order.delivery_address);
-                  }}
-                  disabled={saving}
-                >
-                  Отмена
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <>
-              <p className="text-foreground">{order.delivery_address}</p>
-              {canEditAddress ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setEditingAddress(true)}
-                  className="w-full"
-                >
-                  Изменить адрес
-                </Button>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  Адрес нельзя изменить после того, как заказ принят
-                </p>
-              )}
-            </>
-          )}
-        </div>
-
-        {/* Order Items */}
-        <div className="bg-card rounded-lg p-3 sm:p-4 border border-border space-y-3">
-          <h3 className="font-semibold text-foreground text-sm sm:text-base">Состав заказа</h3>
-          <div className="space-y-2">
-            {order.items.map((item, index) => (
-              <div key={index} className="flex justify-between text-sm">
-                <div className="flex-1">
-                  <p className="text-foreground">
-                    {item.product_name}
-                    {item.variant_name && ` (${item.variant_name})`}
-                  </p>
-                  <p className="text-muted-foreground">
-                    {item.quantity} × {item.price} ₸
-                  </p>
-                </div>
-                <span className="font-medium text-foreground">
-                  {item.quantity * item.price} ₸
-                </span>
-              </div>
-            ))}
-          </div>
-          <div className="pt-3 border-t border-border flex justify-between">
-            <span className="font-semibold text-foreground">Итого:</span>
-            <span className="text-xl font-bold text-foreground">
-              {order.total_amount} ₸
-            </span>
-          </div>
-        </div>
-
-        {/* Customer Info */}
-        <div className="bg-card rounded-lg p-3 sm:p-4 border border-border space-y-2">
-          <h3 className="font-semibold text-foreground text-sm sm:text-base">Контактная информация</h3>
-          <div className="space-y-1 text-sm">
-            <p className="text-muted-foreground">Имя: <span className="text-foreground">{order.customer_name}</span></p>
-            <p className="text-muted-foreground">Телефон: <span className="text-foreground">{order.customer_phone}</span></p>
-            {order.comment && (
-              <p className="text-muted-foreground">Комментарий: <span className="text-foreground">{order.comment}</span></p>
-            )}
-          </div>
-        </div>
-
-        {receiptUrl && (
-          <div className="bg-card rounded-lg p-3 sm:p-4 border border-border space-y-2">
-            <h3 className="font-semibold text-foreground text-sm sm:text-base">Чек об оплате</h3>
-            <p className="text-sm text-muted-foreground">
-              {order.payment_receipt_filename || 'Файл чека'} доступен для просмотра
-            </p>
-            <ReceiptDialog
-              receiptUrl={receiptUrl}
-              filename={order.payment_receipt_filename}
-              trigger={
-                <Button className="w-full" variant="outline">
-                  Открыть чек
-                </Button>
-              }
+            <OrderAddressSection
+              address={order.delivery_address}
+              editing={editingAddress}
+              canEdit={canEditAddress}
+              saving={saving}
+              newAddress={newAddress}
+              onAddressChange={value => setNewAddress(value)}
+              onSave={handleSaveAddress}
+              onCancel={() => {
+                setEditingAddress(false);
+                setNewAddress(order.delivery_address);
+              }}
+              onEditRequest={() => setEditingAddress(true)}
             />
+
+            <OrderItemsSection items={order.items} totalAmount={order.total_amount} />
+
+            <OrderCustomerSection
+              name={order.customer_name}
+              phone={order.customer_phone}
+              comment={order.comment}
+            />
+
+            {receiptUrl ? (
+              <OrderReceiptSection
+                receiptUrl={receiptUrl}
+                filename={order.payment_receipt_filename}
+              />
+            ) : null}
           </div>
-        )}
-      </div>
-      </div>
+        </div>
       </PageTransition>
     </>
   );

@@ -5,7 +5,7 @@ import type { LucideIcon } from 'lucide-react';
 import { Boxes, Megaphone, Moon, Package, UserRound, LifeBuoy } from '@/components/icons';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-interface AdminHeaderProps {
+export interface AdminHeaderProps {
   title: string;
   description?: string;
   icon?: LucideIcon;
@@ -37,10 +37,10 @@ export const AdminHeader = ({ title, description, icon }: AdminHeaderProps) => {
   };
 
   return (
-    <div className="bg-card border-b border-border p-4 space-y-4">
+    <header className="bg-card border-b border-border p-4 space-y-4">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3">
-          <div className="rounded-full bg-primary/10 p-2">
+          <div className="rounded-full bg-primary/10 p-2" aria-hidden>
             <Icon className="h-5 w-5 text-primary" />
           </div>
           <div>
@@ -70,24 +70,25 @@ export const AdminHeader = ({ title, description, icon }: AdminHeaderProps) => {
         </Button>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <nav className="flex flex-wrap gap-2" aria-label="Навигация по админке">
         {NAV_LINKS.map(link => {
           const LinkIcon = link.icon;
+          const active = isActive(link.to);
           return (
             <Button
               key={link.to}
               size="sm"
-              variant={isActive(link.to) ? 'default' : 'outline'}
+              variant={active ? 'default' : 'outline'}
               className={cn('flex items-center gap-2')}
               onClick={() => navigate(link.to)}
+              aria-current={active ? 'page' : undefined}
             >
               <LinkIcon className="h-4 w-4" />
               {link.label}
             </Button>
           );
         })}
-      </div>
-    </div>
+      </nav>
+    </header>
   );
 };
-

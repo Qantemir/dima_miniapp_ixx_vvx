@@ -1,47 +1,28 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { Megaphone } from '@/components/icons';
-import { AdminHeader } from '@/components/AdminHeader';
+import { AdminPageLayout } from '@/components/AdminPageLayout';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { api } from '@/lib/api';
-import {
-  getUserId,
-  isAdmin,
-  hideBackButton,
-  showBackButton,
-} from '@/lib/telegram';
 import { toast } from '@/lib/toast';
-import { ADMIN_IDS } from '@/types/api';
 import type { BroadcastRequest } from '@/types/api';
 import { Seo } from '@/components/Seo';
+import { useAdminGuard } from '@/hooks/useAdminGuard';
 
 export const AdminBroadcastPage = () => {
-  const navigate = useNavigate();
+  const isAuthorized = useAdminGuard('/');
   const [sending, setSending] = useState(false);
   const [formData, setFormData] = useState<Pick<BroadcastRequest, 'title' | 'message'>>({
     title: '',
     message: '',
   });
 
-  useEffect(() => {
-    const userId = getUserId();
-    const isUserAdmin = userId ? isAdmin(userId, ADMIN_IDS) : false;
-    
-    if (!isUserAdmin) {
-      toast.error('Доступ запрещён. Требуются права администратора.');
-      navigate('/');
-      return;
-    }
-
-    showBackButton(() => navigate('/'));
-    return () => {
-      hideBackButton();
-    };
-  }, [navigate]);
+  if (!isAuthorized) {
+    return null;
+  }
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -83,14 +64,14 @@ export const AdminBroadcastPage = () => {
   return (
     <>
       <Seo title="Админ: Рассылка" description="Создавайте push-рассылки для клиентов." path="/admin/broadcast" noIndex />
-      <div className="min-h-screen bg-background pb-6">
-        <AdminHeader
-          title="Рассылка"
-          description="Отправляйте сообщения клиентам"
-          icon={Megaphone}
-        />
-
-        <div className="p-4">
+      <AdminPageLayout
+        title="Рассылка"
+        description="Отправляйте сообщения клиентам"
+        icon={Megaphone}
+        contentClassName="space-y-4"
+        contentLabel="Рассылка клиентам"
+      >
+        <section aria-label="Форма рассылки">
           <Card className="border border-border bg-card p-4">
             <form className="space-y-4" onSubmit={handleSubmit}>
               <div className="space-y-2">
@@ -131,9 +112,8 @@ export const AdminBroadcastPage = () => {
               </Button>
             </form>
           </Card>
-        </div>
-      </div>
+        </section>
+      </AdminPageLayout>
     </>
   );
 };
-

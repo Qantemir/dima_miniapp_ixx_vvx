@@ -1,7 +1,7 @@
 import { ChangeEvent, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Boxes, MoreVertical, Plus, Trash2, X } from '@/components/icons';
-import { AdminHeader } from '@/components/AdminHeader';
+import { AdminPageLayout } from '@/components/AdminPageLayout';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -24,18 +24,12 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { api } from '@/lib/api';
-import {
-  getUserId,
-  isAdmin,
-  hideBackButton,
-  showBackButton,
-  showPopup,
-} from '@/lib/telegram';
+import { showPopup } from '@/lib/telegram';
 import { toast } from '@/lib/toast';
-import { ADMIN_IDS } from '@/types/api';
 import type { CatalogResponse, Category, Product, ProductPayload, ProductVariant } from '@/types/api';
 import { Seo } from '@/components/Seo';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useAdminGuard } from '@/hooks/useAdminGuard';
 
 type DialogMode = 'create' | 'edit';
 
@@ -53,7 +47,7 @@ export const AdminCategoryPage = () => {
   const { categoryId } = useParams<{ categoryId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [isAuthorized, setIsAuthorized] = useState(false);
+  const isAuthorized = useAdminGuard('/admin/catalog');
   const [saving, setSaving] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<DialogMode>('create');
@@ -61,21 +55,6 @@ export const AdminCategoryPage = () => {
   const [formData, setFormData] = useState<ProductPayload | null>(null);
   const [variants, setVariants] = useState<ProductVariant[]>([]);
   const [deletingProductIds, setDeletingProductIds] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    const userId = getUserId();
-    const isUserAdmin = userId ? isAdmin(userId, ADMIN_IDS) : false;
-    
-    if (!isUserAdmin) {
-      toast.error('Доступ запрещён. Требуются права администратора.');
-      navigate('/');
-      return;
-    }
-
-    setIsAuthorized(true);
-    showBackButton(() => navigate('/admin/catalog'));
-    return () => hideBackButton();
-  }, [navigate]);
 
   const fetchCategory = async () => {
     if (!categoryId) throw new Error('Категория не найдена');
@@ -483,16 +462,17 @@ export const AdminCategoryPage = () => {
     return (
       <>
         <Seo {...seoProps} />
-        <div className="min-h-screen bg-background pb-6">
-        <AdminHeader
+        <AdminPageLayout
           title="Каталог"
           description="Создавайте и редактируйте карточки товаров"
           icon={Boxes}
-        />
-        <div className="p-4">
-          <Skeleton className="h-48 w-full" />
-        </div>
-        </div>
+          contentClassName="space-y-4"
+          contentLabel="Загрузка категории"
+        >
+          <section aria-busy aria-label="Данные категории">
+            <Skeleton className="h-48 w-full" />
+          </section>
+        </AdminPageLayout>
       </>
     );
   }
@@ -500,14 +480,13 @@ export const AdminCategoryPage = () => {
   return (
     <>
       <Seo {...seoProps} />
-      <div className="min-h-screen bg-background pb-6">
-      <AdminHeader
+      <AdminPageLayout
         title={category.name}
         description="Управляйте товарами категории"
         icon={Boxes}
-      />
-
-      <div className="p-4 space-y-6">
+        contentClassName="space-y-6"
+        contentLabel={`Товары категории ${category.name}`}
+      >
         <div className="flex justify-end">
           <Button onClick={openCreateDialog}>
             <Plus className="h-4 w-4 mr-2" />
@@ -515,64 +494,66 @@ export const AdminCategoryPage = () => {
           </Button>
         </div>
 
-        <Card className="border border-border bg-card">
-          <div className="divide-y divide-border">
-            {products.length === 0 ? (
-              <p className="p-4 text-sm text-muted-foreground">В этой категории пока нет товаров</p>
-            ) : (
-              products
-                .filter(product => !deletingProductIds.has(product.id))
-                .map(product => (
-                <div
-                  key={product.id}
-                  className="p-4 flex items-start gap-3 sm:items-center sm:justify-between relative"
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-foreground">{product.name}</p>
-                    {product.description && (
-                      <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                        {product.description}
-                      </p>
-                    )}
-                    <div className="text-sm text-muted-foreground mt-2 flex flex-wrap gap-3">
-                      <span>
-                        Цена:{' '}
-                        <span className="text-foreground font-medium">{product.price ?? 0} ₸</span>
-                      </span>
-                      <span>
-                        Статус:{' '}
-                        <span className="text-foreground font-medium">
-                          {product.available ? 'В наличии' : 'Нет в наличии'}
+        <section aria-label="Список товаров категории">
+          <Card className="border border-border bg-card">
+            <div className="divide-y divide-border">
+              {products.length === 0 ? (
+                <p className="p-4 text-sm text-muted-foreground">В этой категории пока нет товаров</p>
+              ) : (
+                products
+                  .filter(product => !deletingProductIds.has(product.id))
+                  .map(product => (
+                  <div
+                    key={product.id}
+                    className="p-4 flex items-start gap-3 sm:items-center sm:justify-between relative"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-foreground">{product.name}</p>
+                      {product.description && (
+                        <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                          {product.description}
+                        </p>
+                      )}
+                      <div className="text-sm text-muted-foreground mt-2 flex flex-wrap gap-3">
+                        <span>
+                          Цена:{' '}
+                          <span className="text-foreground font-medium">{product.price ?? 0} ₸</span>
                         </span>
-                      </span>
+                        <span>
+                          Статус:{' '}
+                          <span className="text-foreground font-medium">
+                            {product.available ? 'В наличии' : 'Нет в наличии'}
+                          </span>
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex-shrink-0">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-9 w-9 sm:h-10 sm:w-10">
+                            <MoreVertical className="h-5 w-5" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openEditDialog(product)}>
+                            Редактировать
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => handleDelete(product)}
+                          >
+                            Удалить
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </div>
-                  <div className="flex-shrink-0">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-9 w-9 sm:h-10 sm:w-10">
-                          <MoreVertical className="h-5 w-5" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => openEditDialog(product)}>
-                          Редактировать
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-destructive focus:text-destructive"
-                          onClick={() => handleDelete(product)}
-                        >
-                          Удалить
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </Card>
-      </div>
+                ))
+              )}
+            </div>
+          </Card>
+        </section>
+      </AdminPageLayout>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-h-[90vh] flex flex-col p-0">
@@ -782,8 +763,6 @@ export const AdminCategoryPage = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      </div>
     </>
   );
 };
-

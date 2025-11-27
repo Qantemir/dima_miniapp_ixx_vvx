@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Moon } from '@/components/icons';
-import { AdminHeader } from '@/components/AdminHeader';
+import { AdminPageLayout } from '@/components/AdminPageLayout';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -10,20 +9,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { api } from '@/lib/api';
-import {
-  getUserId,
-  isAdmin,
-  hideBackButton,
-  showBackButton,
-} from '@/lib/telegram';
 import { toast } from '@/lib/toast';
-import { ADMIN_IDS } from '@/types/api';
 import { Seo } from '@/components/Seo';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useAdminGuard } from '@/hooks/useAdminGuard';
 
 export const AdminStoreSettingsPage = () => {
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const isAuthorized = useAdminGuard('/');
   
   const {
     data: status,
@@ -33,26 +26,11 @@ export const AdminStoreSettingsPage = () => {
     queryFn: () => api.getStoreStatus(),
     staleTime: 10_000,
     gcTime: 5 * 60 * 1000,
+    enabled: isAuthorized,
   });
   const [saving, setSaving] = useState(false);
   const [sleepEnabled, setSleepEnabled] = useState(false);
   const [message, setMessage] = useState('');
-
-  useEffect(() => {
-    const userId = getUserId();
-    const isUserAdmin = userId ? isAdmin(userId, ADMIN_IDS) : false;
-    
-    if (!isUserAdmin) {
-      toast.error('Доступ запрещён. Требуются права администратора.');
-      navigate('/');
-      return;
-    }
-
-    showBackButton(() => navigate('/'));
-    return () => {
-      hideBackButton();
-    };
-  }, [navigate]);
 
   const initializedRef = useRef(false);
 
@@ -88,75 +66,80 @@ export const AdminStoreSettingsPage = () => {
   return (
     <>
       <Seo title="Админ: Режим сна" description="Управляйте статусом магазина и сообщением для клиентов." path="/admin/store" noIndex />
-      <div className="min-h-screen bg-background pb-6">
-        <AdminHeader
-          title="Режим сна"
-          description="Включайте и отключайте приём заказов"
-          icon={Moon}
-        />
-
-        <div className="p-4 space-y-4">
+      {!isAuthorized ? null : (
+      <AdminPageLayout
+        title="Режим сна"
+        description="Включайте и отключайте приём заказов"
+        icon={Moon}
+        contentClassName="space-y-4"
+        contentLabel="Настройки режима сна"
+      >
         {loading ? (
-          <Skeleton className="h-48 w-full" />
+          <section aria-busy aria-label="Загрузка статуса магазина">
+            <Skeleton className="h-48 w-full" />
+          </section>
         ) : (
           <>
-            <Card className="border border-border bg-card p-4 space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label className="text-base font-semibold">Магазин в режиме сна</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Клиенты увидят сообщение и не смогут оформить заказ
+            <section aria-label="Управление режимом сна">
+              <Card className="border border-border bg-card p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-base font-semibold">Магазин в режиме сна</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Клиенты увидят сообщение и не смогут оформить заказ
+                    </p>
+                  </div>
+                  <Switch
+                    checked={sleepEnabled}
+                    onCheckedChange={setSleepEnabled}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="sleep-message">Сообщение для клиентов</Label>
+                  <Textarea
+                    id="sleep-message"
+                    rows={4}
+                    value={message}
+                    onChange={event => setMessage(event.target.value)}
+                    onInput={event => setMessage((event.target as HTMLTextAreaElement).value)}
+                    placeholder="Например: Мы временно не принимаем заказы. Вернёмся завтра!"
+                    disabled={saving}
+                    className="resize-none bg-background text-foreground placeholder:text-muted-foreground"
+                    autoCapitalize="sentences"
+                    autoCorrect="on"
+                    spellCheck
+                    inputMode="text"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Сообщение увидят клиенты на главной странице. Если оставить пустым — будет показан текст по умолчанию. Вы можете ввести сообщение заранее, перед включением режима сна.
                   </p>
                 </div>
-                <Switch
-                  checked={sleepEnabled}
-                  onCheckedChange={setSleepEnabled}
-                />
-              </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="sleep-message">Сообщение для клиентов</Label>
-                <Textarea
-                  id="sleep-message"
-                  rows={4}
-                  value={message}
-                  onChange={event => setMessage(event.target.value)}
-                  onInput={event => setMessage((event.target as HTMLTextAreaElement).value)}
-                  placeholder="Например: Мы временно не принимаем заказы. Вернёмся завтра!"
-                  disabled={saving}
-                  className="resize-none bg-background text-foreground placeholder:text-muted-foreground"
-                  autoCapitalize="sentences"
-                  autoCorrect="on"
-                  spellCheck
-                  inputMode="text"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Сообщение увидят клиенты на главной странице. Если оставить пустым — будет показан текст по умолчанию. Вы можете ввести сообщение заранее, перед включением режима сна.
-                </p>
-              </div>
-
-              <Button onClick={handleSave} disabled={saving}>
-                {saving ? 'Сохранение...' : sleepEnabled ? 'Сохранить изменения' : 'Сохранить настройки'}
-              </Button>
-            </Card>
+                <Button onClick={handleSave} disabled={saving}>
+                  {saving ? 'Сохранение...' : sleepEnabled ? 'Сохранить изменения' : 'Сохранить настройки'}
+                </Button>
+              </Card>
+            </section>
 
             {status && (
-              <Alert>
-                <AlertTitle>Текущий статус</AlertTitle>
-                <AlertDescription>
-                  {status.is_sleep_mode
-                    ? `Магазин закрыт. Сообщение: ${status.sleep_message || 'используется текст по умолчанию'}.`
-                    : (
-                    'Магазин принимает заказы.'
-                  )}
-                </AlertDescription>
-              </Alert>
+              <section aria-label="Текущий статус магазина">
+                <Alert>
+                  <AlertTitle>Текущий статус</AlertTitle>
+                  <AlertDescription>
+                    {status.is_sleep_mode
+                      ? `Магазин закрыт. Сообщение: ${status.sleep_message || 'используется текст по умолчанию'}.`
+                      : (
+                      'Магазин принимает заказы.'
+                    )}
+                  </AlertDescription>
+                </Alert>
+              </section>
             )}
           </>
         )}
-        </div>
-      </div>
+      </AdminPageLayout>
+      )}
     </>
   );
 };
-

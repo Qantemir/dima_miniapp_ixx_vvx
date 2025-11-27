@@ -23,45 +23,14 @@ import { getRequestAuthHeaders } from '@/lib/telegram';
 
 class ApiClient {
   private baseUrl: string;
-  private etagCache = new Map<string, string>();
-  private responseCache = new Map<string, unknown>();
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl;
   }
 
-  private getCacheKey(method: string, endpoint: string) {
-    return `${method.toUpperCase()} ${endpoint}`;
-  }
-
-  private cacheResponse(method: string, endpoint: string, payload: unknown, etag?: string | null) {
-    const cacheKey = this.getCacheKey(method, endpoint);
-    if (etag) {
-      this.etagCache.set(cacheKey, etag);
-    }
-    this.responseCache.set(cacheKey, payload);
-  }
-
-  private getCachedResponse<T>(method: string, endpoint: string): T | null {
-    const cacheKey = this.getCacheKey(method, endpoint);
-    const cached = this.responseCache.get(cacheKey);
-    return (cached as T) ?? null;
-  }
-
-  private getEtag(method: string, endpoint: string): string | undefined {
-    const cacheKey = this.getCacheKey(method, endpoint);
-    return this.etagCache.get(cacheKey);
-  }
-
-  private invalidateCache(endpoint: string) {
-    const cacheKey = this.getCacheKey('GET', endpoint);
-    this.etagCache.delete(cacheKey);
-    this.responseCache.delete(cacheKey);
-  }
-
+  // Метод оставлен для совместимости вызовов инвалидации (ручного кэша нет).
   private invalidateCatalogCaches() {
-    this.invalidateCache('/catalog');
-    this.invalidateCache('/admin/catalog');
+    return;
   }
 
   private buildHeaders(existing?: HeadersInit): Headers {
@@ -82,33 +51,21 @@ class ApiClient {
     // Формируем абсолютный URL, чтобы избежать проблем с базовым путем /app
     let url: string;
     if (this.baseUrl.startsWith('http://') || this.baseUrl.startsWith('https://')) {
-      // Абсолютный URL - используем как есть, убираем /app если есть
       const base = this.baseUrl.replace(/\/app\/api/, '/api');
       url = `${base}${endpoint}`;
     } else {
-      // Относительный URL - используем как есть (для локальной разработки)
       url = `${this.baseUrl}${endpoint}`;
     }
-    const method = (options?.method || 'GET').toUpperCase();
-    
+
     let timeoutId: NodeJS.Timeout | null = null;
     const controller = new AbortController();
-    
+
     try {
-      // Добавляем таймаут для запросов
-      timeoutId = setTimeout(() => {
-        controller.abort();
-      }, 10000); // 10 секунд таймаут
-      
+      timeoutId = setTimeout(() => controller.abort(), 10_000);
+
       const isFormData =
         typeof FormData !== 'undefined' && options?.body instanceof FormData;
       const headers = this.buildHeaders(options?.headers as HeadersInit);
-      if (method === 'GET') {
-        const etag = this.getEtag(method, endpoint);
-        if (etag) {
-          headers.set('If-None-Match', etag);
-        }
-      }
       if (!isFormData && !headers.has('Content-Type')) {
         headers.set('Content-Type', 'application/json');
       }
@@ -118,49 +75,19 @@ class ApiClient {
         signal: controller.signal,
         headers,
       });
-      
+
       if (timeoutId) {
         clearTimeout(timeoutId);
         timeoutId = null;
       }
 
-      // Обработка 304 Not Modified - просто делаем повторный запрос
-      if (response.status === 304) {
-        const cached = this.getCachedResponse<T>(method, endpoint);
-        if (cached) {
-          return cached;
-        }
-        // Если кэша нет, повторяем запрос без ETag
-        const freshHeaders = this.buildHeaders(options?.headers as HeadersInit);
-        freshHeaders.delete('If-None-Match');
-        const freshResponse = await fetch(url, {
-          ...(options || {}),
-          headers: freshHeaders,
-        });
-        if (!freshResponse.ok) {
-          throw new Error(`API request failed: ${freshResponse.status} ${freshResponse.statusText}`);
-        }
-        const freshContentType = freshResponse.headers.get('content-type') || '';
-        const freshIsJson = freshContentType.includes('application/json');
-        const freshPayload = freshIsJson ? await freshResponse.json() : await freshResponse.text();
-        if (freshIsJson) {
-          const freshEtag = freshResponse.headers.get('etag');
-          this.cacheResponse(method, endpoint, freshPayload, freshEtag);
-        }
-        return freshPayload as T;
-      }
-
-      // Обработка ответа 204 No Content (нет тела ответа)
       if (response.status === 204) {
-        if (method === 'GET') {
-          this.invalidateCache(endpoint);
-        }
         return undefined as T;
       }
 
       const contentType = response.headers.get('content-type') || '';
       const isJson = contentType.includes('application/json');
-      
+
       let payload: unknown;
       try {
         payload = isJson ? await response.json() : await response.text();
@@ -176,23 +103,20 @@ class ApiClient {
         } else if (typeof payload === 'string') {
           errorMessage = payload;
         }
-        
-        // Специальная обработка ошибок 401 (Unauthorized)
+
         if (response.status === 401) {
-          // Если это ошибка аутентификации Telegram, предлагаем обновить страницу
           const lowerMessage = errorMessage.toLowerCase();
           if (lowerMessage.includes('telegram') || lowerMessage.includes('устарел') || 
               lowerMessage.includes('неверные данные') || lowerMessage.includes('недействительная подпись') ||
               lowerMessage.includes('отсутствует') || lowerMessage.includes('не удалось получить')) {
             throw new Error('Неверные данные Telegram. Пожалуйста, обновите страницу и попробуйте снова.');
           }
-          // Если сообщение уже содержит инструкцию об обновлении, используем его как есть
           if (errorMessage.includes('обновите') || errorMessage.includes('перезапустите')) {
             throw new Error(errorMessage);
           }
           throw new Error(errorMessage || 'Ошибка аутентификации. Пожалуйста, обновите страницу.');
         }
-        
+
         throw new Error(errorMessage);
       }
 
@@ -202,44 +126,29 @@ class ApiClient {
         );
       }
 
-      if (method === 'GET' && isJson) {
-        const etag = response.headers.get('etag');
-        this.cacheResponse(method, endpoint, payload, etag);
-      } else if (method !== 'GET') {
-        this.invalidateCache(endpoint);
-      }
-
       return payload as T;
     } catch (error) {
-      // Обработка прерванных запросов (отмена React Query или таймаут)
       if (error instanceof Error && error.name === 'AbortError') {
-        // Если таймаут ещё активен, значит это был таймаут, а не отмена запроса
         const wasTimeout = timeoutId !== null;
         if (timeoutId) {
           clearTimeout(timeoutId);
         }
-        // Игнорируем отмену запросов (React Query может отменять при размонтировании)
-        // Показываем ошибку только если это был таймаут
         if (wasTimeout) {
           throw new Error('Превышено время ожидания ответа от сервера. Проверьте, что бэкенд запущен и отвечает на запросы.');
         }
-        // Для отмененных запросов просто пробрасываем AbortError, React Query его обработает
-        // Не логируем, так как это нормальное поведение
         throw error;
       }
-      
-      // Очищаем таймаут в случае других ошибок
+
       if (timeoutId) {
         clearTimeout(timeoutId);
       }
-      
-      // Обработка ошибок сети
+
       if (error instanceof TypeError) {
         if (error.message.includes('fetch') || error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
           throw new Error('Не удалось подключиться к серверу. Убедитесь, что бэкенд запущен на http://localhost:8000');
         }
       }
-      
+
       throw error;
     }
   }

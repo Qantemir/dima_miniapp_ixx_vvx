@@ -250,9 +250,15 @@ def _build_not_modified_response(etag: str) -> Response:
 
 
 def _build_cache_control_value() -> str:
-  ttl = max(0, settings.catalog_cache_ttl_seconds)
-  cache_scope = "public"
-  return f"{cache_scope}, max-age={ttl}, must-revalidate"
+  """
+  Каталог меняется по требованию админа, поэтому клиентам нужно
+  всегда перепроверять данные у API, даже если запросы идут подряд.
+  Сервер всё равно держит тёплый кэш в памяти (_catalog_cache), поэтому
+  повторные проверки практически не нагружают базу.
+  Используем max-age=0 + must-revalidate, чтобы браузеры не возвращали
+  устаревший ответ из собственного HTTP-кэша (причина исчезающих категорий).
+  """
+  return "public, max-age=0, must-revalidate"
 
 
 @router.get("/catalog", response_model=CatalogResponse)
@@ -270,13 +276,19 @@ async def get_catalog(
 async def get_admin_catalog(
   db: AsyncIOMotorDatabase = Depends(get_db),
   _admin_id: int = Depends(verify_admin),
-  if_none_match: str | None = Header(None, alias="If-None-Match"),
 ):
+  """
+  Возвращает актуальный каталог для админки.
+  ETag/304 здесь отключены, чтобы администраторы сразу видели изменения
+  без зависимости от клиентского/прокси кэширования.
+  """
   try:
     catalog, etag = await fetch_catalog(db, force_refresh=True)
-    if if_none_match and if_none_match == etag:
-      return _build_not_modified_response(etag)
-    return _build_catalog_response(catalog, etag)
+    response = _build_catalog_response(catalog, etag)
+    # Админке всегда нужен свежий ответ, поэтому блокируем кэш.
+    response.headers["Cache-Control"] = "no-store, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    return response
   except Exception as e:
     import logging
     logger = logging.getLogger(__name__)
