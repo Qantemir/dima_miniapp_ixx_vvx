@@ -10,7 +10,6 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Download } from '@/components/icons';
-import { getRequestAuthHeaders } from '@/lib/telegram';
 
 interface ReceiptDialogProps {
   receiptUrl: string;
@@ -39,6 +38,8 @@ const AuthenticatedImage = ({ url, alt }: { url: string; alt?: string }) => {
     // Для админских URL загружаем через fetch с заголовками
     const loadImage = async () => {
       try {
+        // Динамически импортируем getRequestAuthHeaders, чтобы избежать проблем при загрузке модуля
+        const { getRequestAuthHeaders } = await import('@/lib/telegram');
         const headers = getRequestAuthHeaders();
         const response = await fetch(url, { headers });
         if (!response.ok) {
@@ -117,6 +118,8 @@ const AuthenticatedPdf = ({ url, title }: { url: string; title?: string }) => {
     // Для админских URL загружаем через fetch с заголовками
     const loadPdf = async () => {
       try {
+        // Динамически импортируем getRequestAuthHeaders, чтобы избежать проблем при загрузке модуля
+        const { getRequestAuthHeaders } = await import('@/lib/telegram');
         const headers = getRequestAuthHeaders();
         const response = await fetch(url, { headers });
         if (!response.ok) {
@@ -223,6 +226,7 @@ export const ReceiptDialog = ({ receiptUrl, filename, trigger }: ReceiptDialogPr
                       if (isAdminEndpoint) {
                         e.preventDefault();
                         try {
+                          const { getRequestAuthHeaders } = await import('@/lib/telegram');
                           const headers = getRequestAuthHeaders();
                           const response = await fetch(receiptUrl, { headers });
                           if (!response.ok) throw new Error('Failed to download');
@@ -264,6 +268,7 @@ export const ReceiptDialog = ({ receiptUrl, filename, trigger }: ReceiptDialogPr
                 if (isAdminEndpoint) {
                   e.preventDefault();
                   try {
+                    const { getRequestAuthHeaders } = await import('@/lib/telegram');
                     const headers = getRequestAuthHeaders();
                     const response = await fetch(receiptUrl, { headers });
                     if (!response.ok) throw new Error('Failed to download');
