@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '@/lib/api';
-import { buildApiAssetUrl } from '@/lib/utils';
+import { API_BASE_URL } from '@/types/api';
 import { toast } from '@/lib/toast';
 import type { Order, OrderStatus } from '@/types/api';
 import { useAdminGuard } from './useAdminGuard';
@@ -87,10 +87,19 @@ export const useAdminOrderDetail = (orderId?: string) => {
 
   const goBack = useCallback(() => navigate('/admin'), [navigate]);
 
-  const receiptUrl = useMemo(
-    () => (order?.payment_receipt_url ? buildApiAssetUrl(order.payment_receipt_url) : null),
-    [order],
-  );
+  const receiptUrl = useMemo(() => {
+    if (!order?.payment_receipt_file_id || !orderId) {
+      return null;
+    }
+    // Формируем URL для получения чека через админский endpoint
+    // Используем тот же подход, что и в ApiClient.request для формирования URL
+    let baseUrl = API_BASE_URL;
+    if (baseUrl.startsWith('http://') || baseUrl.startsWith('https://')) {
+      const base = baseUrl.replace(/\/app\/api/, '/api');
+      return `${base}/admin/order/${orderId}/receipt`;
+    }
+    return `${baseUrl}/admin/order/${orderId}/receipt`;
+  }, [order, orderId]);
 
   const shortOrderId = order ? order.id.slice(-6) : '';
   const createdAtLabel = order

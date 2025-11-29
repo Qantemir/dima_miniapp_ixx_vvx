@@ -2,8 +2,9 @@ from datetime import datetime
 from typing import List, Optional
 import asyncio
 import httpx
+from bson import ObjectId
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pymongo.errors import ServerSelectionTimeoutError, ConnectionFailure
 
@@ -22,6 +23,7 @@ from ..utils import (
   restore_variant_quantity,
   mark_order_as_deleted,
   restore_order_entry,
+  get_gridfs,
 )
 from ..config import get_settings
 from ..auth import verify_admin
@@ -98,6 +100,44 @@ async def get_order(
   if not doc:
     raise HTTPException(status_code=404, detail="Заказ не найден")
   return Order(**serialize_doc(doc) | {"id": str(doc["_id"])})
+
+
+@router.get("/admin/order/{order_id}/receipt")
+async def get_admin_order_receipt(
+  order_id: str,
+  db: AsyncIOMotorDatabase = Depends(get_db),
+  _admin_id: int = Depends(verify_admin),
+):
+  """
+  Получает чек заказа из GridFS для администратора.
+  """
+  doc = await db.orders.find_one({"_id": as_object_id(order_id)})
+  if not doc:
+    raise HTTPException(status_code=404, detail="Заказ не найден")
+  
+  receipt_file_id = doc.get("payment_receipt_file_id")
+  if not receipt_file_id:
+    raise HTTPException(status_code=404, detail="Чек не найден")
+  
+  try:
+    fs = get_gridfs()
+    loop = asyncio.get_event_loop()
+    
+    # Получаем файл из GridFS (синхронная операция в executor)
+    grid_file = await loop.run_in_executor(None, lambda: fs.get(ObjectId(receipt_file_id)))
+    file_data = await loop.run_in_executor(None, grid_file.read)
+    filename = grid_file.filename or "receipt"
+    content_type = grid_file.content_type or "application/octet-stream"
+    
+    return Response(
+      content=file_data,
+      media_type=content_type,
+      headers={
+        "Content-Disposition": f'inline; filename="{filename}"',
+      }
+    )
+  except Exception as e:
+    raise HTTPException(status_code=404, detail=f"Не удалось загрузить чек: {str(e)}")
 
 
 @router.patch("/admin/order/{order_id}/status", response_model=Order)
