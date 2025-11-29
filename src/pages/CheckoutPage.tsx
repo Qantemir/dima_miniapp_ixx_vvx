@@ -318,7 +318,7 @@ export const CheckoutPage = () => {
                   size="sm"
                   onClick={() => {
                     setPaymentReceipt(null);
-                    setReceiptError('Пожалуйста, прикрепите чек об оплате');
+                    setReceiptError(null);
                     const input = document.getElementById('receipt') as HTMLInputElement | null;
                     if (input) input.value = '';
                   }}
