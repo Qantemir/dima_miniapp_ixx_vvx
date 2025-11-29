@@ -11,6 +11,7 @@ from gridfs import GridFS
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from .config import get_settings
+from .utils import get_gridfs
 
 logger = logging.getLogger(__name__)
 
@@ -98,13 +99,23 @@ async def notify_admins_new_order(
     receipt_content_type = None
     if receipt_file_id:
         try:
-            fs = GridFS(db.database)
-            grid_file = fs.get(ObjectId(receipt_file_id))
-            receipt_data = grid_file.read()
-            receipt_filename = grid_file.filename
-            receipt_content_type = grid_file.content_type
+            # Используем синхронный GridFS клиент через утилиту
+            fs = get_gridfs()
+            loop = asyncio.get_event_loop()
+            
+            # Получаем файл из GridFS (синхронная операция в executor)
+            grid_file = await loop.run_in_executor(None, lambda: fs.get(ObjectId(receipt_file_id)))
+            receipt_data = await loop.run_in_executor(None, grid_file.read)
+            receipt_filename = grid_file.filename or "receipt"
+            receipt_content_type = grid_file.content_type or "application/octet-stream"
+            
+            if not receipt_data:
+                logger.warning(f"Файл чека {receipt_file_id} пуст")
+                receipt_data = None
+            else:
+                logger.info(f"Файл чека {receipt_file_id} успешно загружен из GridFS: {len(receipt_data)} байт, тип: {receipt_content_type}")
         except Exception as e:
-            logger.warning(f"Не удалось загрузить файл чека из GridFS: {e}")
+            logger.error(f"Не удалось загрузить файл чека из GridFS (ID: {receipt_file_id}): {e}", exc_info=True)
             receipt_data = None
     
     # Отправляем уведомление каждому администратору
@@ -209,26 +220,39 @@ async def _send_notification_with_receipt(
             }
             
             # Отправляем файл с подписью и кнопкой
-            files = {file_field: (receipt_filename, file_data)}
+            # Используем правильный формат для отправки файла в Telegram Bot API
+            # httpx требует кортеж (filename, file_data) или (filename, file_data, content_type)
+            file_tuple = (receipt_filename or "receipt", file_data)
+            if receipt_content_type:
+                file_tuple = (receipt_filename or "receipt", file_data, receipt_content_type)
+            
+            files = {file_field: file_tuple}
             data = {
-                "chat_id": admin_id,
+                "chat_id": str(admin_id),
                 "caption": message,
                 "parse_mode": "Markdown",
                 "reply_markup": json.dumps(keyboard),
             }
             
-            response = await client.post(api_url, data=data, files=files)
-            result = response.json()
-            
-            if result.get("ok"):
-                file_sent = True
-                return True
-            else:
-                logger.warning(
-                    f"Не удалось отправить чек администратору {admin_id}: "
-                    f"{result.get('description', 'Unknown error')}"
-                )
-                # Продолжаем отправку текстового сообщения если файл не отправился
+            try:
+                response = await client.post(api_url, data=data, files=files, timeout=30.0)
+                result = response.json()
+                
+                if result.get("ok"):
+                    file_sent = True
+                    logger.info(f"Чек успешно отправлен администратору {admin_id} для заказа {order_id}")
+                    return True
+                else:
+                    error_desc = result.get('description', 'Unknown error')
+                    error_code = result.get('error_code', 'Unknown')
+                    logger.warning(
+                        f"Не удалось отправить чек администратору {admin_id} для заказа {order_id}: "
+                        f"код {error_code}, описание: {error_desc}"
+                    )
+                    # Продолжаем отправку текстового сообщения если файл не отправился
+                    file_sent = False
+            except Exception as e:
+                logger.error(f"Ошибка при отправке чека администратору {admin_id} для заказа {order_id}: {e}", exc_info=True)
                 file_sent = False
         
         # Отправляем текстовое сообщение (если файл не отправился или его нет)
