@@ -17,7 +17,7 @@ from ..utils import (
 from ..security import TelegramUser, get_current_user
 
 # Время жизни корзины в минутах
-CART_EXPIRY_MINUTES = 10
+CART_EXPIRY_MINUTES = 30
 
 router = APIRouter(tags=["cart"])
 
