@@ -153,6 +153,7 @@ async def cleanup_deleted_orders():
   from datetime import datetime, timedelta
   from .database import get_db
   from .utils import permanently_delete_order_entry
+  from pymongo.errors import AutoReconnect, NetworkTimeout, ServerSelectionTimeoutError
   
   import asyncio
   logger = logging.getLogger(__name__)
@@ -172,10 +173,17 @@ async def cleanup_deleted_orders():
         try:
           await permanently_delete_order_entry(db, order_doc)
           logger.info(f"Окончательно удален заказ {order_doc.get('_id')}")
+        except (AutoReconnect, NetworkTimeout, ServerSelectionTimeoutError) as e:
+          # Временные проблемы с подключением - логируем как предупреждение, не как ошибку
+          logger.warning(f"Временная проблема с подключением к MongoDB при удалении заказа {order_doc.get('_id')}: {e}")
         except Exception as e:
           logger.error(f"Ошибка при окончательном удалении заказа {order_doc.get('_id')}: {e}")
       
       # Ждем 1 минуту перед следующей проверкой
+      await asyncio.sleep(60)
+    except (AutoReconnect, NetworkTimeout, ServerSelectionTimeoutError) as e:
+      # Временные проблемы с подключением - логируем как предупреждение
+      logger.warning(f"Временная проблема с подключением к MongoDB в фоновой задаче очистки заказов: {e}")
       await asyncio.sleep(60)
     except Exception as e:
       logger.error(f"Ошибка в фоновой задаче очистки заказов: {e}")
@@ -184,6 +192,11 @@ async def cleanup_deleted_orders():
 
 @app.on_event("startup")
 async def startup():
+  # Настраиваем логирование для pymongo - уменьшаем уровень для периодических задач переподключения
+  # Это предотвращает засорение логов ошибками AutoReconnect во время нормальной работы
+  pymongo_logger = logging.getLogger("pymongo")
+  pymongo_logger.setLevel(logging.WARNING)  # Только предупреждения и ошибки
+  
   # Подключаемся к MongoDB при старте для быстрого первого запроса
   await connect_to_mongo()
   

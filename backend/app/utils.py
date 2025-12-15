@@ -14,10 +14,26 @@ _sync_db = None
 def get_gridfs() -> GridFS:
   """
   Возвращает синхронный GridFS клиент для сохранения/удаления файлов чеков.
+  Настроен с теми же параметрами SSL и таймаутов, что и асинхронный клиент.
   """
   global _sync_client, _sync_db
   if _sync_client is None:
-    _sync_client = MongoClient(settings.mongo_uri)
+    _sync_client = MongoClient(
+      settings.mongo_uri,
+      serverSelectionTimeoutMS=30000,  # Увеличено для SSL handshake
+      maxPoolSize=50,
+      minPoolSize=5,  # Меньше для синхронного клиента
+      maxIdleTimeMS=45000,
+      connectTimeoutMS=20000,  # Увеличено для SSL handshake
+      socketTimeoutMS=60000,
+      retryWrites=True,
+      retryReads=True,
+      heartbeatFrequencyMS=10000,
+      waitQueueTimeoutMS=30000,
+      # Дополнительные параметры для стабильности SSL соединения
+      ssl=True,  # Явно включаем SSL для Atlas
+      ssl_cert_reqs=None,  # Используем настройки по умолчанию для Atlas
+    )
     _sync_db = _sync_client[settings.mongo_db]
   return GridFS(_sync_db)
 

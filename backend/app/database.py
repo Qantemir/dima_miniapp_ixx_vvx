@@ -17,19 +17,28 @@ async def connect_to_mongo():
   if client is None:
     try:
       # Оптимизация connection pool для быстрой работы с увеличенными таймаутами для Atlas
-      client = AsyncIOMotorClient(
-        settings.mongo_uri,
-        serverSelectionTimeoutMS=30000,  # Увеличено до 30 секунд для SSL handshake
-        maxPoolSize=50,  # Больше соединений для параллельных запросов
-        minPoolSize=10,  # Минимум соединений всегда готовы
-        maxIdleTimeMS=45000,  # Время жизни неактивных соединений
-        connectTimeoutMS=20000,  # Увеличено до 20 секунд для SSL handshake
-        socketTimeoutMS=60000,  # Увеличено до 60 секунд для операций чтения
-        retryWrites=True,  # Автоматические повторы записи
-        retryReads=True,  # Автоматические повторы чтения
-        heartbeatFrequencyMS=10000,  # Проверка соединения каждые 10 секунд
-        waitQueueTimeoutMS=30000,  # Таймаут ожидания в очереди соединений
-      )
+      # Определяем, нужен ли SSL (если URI содержит mongodb.net или ssl=true)
+      use_ssl = "mongodb.net" in settings.mongo_uri or "ssl=true" in settings.mongo_uri.lower()
+      
+      client_config = {
+        "serverSelectionTimeoutMS": 30000,  # Увеличено до 30 секунд для SSL handshake
+        "maxPoolSize": 50,  # Больше соединений для параллельных запросов
+        "minPoolSize": 10,  # Минимум соединений всегда готовы
+        "maxIdleTimeMS": 45000,  # Время жизни неактивных соединений
+        "connectTimeoutMS": 20000,  # Увеличено до 20 секунд для SSL handshake
+        "socketTimeoutMS": 60000,  # Увеличено до 60 секунд для операций чтения
+        "retryWrites": True,  # Автоматические повторы записи
+        "retryReads": True,  # Автоматические повторы чтения
+        "heartbeatFrequencyMS": 10000,  # Проверка соединения каждые 10 секунд
+        "waitQueueTimeoutMS": 30000,  # Таймаут ожидания в очереди соединений
+      }
+      
+      # Для MongoDB Atlas явно включаем SSL
+      if use_ssl:
+        client_config["ssl"] = True
+        client_config["ssl_cert_reqs"] = None  # Используем настройки по умолчанию для Atlas
+      
+      client = AsyncIOMotorClient(settings.mongo_uri, **client_config)
       db = client[settings.mongo_db]
       await ensure_indexes(db)
       # Проверяем подключение
@@ -39,19 +48,23 @@ async def connect_to_mongo():
       logger.error(f"Failed to connect to MongoDB: {e}")
       logger.error("Server will start but database operations will fail. Please start MongoDB.")
       # Создаем клиент даже если подключение не удалось, чтобы не падать при каждом запросе
-      client = AsyncIOMotorClient(
-        settings.mongo_uri,
-        serverSelectionTimeoutMS=30000,
-        maxPoolSize=50,
-        minPoolSize=10,
-        maxIdleTimeMS=45000,
-        connectTimeoutMS=20000,
-        socketTimeoutMS=60000,
-        retryWrites=True,
-        retryReads=True,
-        heartbeatFrequencyMS=10000,
-        waitQueueTimeoutMS=30000,
-      )
+      use_ssl = "mongodb.net" in settings.mongo_uri or "ssl=true" in settings.mongo_uri.lower()
+      client_config = {
+        "serverSelectionTimeoutMS": 30000,
+        "maxPoolSize": 50,
+        "minPoolSize": 10,
+        "maxIdleTimeMS": 45000,
+        "connectTimeoutMS": 20000,
+        "socketTimeoutMS": 60000,
+        "retryWrites": True,
+        "retryReads": True,
+        "heartbeatFrequencyMS": 10000,
+        "waitQueueTimeoutMS": 30000,
+      }
+      if use_ssl:
+        client_config["ssl"] = True
+        client_config["ssl_cert_reqs"] = None
+      client = AsyncIOMotorClient(settings.mongo_uri, **client_config)
       db = client[settings.mongo_db]
       await ensure_indexes(db)
 
