@@ -11,17 +11,36 @@ import {
 // Lazy loading для code splitting и быстрой загрузки
 import { lazy, Suspense, type ReactNode } from "react";
 import { CatalogPage } from "./pages/CatalogPage"; // Главная страница - загружаем сразу
-const CartPage = lazy(() => import("./pages/CartPage").then(m => ({ default: m.CartPage })));
-const CheckoutPage = lazy(() => import("./pages/CheckoutPage").then(m => ({ default: m.CheckoutPage })));
-const OrderPage = lazy(() => import("./pages/OrderPage").then(m => ({ default: m.OrderPage })));
-const AdminOrdersPage = lazy(() => import("./pages/AdminOrdersPage").then(m => ({ default: m.AdminOrdersPage })));
-const AdminOrderDetailPage = lazy(() => import("./pages/AdminOrderDetailPage").then(m => ({ default: m.AdminOrderDetailPage })));
-const AdminCatalogPage = lazy(() => import("./pages/AdminCatalogPage").then(m => ({ default: m.AdminCatalogPage })));
-const AdminCategoryPage = lazy(() => import("./pages/AdminCategoryPage").then(m => ({ default: m.AdminCategoryPage })));
-const AdminBroadcastPage = lazy(() => import("./pages/AdminBroadcastPage").then(m => ({ default: m.AdminBroadcastPage })));
-const AdminStoreSettingsPage = lazy(() => import("./pages/AdminStoreSettingsPage").then(m => ({ default: m.AdminStoreSettingsPage })));
-const AdminPaymentPage = lazy(() => import("./pages/AdminPaymentPage").then(m => ({ default: m.AdminPaymentPage })));
-const AdminHelpPage = lazy(() => import("./pages/AdminHelpPage").then(m => ({ default: m.AdminHelpPage })));
+import { ErrorBoundary } from "./components/ErrorBoundary";
+
+// Безопасная обертка для lazy loading с обработкой ошибок
+const createLazyComponent = (importFn: () => Promise<any>, componentName: string) => {
+  return lazy(async () => {
+    try {
+      const module = await importFn();
+      const component = module[componentName] || module.default;
+      if (!component) {
+        throw new Error(`Component ${componentName} not found in module`);
+      }
+      return { default: component };
+    } catch (error) {
+      console.error(`Failed to load ${componentName}:`, error);
+      throw error;
+    }
+  });
+};
+
+const CartPage = createLazyComponent(() => import("./pages/CartPage"), "CartPage");
+const CheckoutPage = createLazyComponent(() => import("./pages/CheckoutPage"), "CheckoutPage");
+const OrderPage = createLazyComponent(() => import("./pages/OrderPage"), "OrderPage");
+const AdminOrdersPage = createLazyComponent(() => import("./pages/AdminOrdersPage"), "AdminOrdersPage");
+const AdminOrderDetailPage = createLazyComponent(() => import("./pages/AdminOrderDetailPage"), "AdminOrderDetailPage");
+const AdminCatalogPage = createLazyComponent(() => import("./pages/AdminCatalogPage"), "AdminCatalogPage");
+const AdminCategoryPage = createLazyComponent(() => import("./pages/AdminCategoryPage"), "AdminCategoryPage");
+const AdminBroadcastPage = createLazyComponent(() => import("./pages/AdminBroadcastPage"), "AdminBroadcastPage");
+const AdminStoreSettingsPage = createLazyComponent(() => import("./pages/AdminStoreSettingsPage"), "AdminStoreSettingsPage");
+const AdminPaymentPage = createLazyComponent(() => import("./pages/AdminPaymentPage"), "AdminPaymentPage");
+const AdminHelpPage = createLazyComponent(() => import("./pages/AdminHelpPage"), "AdminHelpPage");
 import { initTelegram, getUserId, isAdmin } from "./lib/telegram";
 import { ADMIN_IDS } from "./types/api";
 import NotFound from "./pages/NotFound";
@@ -55,7 +74,7 @@ const RootRoute = () => {
   return <CatalogPage />;
 };
 
-const StoreStatusProviderWrapper = ({ children }: { children: ReactNode }) => {
+const StoreStatusProviderWrapper = () => {
   const location = useLocation();
   const isAdminRoute = location.pathname.startsWith('/admin');
   const content = (
@@ -205,12 +224,14 @@ const AppRouter = () => {
 };
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AdminViewProvider>
-      <Sonner />
-      <AppRouter />
-    </AdminViewProvider>
-  </QueryClientProvider>
+  <ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <AdminViewProvider>
+        <Sonner />
+        <AppRouter />
+      </AdminViewProvider>
+    </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;

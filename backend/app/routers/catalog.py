@@ -43,13 +43,27 @@ _catalog_cache_expiration: datetime | None = None
 _catalog_cache_version: str | None = None
 _catalog_cache_lock = asyncio.Lock()
 _CATALOG_CACHE_STATE_ID = "catalog_cache_state"
+# Кеш версии в памяти для избежания лишних запросов к БД
+_cache_version_in_memory: str | None = None
+_cache_version_expiration: datetime | None = None
+_CACHE_VERSION_TTL_SECONDS = 10  # Версия кешируется на 10 секунд
 
 
-async def _load_catalog_from_db(db: AsyncIOMotorDatabase) -> CatalogResponse:
+async def _load_catalog_from_db(db: AsyncIOMotorDatabase, only_available: bool = True) -> CatalogResponse:
+  """
+  Загружает каталог из БД.
+  
+  Args:
+    db: Подключение к БД
+    only_available: Загружать только доступные товары (по умолчанию True для оптимизации)
+  """
   # Параллельная загрузка категорий и товаров для ускорения
   categories_task = db.categories.find({}, {"name": 1}).to_list(length=None)
+  
+  # Фильтруем только доступные товары для публичного каталога (оптимизация)
+  products_filter = {"available": True} if only_available else {}
   products_task = db.products.find(
-    {},
+    products_filter,
     {
       "name": 1,
       "description": 1,
@@ -65,59 +79,85 @@ async def _load_catalog_from_db(db: AsyncIOMotorDatabase) -> CatalogResponse:
   # Выполняем запросы параллельно
   categories_docs, products_docs = await asyncio.gather(categories_task, products_task)
   
-  # Валидируем категории с обработкой ошибок
+  # Оптимизированная валидация категорий
   categories = []
   for doc in categories_docs:
     try:
-      serialized = serialize_doc(doc)
-      category_data = serialized | {"id": str(doc["_id"])}
+      # Быстрая валидация без лишних операций
+      category_data = {"name": doc.get("name", ""), "id": str(doc["_id"])}
+      if not category_data["name"]:
+        continue
       category = Category(**category_data)
       categories.append(category)
     except Exception as e:
-      import logging
-      logger = logging.getLogger(__name__)
-      logger.error(f"Ошибка валидации категории {doc.get('_id')}: {e}, данные: {serialized}")
-      # Пропускаем проблемную категорию
+      logger.error(f"Ошибка валидации категории {doc.get('_id')}: {e}")
       continue
   
-  # Валидируем товары с обработкой ошибок
+  # Оптимизированная валидация товаров с предварительной фильтрацией
   products = []
   for doc in products_docs:
     try:
-      serialized = serialize_doc(doc)
-      product_data = serialized | {"id": str(doc["_id"])}
+      # Быстрая предварительная проверка обязательных полей
+      name = doc.get("name")
+      if not name or not isinstance(name, str):
+        continue
       
-      # Убеждаемся, что обязательные поля присутствуют и имеют правильный тип
-      if "name" not in product_data or not product_data["name"]:
-        continue  # Пропускаем товары без названия
-      if "price" not in product_data or product_data["price"] is None:
-        product_data["price"] = 0.0  # Устанавливаем цену по умолчанию
-      if not isinstance(product_data["price"], (int, float)):
+      category_id = doc.get("category_id")
+      if not category_id:
+        continue
+      
+      # Быстрая обработка цены
+      price = doc.get("price")
+      if price is None:
+        price = 0.0
+      elif not isinstance(price, (int, float)):
         try:
-          product_data["price"] = float(product_data["price"])
+          price = float(price)
         except (ValueError, TypeError):
-          product_data["price"] = 0.0
-      if "category_id" not in product_data or not product_data["category_id"]:
-        continue  # Пропускаем товары без категории
-      if "available" not in product_data:
-        product_data["available"] = True
-      if not isinstance(product_data["available"], bool):
-        product_data["available"] = bool(product_data["available"])
+          price = 0.0
+      
+      # Быстрая обработка available
+      available = doc.get("available", True)
+      if not isinstance(available, bool):
+        available = bool(available)
+      
+      # Собираем данные товара
+      product_data = {
+        "id": str(doc["_id"]),
+        "name": name,
+        "price": price,
+        "category_id": str(category_id) if not isinstance(category_id, str) else category_id,
+        "available": available,
+      }
+      
+      # Опциональные поля добавляем только если они есть
+      # Ограничиваем длину description для уменьшения размера ответа (фронтенд использует line-clamp)
+      if "description" in doc and doc["description"]:
+        description = doc["description"]
+        # Ограничиваем до 500 символов для оптимизации размера ответа
+        if isinstance(description, str) and len(description) > 500:
+          product_data["description"] = description[:500]
+        else:
+          product_data["description"] = description
+      if "image" in doc:
+        product_data["image"] = doc["image"]
+      if "images" in doc:
+        product_data["images"] = doc["images"]
+      if "variants" in doc:
+        product_data["variants"] = doc["variants"]
       
       product = Product(**product_data)
       products.append(product)
     except Exception as e:
-      import logging
-      logger = logging.getLogger(__name__)
-      logger.error(f"Ошибка валидации товара {doc.get('_id')}: {e}, данные: {serialized}")
-      # Пропускаем проблемный товар
+      logger.error(f"Ошибка валидации товара {doc.get('_id')}: {e}")
       continue
   
   return CatalogResponse(categories=categories, products=products)
 
 
 def _catalog_to_dict(payload: CatalogResponse) -> dict:
-  return payload.dict(by_alias=True)
+  # Используем exclude_unset для исключения None значений и уменьшения размера ответа
+  return payload.dict(by_alias=True, exclude_none=False)
 
 
 def _compute_catalog_etag(payload: CatalogResponse) -> str:
@@ -130,11 +170,32 @@ def _generate_cache_version() -> str:
   return str(ObjectId())
 
 
-async def _get_catalog_cache_version(db: AsyncIOMotorDatabase) -> str:
+async def _get_catalog_cache_version(db: AsyncIOMotorDatabase, use_memory_cache: bool = True) -> str:
+  """
+  Получает версию кеша каталога с опциональным кешированием в памяти.
+  
+  Args:
+    db: Подключение к БД
+    use_memory_cache: Использовать ли кеш в памяти (по умолчанию True)
+  """
+  global _cache_version_in_memory, _cache_version_expiration
+  
+  # Проверяем кеш в памяти, если он включен
+  if use_memory_cache and _cache_version_in_memory is not None and _cache_version_expiration is not None:
+    if datetime.utcnow() < _cache_version_expiration:
+      return _cache_version_in_memory
+  
+  # Загружаем из БД
   doc = await db.cache_state.find_one({"_id": _CATALOG_CACHE_STATE_ID})
   if doc and doc.get("version"):
-    return doc["version"]
+    version = doc["version"]
+    # Обновляем кеш в памяти
+    if use_memory_cache:
+      _cache_version_in_memory = version
+      _cache_version_expiration = datetime.utcnow() + timedelta(seconds=_CACHE_VERSION_TTL_SECONDS)
+    return version
 
+  # Создаем новую версию
   version = _generate_cache_version()
   await db.cache_state.update_one(
     {"_id": _CATALOG_CACHE_STATE_ID},
@@ -146,10 +207,15 @@ async def _get_catalog_cache_version(db: AsyncIOMotorDatabase) -> str:
     },
     upsert=True,
   )
+  # Обновляем кеш в памяти
+  if use_memory_cache:
+    _cache_version_in_memory = version
+    _cache_version_expiration = datetime.utcnow() + timedelta(seconds=_CACHE_VERSION_TTL_SECONDS)
   return version
 
 
 async def _bump_catalog_cache_version(db: AsyncIOMotorDatabase) -> str:
+  global _cache_version_in_memory, _cache_version_expiration
   version = _generate_cache_version()
   await db.cache_state.update_one(
     {"_id": _CATALOG_CACHE_STATE_ID},
@@ -161,6 +227,9 @@ async def _bump_catalog_cache_version(db: AsyncIOMotorDatabase) -> str:
     },
     upsert=True,
   )
+  # Обновляем кеш в памяти
+  _cache_version_in_memory = version
+  _cache_version_expiration = datetime.utcnow() + timedelta(seconds=_CACHE_VERSION_TTL_SECONDS)
   return version
 
 
@@ -168,12 +237,34 @@ async def fetch_catalog(
   db: AsyncIOMotorDatabase,
   *,
   force_refresh: bool = False,
+  only_available: bool = True,
 ) -> Tuple[CatalogResponse, str]:
   global _catalog_cache, _catalog_cache_etag, _catalog_cache_expiration, _catalog_cache_version
   ttl = settings.catalog_cache_ttl_seconds
   now = datetime.utcnow()
-  current_version = await _get_catalog_cache_version(db)
+  
+  # Быстрая проверка кеша без запроса к БД
+  # Если кеш валиден и версия в памяти совпадает, возвращаем сразу
+  if (
+    not force_refresh
+    and ttl > 0
+    and _catalog_cache
+    and _catalog_cache_etag
+    and _catalog_cache_expiration
+    and _catalog_cache_expiration > now
+    and _catalog_cache_version is not None
+    and _cache_version_in_memory is not None
+    and _cache_version_expiration is not None
+    and now < _cache_version_expiration
+    and _catalog_cache_version == _cache_version_in_memory
+  ):
+    # Кеш валиден и версия совпадает - возвращаем без запроса к БД
+    return _catalog_cache, _catalog_cache_etag
 
+  # Если кеш истек или версия не совпадает, получаем актуальную версию (с кешированием)
+  current_version = await _get_catalog_cache_version(db, use_memory_cache=True)
+
+  # Проверяем кеш еще раз после получения версии
   if (
     not force_refresh
     and ttl > 0
@@ -185,8 +276,10 @@ async def fetch_catalog(
   ):
     return _catalog_cache, _catalog_cache_etag
 
+  # Кеш истек или версия изменилась - загружаем заново
   async with _catalog_cache_lock:
-    current_version = await _get_catalog_cache_version(db)
+    # Двойная проверка после получения lock (возможно, другой поток уже обновил кеш)
+    current_version = await _get_catalog_cache_version(db, use_memory_cache=True)
     now = datetime.utcnow()
     if (
       not force_refresh
@@ -199,7 +292,8 @@ async def fetch_catalog(
     ):
       return _catalog_cache, _catalog_cache_etag
 
-    data = await _load_catalog_from_db(db)
+    # Загружаем данные из БД
+    data = await _load_catalog_from_db(db, only_available=only_available)
     etag = _compute_catalog_etag(data)
 
     if ttl > 0:
@@ -283,7 +377,8 @@ async def get_admin_catalog(
   без зависимости от клиентского/прокси кэширования.
   """
   try:
-    catalog, etag = await fetch_catalog(db, force_refresh=True)
+    # Админка загружает все товары, включая недоступные
+    catalog, etag = await fetch_catalog(db, force_refresh=True, only_available=False)
     response = _build_catalog_response(catalog, etag)
     # Админке всегда нужен свежий ответ, поэтому блокируем кэш.
     response.headers["Cache-Control"] = "no-store, max-age=0"

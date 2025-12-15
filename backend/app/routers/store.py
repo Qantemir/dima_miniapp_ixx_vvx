@@ -1,6 +1,7 @@
 import asyncio
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
@@ -39,8 +40,27 @@ class StoreStatusBroadcaster:
 
 store_status_broadcaster = StoreStatusBroadcaster()
 
+# Простое in-memory кеширование для статуса магазина
+_cache: Optional[dict] = None
+_cache_expires_at: Optional[datetime] = None
+_cache_ttl_seconds = 5  # Кеш на 5 секунд для баланса между производительностью и актуальностью
 
-async def get_or_create_store_status(db: AsyncIOMotorDatabase):
+
+async def get_or_create_store_status(db: AsyncIOMotorDatabase, use_cache: bool = True):
+  """
+  Получает или создает статус магазина с опциональным кешированием.
+  
+  Args:
+    db: Подключение к БД
+    use_cache: Использовать ли кеш (по умолчанию True)
+  """
+  global _cache, _cache_expires_at
+  
+  # Проверяем кеш, если он включен
+  if use_cache and _cache is not None and _cache_expires_at is not None:
+    if datetime.utcnow() < _cache_expires_at:
+      return _cache.copy()
+  
   try:
     doc = await db.store_status.find_one({})
     if not doc:
@@ -53,6 +73,10 @@ async def get_or_create_store_status(db: AsyncIOMotorDatabase):
       }
       result = await db.store_status.insert_one(status_doc)
       status_doc["_id"] = result.inserted_id
+      # Обновляем кеш
+      if use_cache:
+        _cache = status_doc.copy()
+        _cache_expires_at = datetime.utcnow() + timedelta(seconds=_cache_ttl_seconds)
       return status_doc
     if "payment_link" not in doc:
       await db.store_status.update_one(
@@ -60,12 +84,30 @@ async def get_or_create_store_status(db: AsyncIOMotorDatabase):
         {"$set": {"payment_link": None}},
       )
       doc["payment_link"] = None
-    return await _ensure_awake_if_needed(db, doc)
+    
+    # Проверяем, нужно ли обновить статус (только если магазин в режиме сна)
+    # Это оптимизация: не проверяем каждый раз, если магазин не спит
+    if doc.get("is_sleep_mode") and doc.get("sleep_until"):
+      doc = await _ensure_awake_if_needed(db, doc)
+    
+    # Обновляем кеш
+    if use_cache:
+      _cache = doc.copy()
+      _cache_expires_at = datetime.utcnow() + timedelta(seconds=_cache_ttl_seconds)
+    
+    return doc
   except (ServerSelectionTimeoutError, ConnectionFailure) as e:
     raise HTTPException(
       status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
       detail="База данных недоступна. Убедитесь, что MongoDB запущена."
     )
+
+
+def _invalidate_cache():
+  """Инвалидирует кеш статуса магазина."""
+  global _cache, _cache_expires_at
+  _cache = None
+  _cache_expires_at = None
 
 
 @router.get("/store/status", response_model=StoreStatus)
@@ -88,7 +130,7 @@ async def toggle_store_sleep(
   db: AsyncIOMotorDatabase = Depends(get_db),
   _admin_id: int = Depends(verify_admin),
 ):
-  doc = await get_or_create_store_status(db)
+  doc = await get_or_create_store_status(db, use_cache=False)
   await db.store_status.update_one(
     {"_id": doc["_id"]},
     {
@@ -103,6 +145,7 @@ async def toggle_store_sleep(
   updated = await db.store_status.find_one({"_id": doc["_id"]})
   updated = await _ensure_awake_if_needed(db, updated)
   status_model = StoreStatus(**updated)
+  _invalidate_cache()  # Инвалидируем кеш после изменения
   await store_status_broadcaster.broadcast(_serialize_store_status(status_model))
   return status_model
 
@@ -148,7 +191,7 @@ async def update_payment_link(
   db: AsyncIOMotorDatabase = Depends(get_db),
   _admin_id: int = Depends(verify_admin),
 ):
-  doc = await get_or_create_store_status(db)
+  doc = await get_or_create_store_status(db, use_cache=False)
   payment_link = str(payload.url) if payload.url else None
   await db.store_status.update_one(
     {"_id": doc["_id"]},
@@ -162,6 +205,7 @@ async def update_payment_link(
   updated = await db.store_status.find_one({"_id": doc["_id"]})
   updated = await _ensure_awake_if_needed(db, updated)
   status_model = StoreStatus(**updated)
+  _invalidate_cache()  # Инвалидируем кеш после изменения
   await store_status_broadcaster.broadcast(_serialize_store_status(status_model))
   return status_model
 
@@ -201,6 +245,7 @@ async def _ensure_awake_if_needed(db: AsyncIOMotorDatabase, doc: dict):
         doc["sleep_message"] = None
         doc["sleep_until"] = None
         doc["updated_at"] = datetime.utcnow()
+        _invalidate_cache()  # Инвалидируем кеш после изменения
         # Рассылаем обновление клиентам
         await store_status_broadcaster.broadcast(
           _serialize_store_status(StoreStatus(**doc))

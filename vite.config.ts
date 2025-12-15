@@ -56,6 +56,14 @@ export default defineConfig(({ mode }) => ({
         // Форматируем имена чанков для лучшей совместимости
         format: 'es',
       },
+      onwarn(warning, warn) {
+        // Игнорируем предупреждения о комментариях PURE из react-helmet-async
+        if (warning.code === 'MODULE_LEVEL_DIRECTIVE' || 
+            (warning.message && warning.message.includes('PURE'))) {
+          return;
+        }
+        warn(warning);
+      },
     },
     chunkSizeWarningLimit: 1000, // Увеличиваем лимит предупреждений
     // Улучшаем совместимость модулей

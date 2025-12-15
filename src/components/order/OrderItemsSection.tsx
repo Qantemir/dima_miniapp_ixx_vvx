@@ -6,29 +6,54 @@ interface OrderItemsSectionProps {
   totalAmount: number;
 }
 
-export const OrderItemsSection = ({ items, totalAmount }: OrderItemsSectionProps) => (
-  <OrderSectionCard className="space-y-3">
-    <h3 className="font-semibold text-foreground text-sm sm:text-base">Состав заказа</h3>
-    <div className="space-y-2">
-      {items.map((item, index) => (
-        <div key={`${item.product_id}-${index}`} className="flex justify-between text-sm">
-          <div className="flex-1">
-            <p className="text-foreground">
-              {item.product_name}
-              {item.variant_name && ` (${item.variant_name})`}
-            </p>
-            <p className="text-muted-foreground">
-              {item.quantity} × {item.price} ₸
-            </p>
-          </div>
-          <span className="font-medium text-foreground">{item.quantity * item.price} ₸</span>
+export const OrderItemsSection = ({ items, totalAmount }: OrderItemsSectionProps) => {
+  const safeItems = items || [];
+  const safeTotalAmount = totalAmount || 0;
+
+  if (safeItems.length === 0) {
+    return (
+      <OrderSectionCard className="space-y-3">
+        <h3 className="font-semibold text-foreground text-sm sm:text-base">Состав заказа</h3>
+        <p className="text-muted-foreground text-sm">Товары не найдены</p>
+        <div className="pt-3 border-t border-border flex justify-between">
+          <span className="font-semibold text-foreground">Итого:</span>
+          <span className="text-xl font-bold text-foreground">{safeTotalAmount} ₸</span>
         </div>
-      ))}
-    </div>
-    <div className="pt-3 border-t border-border flex justify-between">
-      <span className="font-semibold text-foreground">Итого:</span>
-      <span className="text-xl font-bold text-foreground">{totalAmount} ₸</span>
-    </div>
-  </OrderSectionCard>
-);
+      </OrderSectionCard>
+    );
+  }
+
+  return (
+    <OrderSectionCard className="space-y-3">
+      <h3 className="font-semibold text-foreground text-sm sm:text-base">Состав заказа</h3>
+      <div className="space-y-2">
+        {safeItems.map((item, index) => {
+          const productId = item.product_id || `item-${index}`;
+          const quantity = item.quantity || 0;
+          const price = item.price || 0;
+          const productName = item.product_name || 'Неизвестный товар';
+          
+          return (
+            <div key={`${productId}-${index}`} className="flex justify-between text-sm">
+              <div className="flex-1">
+                <p className="text-foreground">
+                  {productName}
+                  {item.variant_name && ` (${item.variant_name})`}
+                </p>
+                <p className="text-muted-foreground">
+                  {quantity} × {price} ₸
+                </p>
+              </div>
+              <span className="font-medium text-foreground">{quantity * price} ₸</span>
+            </div>
+          );
+        })}
+      </div>
+      <div className="pt-3 border-t border-border flex justify-between">
+        <span className="font-semibold text-foreground">Итого:</span>
+        <span className="text-xl font-bold text-foreground">{safeTotalAmount} ₸</span>
+      </div>
+    </OrderSectionCard>
+  );
+};
 

@@ -29,14 +29,26 @@ export const OrderPage = () => {
   const [saving, setSaving] = useState(false);
 
   const loadOrder = useCallback(async () => {
-    if (!orderId) return;
+    if (!orderId) {
+      setLoading(false);
+      return;
+    }
 
     try {
+      setLoading(true);
       const data = await api.getOrder(orderId);
-      setOrder(data);
-      setNewAddress(data.delivery_address);
+      if (data && data.id) {
+        setOrder(data);
+        setNewAddress(data.delivery_address || '');
+      } else {
+        setOrder(null);
+        toast.error('Заказ не найден');
+      }
     } catch (error) {
-      toast.error('Ошибка загрузки заказа');
+      console.error('Error loading order:', error);
+      setOrder(null);
+      const errorMessage = error instanceof Error ? error.message : 'Ошибка загрузки заказа';
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -44,21 +56,26 @@ export const OrderPage = () => {
 
   const loadLastOrder = useCallback(async () => {
     try {
+      setLoading(true);
       const data = await api.getLastOrder();
-      if (data) {
+      if (data && data.id) {
         setOrder(data);
-        setNewAddress(data.delivery_address);
+        setNewAddress(data.delivery_address || '');
       } else {
+        setOrder(null);
         toast.info('У вас пока нет активных заказов');
-        navigate('/');
+        // Не перенаправляем автоматически, показываем сообщение
       }
     } catch (error) {
-      toast.error('Ошибка загрузки заказа');
-      navigate('/');
+      console.error('Error loading last order:', error);
+      setOrder(null);
+      const errorMessage = error instanceof Error ? error.message : 'Ошибка загрузки заказа';
+      toast.error(errorMessage);
+      // Не перенаправляем автоматически при ошибке
     } finally {
       setLoading(false);
     }
-  }, [navigate]);
+  }, []);
 
   useEffect(() => {
     if (orderId) {
@@ -136,12 +153,31 @@ export const OrderPage = () => {
     );
   }
 
+  // Защита от null/undefined
+  if (!order) {
+    return (
+      <>
+        <Seo title="Заказ не найден" description="Создайте заказ в каталоге Mini Shop." path="/order" jsonLd={jsonLdBase} />
+        <div className="min-h-screen bg-background flex items-center justify-center p-4">
+          <div className="text-center">
+            <Package className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+            <p className="text-muted-foreground">Заказ не найден</p>
+            <Button onClick={() => navigate('/')} className="mt-4">
+              Вернуться в каталог
+            </Button>
+          </div>
+        </div>
+      </>
+    );
+  }
+
   const canEditAddress =
     order.can_edit_address &&
     order.status === 'в обработке';
   
   // Формируем URL для получения чека через endpoint
   const receiptUrl = useMemo(() => {
+    if (!order) return null;
     if (!order.payment_receipt_file_id && !order.payment_receipt_url) {
       return null;
     }
@@ -160,27 +196,31 @@ export const OrderPage = () => {
       return `${baseUrl}/order/${orderIdForReceipt}/receipt`;
     }
     return null;
-  }, [order.payment_receipt_file_id, order.payment_receipt_url, order.id, orderId]);
-  const orderJsonLd = {
-    ...jsonLdBase,
-    orderNumber: order.id,
-    priceCurrency: "KZT",
-    price: order.total_amount,
-    acceptedOffer: order.items.map(item => ({
-      "@type": "Offer",
-      itemOffered: {
-        "@type": "Product",
-        name: item.product_name,
-      },
-      price: item.price,
+  }, [order, order.payment_receipt_file_id, order.payment_receipt_url, order.id, orderId]);
+  
+  const orderJsonLd = useMemo(() => {
+    if (!order) return jsonLdBase;
+    return {
+      ...jsonLdBase,
+      orderNumber: order.id,
       priceCurrency: "KZT",
-      eligibleQuantity: {
-        "@type": "QuantitativeValue",
-        value: item.quantity,
-      },
-    })),
-    orderStatus: order.status,
-  };
+      price: order.total_amount,
+      acceptedOffer: (order.items || []).map(item => ({
+        "@type": "Offer",
+        itemOffered: {
+          "@type": "Product",
+          name: item.product_name,
+        },
+        price: item.price,
+        priceCurrency: "KZT",
+        eligibleQuantity: {
+          "@type": "QuantitativeValue",
+          value: item.quantity,
+        },
+      })),
+      orderStatus: order.status,
+    };
+  }, [order, jsonLdBase]);
 
   return (
     <>
@@ -195,10 +235,10 @@ export const OrderPage = () => {
           <OrderHeader shortOrderId={order.id.slice(-6)} onBack={() => navigate('/')} />
 
           <div className="px-3 py-4 sm:px-4 sm:py-6 space-y-4 sm:space-y-6">
-            <OrderStatusSection status={order.status} />
+            <OrderStatusSection status={order.status || 'в обработке'} />
 
             <OrderAddressSection
-              address={order.delivery_address}
+              address={order.delivery_address || ''}
               editing={editingAddress}
               canEdit={canEditAddress}
               saving={saving}
@@ -207,16 +247,16 @@ export const OrderPage = () => {
               onSave={handleSaveAddress}
               onCancel={() => {
                 setEditingAddress(false);
-                setNewAddress(order.delivery_address);
+                setNewAddress(order.delivery_address || '');
               }}
               onEditRequest={() => setEditingAddress(true)}
             />
 
-            <OrderItemsSection items={order.items} totalAmount={order.total_amount} />
+            <OrderItemsSection items={order.items || []} totalAmount={order.total_amount || 0} />
 
             <OrderCustomerSection
-              name={order.customer_name}
-              phone={order.customer_phone}
+              name={order.customer_name || ''}
+              phone={order.customer_phone || ''}
               comment={order.comment}
             />
 
