@@ -64,7 +64,7 @@ export const AdminOrderList = ({
 
           <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
             <span className="text-sm text-muted-foreground">
-              {order.items.length} товаров
+              {(order.items || []).length} товаров
             </span>
             <span className="font-bold text-foreground">{order.total_amount} ₸</span>
           </div>

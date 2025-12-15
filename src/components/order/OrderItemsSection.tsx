@@ -7,7 +7,9 @@ interface OrderItemsSectionProps {
 }
 
 export const OrderItemsSection = ({ items, totalAmount }: OrderItemsSectionProps) => {
-  const safeItems = items || [];
+  const safeItems = (items || []).filter(
+    item => item && item.product_id && item.product_name && typeof item.quantity === 'number' && typeof item.price === 'number'
+  );
   const safeTotalAmount = totalAmount || 0;
 
   if (safeItems.length === 0) {

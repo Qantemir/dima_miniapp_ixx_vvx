@@ -153,24 +153,6 @@ export const OrderPage = () => {
     );
   }
 
-  // Защита от null/undefined
-  if (!order) {
-    return (
-      <>
-        <Seo title="Заказ не найден" description="Создайте заказ в каталоге Mini Shop." path="/order" jsonLd={jsonLdBase} />
-        <div className="min-h-screen bg-background flex items-center justify-center p-4">
-          <div className="text-center">
-            <Package className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-            <p className="text-muted-foreground">Заказ не найден</p>
-            <Button onClick={() => navigate('/')} className="mt-4">
-              Вернуться в каталог
-            </Button>
-          </div>
-        </div>
-      </>
-    );
-  }
-
   const canEditAddress =
     order.can_edit_address &&
     order.status === 'в обработке';
@@ -200,22 +182,26 @@ export const OrderPage = () => {
   
   const orderJsonLd = useMemo(() => {
     if (!order) return jsonLdBase;
+    // Фильтруем null/undefined элементы и элементы без обязательных полей
+    const validItems = (order.items || []).filter(
+      item => item && item.product_name && typeof item.price === 'number' && typeof item.quantity === 'number'
+    );
     return {
       ...jsonLdBase,
       orderNumber: order.id,
       priceCurrency: "KZT",
       price: order.total_amount,
-      acceptedOffer: (order.items || []).map(item => ({
+      acceptedOffer: validItems.map(item => ({
         "@type": "Offer",
         itemOffered: {
           "@type": "Product",
-          name: item.product_name,
+          name: item.product_name || 'Товар',
         },
-        price: item.price,
+        price: item.price || 0,
         priceCurrency: "KZT",
         eligibleQuantity: {
           "@type": "QuantitativeValue",
-          value: item.quantity,
+          value: item.quantity || 0,
         },
       })),
       orderStatus: order.status,
