@@ -207,7 +207,8 @@ async def create_order(
       customer_phone=phone,
       delivery_address=address,
       total_amount=cart.total_amount,
-      items_count=len(cart.items),
+      items=[item.dict() for item in cart.items],
+      user_id=user_id,
       receipt_file_id=receipt_file_id,
       db=db,
     )

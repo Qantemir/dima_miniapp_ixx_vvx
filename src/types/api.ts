@@ -96,6 +96,7 @@ export interface Order {
   updated_at?: string;
   deleted_at?: string;
   can_edit_address: boolean;
+  payment_receipt_file_id?: string;
   payment_receipt_url?: string;
   payment_receipt_filename?: string;
 }

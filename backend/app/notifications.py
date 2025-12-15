@@ -37,7 +37,8 @@ async def notify_admins_new_order(
     customer_phone: str,
     delivery_address: str,
     total_amount: float,
-    items_count: int,
+    items: list,
+    user_id: int,
     receipt_file_id: str,
     db: AsyncIOMotorDatabase,
 ) -> None:
@@ -50,7 +51,8 @@ async def notify_admins_new_order(
         customer_phone: Телефон клиента
         delivery_address: Адрес доставки
         total_amount: Общая сумма заказа
-        items_count: Количество товаров в заказе
+        items: Список товаров в заказе
+        user_id: Telegram ID клиента
         receipt_file_id: ID файла чека в GridFS
         db: База данных для доступа к GridFS
     """
@@ -65,6 +67,44 @@ async def notify_admins_new_order(
     if not settings.admin_ids:
         logger.warning("ADMIN_IDS не настроен. Уведомления не будут отправлены.")
         return
+    
+    # Получаем информацию о товарах с вкусами из базы данных
+    items_details = []
+    for item in items:
+        product_id = item.get("product_id")
+        variant_id = item.get("variant_id")
+        quantity = item.get("quantity", 1)
+        product_name = item.get("product_name", "Товар")
+        variant_name = item.get("variant_name")
+        
+        # Если variant_name не сохранен в заказе, получаем его из базы данных
+        if not variant_name and variant_id and product_id:
+            try:
+                from .utils import as_object_id
+                product_oid = as_object_id(product_id)
+                product = await db.products.find_one({"_id": product_oid}, {"variants": 1, "name": 1})
+                if product:
+                    variants = product.get("variants", [])
+                    variant = next((v for v in variants if v.get("id") == variant_id), None)
+                    if variant:
+                        variant_name = variant.get("name", "")
+                    # Обновляем product_name если его нет
+                    if not product_name:
+                        product_name = product.get("name", "Товар")
+            except Exception as e:
+                logger.warning(f"Не удалось получить информацию о товаре {product_id}: {e}")
+        
+        items_details.append({
+            "product_name": product_name,
+            "variant_name": variant_name or "",
+            "quantity": quantity
+        })
+    
+    # Формируем раскрытый список товаров
+    items_text = "📦 *Товары:*\n"
+    for idx, item_detail in enumerate(items_details, 1):
+        variant_info = f" ({item_detail['variant_name']})" if item_detail['variant_name'] else ""
+        items_text += f"{idx}. {item_detail['product_name']}{variant_info} × {item_detail['quantity']}\n"
     
     # Формируем ссылку на 2ГИС для адреса
     from urllib.parse import quote
@@ -89,8 +129,8 @@ async def notify_admins_new_order(
         f"👤 Клиент: {customer_name}\n"
         f"📞 Телефон: {customer_phone}\n"
         f"📍 Адрес: {address_link}\n"
-        f"💰 Сумма: {format_amount(total_amount)} ₸\n"
-        f"📦 Товаров: {items_count}"
+        f"💰 Сумма: {format_amount(total_amount)} ₸\n\n"
+        f"{items_text}"
     )
     
     # Получаем файл чека из GridFS
@@ -131,7 +171,8 @@ async def notify_admins_new_order(
                     receipt_data,
                     receipt_filename,
                     receipt_content_type,
-                    order_id
+                    order_id,
+                    user_id
                 )
             )
         
@@ -157,6 +198,7 @@ async def _send_notification_with_receipt(
     receipt_filename: str | None,
     receipt_content_type: str | None,
     order_id: str,
+    user_id: int,
 ) -> bool:
     """
     Отправляет уведомление администратору с фото чека.
@@ -166,6 +208,9 @@ async def _send_notification_with_receipt(
     """
     try:
         file_sent = False
+        # Создаем ссылку на чат с клиентом
+        chat_link = f"tg://user?id={user_id}"
+        
         # Сначала отправляем фото/документ чека, если он есть
         if receipt_data and receipt_filename:
             # Определяем тип файла по расширению или content_type
@@ -193,9 +238,15 @@ async def _send_notification_with_receipt(
             # Используем данные из GridFS
             file_data = receipt_data
             
-            # Создаем inline-кнопки для изменения статуса заказа
+            # Создаем inline-кнопки для изменения статуса заказа и перехода в чат
             keyboard = {
                 "inline_keyboard": [
+                    [
+                        {
+                            "text": "💬 Чат с клиентом",
+                            "url": chat_link
+                        }
+                    ],
                     [
                         {
                             "text": "✅ Принят",
@@ -257,9 +308,18 @@ async def _send_notification_with_receipt(
         
         # Отправляем текстовое сообщение (если файл не отправился или его нет)
         if not file_sent:
-            # Создаем inline-кнопки для изменения статуса заказа
+            # Создаем ссылку на чат с клиентом
+            chat_link = f"tg://user?id={user_id}"
+            
+            # Создаем inline-кнопки для изменения статуса заказа и перехода в чат
             keyboard = {
                 "inline_keyboard": [
+                    [
+                        {
+                            "text": "💬 Чат с клиентом",
+                            "url": chat_link
+                        }
+                    ],
                     [
                         {
                             "text": "✅ Принят",

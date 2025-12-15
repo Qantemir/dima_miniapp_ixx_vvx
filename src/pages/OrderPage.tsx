@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Package } from '@/components/icons';
 import { Button } from '@/components/ui/button';
@@ -7,6 +7,7 @@ import { buildApiAssetUrl } from '@/lib/utils';
 import { hideMainButton, showBackButton, hideBackButton } from '@/lib/telegram';
 import { toast } from '@/lib/toast';
 import type { Order } from '@/types/api';
+import { API_BASE_URL } from '@/types/api';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Seo } from '@/components/Seo';
 import { buildCanonicalUrl } from '@/lib/seo';
@@ -138,7 +139,28 @@ export const OrderPage = () => {
   const canEditAddress =
     order.can_edit_address &&
     order.status === 'в обработке';
-  const receiptUrl = order.payment_receipt_url ? buildApiAssetUrl(order.payment_receipt_url) : null;
+  
+  // Формируем URL для получения чека через endpoint
+  const receiptUrl = useMemo(() => {
+    if (!order.payment_receipt_file_id && !order.payment_receipt_url) {
+      return null;
+    }
+    // Если есть payment_receipt_url (старый формат), используем его
+    if (order.payment_receipt_url) {
+      return buildApiAssetUrl(order.payment_receipt_url);
+    }
+    // Если есть payment_receipt_file_id, формируем URL через endpoint
+    if (order.payment_receipt_file_id) {
+      const orderIdForReceipt = orderId || order.id;
+      let baseUrl = API_BASE_URL;
+      if (baseUrl.startsWith('http://') || baseUrl.startsWith('https://')) {
+        baseUrl = baseUrl.replace(/\/app\/api/, '/api');
+        return `${baseUrl}/order/${orderIdForReceipt}/receipt`;
+      }
+      return `${baseUrl}/order/${orderIdForReceipt}/receipt`;
+    }
+    return null;
+  }, [order.payment_receipt_file_id, order.payment_receipt_url, order.id, orderId]);
   const orderJsonLd = {
     ...jsonLdBase,
     orderNumber: order.id,

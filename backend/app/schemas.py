@@ -135,6 +135,7 @@ class OrderItem(BaseModel):
     price: float
     image: Optional[str] = None  # Изображение товара
     variant_id: Optional[str] = None  # ID вариации (вкуса)
+    variant_name: Optional[str] = None  # Название вариации (вкуса)
 
 
 class Order(BaseModel):
