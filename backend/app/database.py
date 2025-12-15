@@ -36,7 +36,6 @@ async def connect_to_mongo():
       # Для MongoDB Atlas явно включаем SSL
       if use_ssl:
         client_config["ssl"] = True
-        client_config["ssl_cert_reqs"] = None  # Используем настройки по умолчанию для Atlas
       
       client = AsyncIOMotorClient(settings.mongo_uri, **client_config)
       db = client[settings.mongo_db]
@@ -63,7 +62,6 @@ async def connect_to_mongo():
       }
       if use_ssl:
         client_config["ssl"] = True
-        client_config["ssl_cert_reqs"] = None
       client = AsyncIOMotorClient(settings.mongo_uri, **client_config)
       db = client[settings.mongo_db]
       await ensure_indexes(db)
