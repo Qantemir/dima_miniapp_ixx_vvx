@@ -205,7 +205,6 @@ async def startup():
   asyncio.create_task(cleanup_deleted_orders())
   
   # Настраиваем webhook для Telegram Bot API (если указан публичный URL)
-  import logging
   import os
   logger = logging.getLogger(__name__)
   
