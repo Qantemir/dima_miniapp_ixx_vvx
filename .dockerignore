@@ -57,6 +57,7 @@ Thumbs.db
 
 # Docker
 docker-compose.yml
+docker-compose.prod.yml
 Dockerfile
 .dockerignore
 
@@ -68,3 +69,12 @@ Dockerfile
 uploads/
 backend/uploads/
 
+# Build artifacts
+dist/
+*.tsbuildinfo
+
+# Test files
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx

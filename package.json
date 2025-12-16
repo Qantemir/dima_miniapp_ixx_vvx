@@ -22,7 +22,13 @@
     "docker:mongo-express": "docker-compose --profile tools up -d mongo-express",
     "docker:redis:start": "docker-compose up -d redis",
     "docker:redis:stop": "docker-compose stop redis",
-    "docker:redis:logs": "docker-compose logs -f redis"
+    "docker:redis:logs": "docker-compose logs -f redis",
+    "docker:prod:build": "docker-compose -f docker-compose.prod.yml build",
+    "docker:prod:up": "docker-compose -f docker-compose.prod.yml up -d",
+    "docker:prod:down": "docker-compose -f docker-compose.prod.yml down",
+    "docker:prod:logs": "docker-compose -f docker-compose.prod.yml logs -f",
+    "docker:prod:restart": "docker-compose -f docker-compose.prod.yml restart",
+    "docker:prod:deploy": "./docker-deploy.sh"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.9",
