@@ -7,7 +7,9 @@ cmds = [
   ".venv/bin/pip install --upgrade pip",
   ".venv/bin/pip install -r backend/requirements.txt",
   "npm ci",
-  "npm run build"
+  "npm run build",
+  "ls -la dist/ || echo 'WARNING: dist directory not found after build'",
+  "ls -la dist/assets/ || echo 'WARNING: dist/assets directory not found'"
 ]
 
 [phases.build]
