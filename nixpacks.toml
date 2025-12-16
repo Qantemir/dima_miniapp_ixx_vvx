@@ -3,7 +3,9 @@ nixPkgs = ["python312", "nodejs-20_x"]
 
 [phases.install]
 cmds = [
-  "cd backend && pip install --upgrade pip && pip install -r requirements.txt",
+  "python3.12 -m venv .venv",
+  ".venv/bin/pip install --upgrade pip",
+  ".venv/bin/pip install -r backend/requirements.txt",
   "npm ci",
   "npm run build"
 ]
@@ -12,7 +14,7 @@ cmds = [
 cmds = []
 
 [start]
-cmd = "cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+cmd = "cd backend && ../.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"
 
 [variables]
 PYTHON_VERSION = "3.12"
