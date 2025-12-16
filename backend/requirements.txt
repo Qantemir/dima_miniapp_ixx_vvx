@@ -7,7 +7,6 @@ python-dotenv==1.0.1
 httpx==0.27.0
 redis==5.0.1
 hiredis==2.3.2
-# orjson - быстрая JSON сериализация (опционально, fallback на ujson)
-# Если не установится из-за Python 3.13, используется ujson из FastAPI
-orjson>=3.10.6; python_version<"3.13"
+# orjson удален - используем ujson (уже в зависимостях FastAPI)
+# Код автоматически использует ujson если orjson недоступен (см. catalog.py)
 
