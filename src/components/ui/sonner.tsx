@@ -1,30 +1,5 @@
-import { Toaster as Sonner, toast } from "sonner";
+// Fallback пустой Toaster, чтобы не тянуть sonner и не падать в рантайме.
+// Если понадобится визуальный тост — можно вернуть sonner обратно.
+const Toaster = () => null;
 
-type ToasterProps = React.ComponentProps<typeof Sonner>;
-
-const resolveTheme = (): ToasterProps["theme"] => {
-  if (typeof document === "undefined") return "system";
-  return document.documentElement.classList.contains("dark") ? "dark" : "light";
-};
-
-const Toaster = ({ ...props }: ToasterProps) => {
-  const theme = resolveTheme();
-  return (
-    <Sonner
-      theme={theme}
-      className="toaster group"
-      toastOptions={{
-        classNames: {
-          toast:
-            "group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg",
-          description: "group-[.toast]:text-muted-foreground",
-          actionButton: "group-[.toast]:bg-primary group-[.toast]:text-primary-foreground",
-          cancelButton: "group-[.toast]:bg-muted group-[.toast]:text-muted-foreground",
-        },
-      }}
-      {...props}
-    />
-  );
-};
-
-export { Toaster, toast };
+export { Toaster };
