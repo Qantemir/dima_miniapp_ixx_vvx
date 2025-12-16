@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShoppingCart, CheckCircle2, Package, HelpCircle, ShieldCheck, ClipboardList } from '@/components/icons';
 import { Button } from '@/components/ui/button';
-import { ProductCard } from '@/components/ProductCard';
+import { MemoizedProductCard as ProductCard } from '@/components/ProductCard';
 import { CartDialog } from '@/components/CartDialog';
 import { api } from '@/lib/api';
 import { getUserId, isAdmin } from '@/lib/telegram';
@@ -83,7 +83,8 @@ export const CatalogPage = () => {
 
   const [addingToCart, setAddingToCart] = useState<string | null>(null);
 
-  const handleAddToCart = async (
+  // Мемоизация обработчика для предотвращения лишних ререндеров
+  const handleAddToCart = useCallback(async (
     productId: string,
     variantId: string | undefined,
     quantity: number
@@ -125,13 +126,15 @@ export const CatalogPage = () => {
     } finally {
       setAddingToCart(null);
     }
-  };
+  }, [storeStatus?.is_sleep_mode, storeStatus?.sleep_message, queryClient, addingToCart]);
 
   const handleHelp = () => setHelpDialogOpen(true);
 
-  const filteredProducts = selectedCategory
-    ? catalogProducts.filter(p => p.category_id === selectedCategory)
-    : catalogProducts;
+  // Мемоизация фильтрации продуктов для предотвращения лишних вычислений
+  const filteredProducts = useMemo(() => {
+    if (!selectedCategory) return catalogProducts;
+    return catalogProducts.filter(p => p.category_id === selectedCategory);
+  }, [catalogProducts, selectedCategory]);
 
   if (catalogLoading || !catalog) {
     return (

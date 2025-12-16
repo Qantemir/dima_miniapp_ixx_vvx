@@ -47,10 +47,11 @@ export const AdminOrdersPage = () => {
     },
     getNextPageParam: lastPage => lastPage.next_cursor ?? undefined,
     enabled: isAuthorized,
-    staleTime: 15_000,
+    staleTime: 30_000, // 30 секунд (увеличено с 15)
     gcTime: 5 * 60 * 1000,
-    refetchInterval: 15_000,
-    refetchIntervalInBackground: true,
+    // Уменьшена частота автообновления с 15 до 30 секунд для снижения нагрузки
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false, // Не обновлять в фоне (экономит ресурсы)
     initialPageParam: undefined,
   });
 

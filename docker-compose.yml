@@ -1,0 +1,82 @@
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: miniapp_mongodb
+    restart: unless-stopped
+    ports:
+      - "27018:27017"  # Внешний порт 27018, внутренний 27017
+    environment:
+      MONGO_INITDB_DATABASE: miniapp
+      # Опционально: можно добавить авторизацию
+      # MONGO_INITDB_ROOT_USERNAME: admin
+      # MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-changeme}
+    volumes:
+      # Named volume для персистентного хранения данных
+      - mongodb_data:/data/db
+      # Named volume для конфигурации
+      - mongodb_config:/data/configdb
+    networks:
+      - miniapp_network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    command: mongod --wiredTigerCacheSizeGB 1
+
+  redis:
+    image: redis:7-alpine
+    container_name: miniapp_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - miniapp_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+
+  # Опционально: MongoDB Express для визуального управления БД
+  mongo-express:
+    image: mongo-express:1.0.2
+    container_name: miniapp_mongo_express
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      ME_CONFIG_MONGODB_URL: mongodb://mongodb:27017/
+      ME_CONFIG_BASICAUTH_USERNAME: admin
+      ME_CONFIG_BASICAUTH_PASSWORD: ${MONGO_EXPRESS_PASSWORD:-admin}
+      ME_CONFIG_MONGODB_SERVER: mongodb
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - miniapp_network
+    profiles:
+      - tools  # Запускается только с флагом --profile tools
+
+volumes:
+  # Named volumes - данные сохраняются даже при удалении контейнера
+  mongodb_data:
+    driver: local
+    name: miniapp_mongodb_data
+  mongodb_config:
+    driver: local
+    name: miniapp_mongodb_config
+  redis_data:
+    driver: local
+    name: miniapp_redis_data
+
+networks:
+  miniapp_network:
+    driver: bridge
+    name: miniapp_network
+

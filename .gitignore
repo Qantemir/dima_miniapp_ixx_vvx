@@ -31,3 +31,7 @@ backend/.venv/
 .yarn/install-state.gz
 .yarn/install-state.gz
 .yarnrc.yml
+
+# Docker
+backups/
+*.archive

@@ -11,6 +11,7 @@ import { CreditCard, ExternalLink } from '@/components/icons';
 import { useAdminGuard } from '@/hooks/useAdminGuard';
 import { api } from '@/lib/api';
 import { toast } from '@/lib/toast';
+import { queryKeys } from '@/lib/react-query';
 
 export const AdminPaymentPage = () => {
   const queryClient = useQueryClient();
@@ -22,10 +23,10 @@ export const AdminPaymentPage = () => {
     data: status,
     isLoading,
   } = useQuery({
-    queryKey: ['store-status'],
+    queryKey: queryKeys.storeStatus,
     queryFn: () => api.getStoreStatus(),
-    staleTime: 10_000,
-    gcTime: 5 * 60 * 1000,
+    staleTime: 60 * 1000, // 1 минута (увеличено с 10 секунд)
+    gcTime: 10 * 60 * 1000, // 10 минут кэш
     enabled: isAuthorized,
   });
 
@@ -42,7 +43,7 @@ export const AdminPaymentPage = () => {
     setSaving(true);
     try {
       await api.setPaymentLink({ url: normalizedLink ? normalizedLink : null });
-      await queryClient.invalidateQueries({ queryKey: ['store-status'] });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.storeStatus });
       toast.success(normalizedLink ? 'Ссылка для оплаты сохранена' : 'Ссылка отключена');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Не удалось сохранить ссылку';

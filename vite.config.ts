@@ -40,14 +40,30 @@ export default defineConfig(({ mode }) => ({
     minify: 'esbuild', // Быстрый минификатор
     cssCodeSplit: true, // Разделение CSS
     sourcemap: false, // Отключаем sourcemaps в production для скорости
+    chunkSizeWarningLimit: 1000, // Увеличиваем лимит предупреждений
     rollupOptions: {
       output: {
-        manualChunks: {
+        manualChunks: (id) => {
           // Разделяем большие библиотеки на отдельные чанки
-          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          'vendor-ui': ['@radix-ui/react-dialog'],
-          'vendor-query': ['@tanstack/react-query'],
-          'vendor-animations': ['framer-motion'],
+          if (id.includes('node_modules')) {
+            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
+              return 'vendor-react';
+            }
+            if (id.includes('@radix-ui')) {
+              return 'vendor-ui';
+            }
+            if (id.includes('@tanstack/react-query')) {
+              return 'vendor-query';
+            }
+            if (id.includes('framer-motion')) {
+              return 'vendor-animations';
+            }
+            if (id.includes('lucide-react')) {
+              return 'vendor-icons';
+            }
+            // Остальные node_modules
+            return 'vendor';
+          }
         },
         // Используем абсолютные пути для чанков в продакшене
         chunkFileNames: 'assets/[name]-[hash].js',
@@ -65,7 +81,6 @@ export default defineConfig(({ mode }) => ({
         warn(warning);
       },
     },
-    chunkSizeWarningLimit: 1000, // Увеличиваем лимит предупреждений
     // Улучшаем совместимость модулей
     commonjsOptions: {
       include: [/node_modules/],

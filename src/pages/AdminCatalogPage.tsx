@@ -45,11 +45,10 @@ export const AdminCatalogPage = () => {
     queryKey: ['admin-catalog'],
     queryFn: () => api.getAdminCatalog(),
     enabled: isAuthorized,
-    staleTime: 0,
-    gcTime: 60 * 1000,
-    refetchOnMount: 'always',
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
+    staleTime: 2 * 60 * 1000, // 2 минуты (вместо 0)
+    gcTime: 10 * 60 * 1000, // 10 минут кэш
+    // Используем настройки по умолчанию (refetchOnMount: false, refetchOnWindowFocus: false)
+    // Данные обновятся при необходимости через инвалидацию после мутаций
   });
 
   const openCategoryDialog = (category?: Category) => {

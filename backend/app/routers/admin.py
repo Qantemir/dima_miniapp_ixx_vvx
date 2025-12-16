@@ -60,9 +60,11 @@ async def list_orders(
       except ValueError:
         raise HTTPException(status_code=400, detail="Некорректный cursor")
 
+    # Используем индекс для быстрой сортировки
     docs = await (
       db.orders.find(query)
       .sort("_id", -1)
+      .hint([("status", 1), ("created_at", -1)])  # Используем составной индекс
       .limit(limit + 1)
       .to_list(length=limit + 1)
     )

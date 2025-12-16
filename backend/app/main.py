@@ -6,6 +6,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import settings
 from .database import close_mongo_connection, connect_to_mongo
+from .cache import close_redis, get_redis
 from .utils import permanently_delete_order_entry
 from .routers import admin, bot_webhook, cart, catalog, orders, store
 
@@ -82,8 +83,14 @@ class SafeGZipMiddleware(BaseHTTPMiddleware):
         return new_response
 
 
-# Добавляем безопасный GZip middleware
-app.add_middleware(SafeGZipMiddleware, minimum_size=1000)
+# Добавляем безопасный GZip middleware (уменьшен threshold для лучшей компрессии)
+app.add_middleware(SafeGZipMiddleware, minimum_size=500)
+
+# Добавляем Rate Limiting (только в продакшене или по настройке)
+from .config import settings
+if settings.environment == "production":
+    from .middleware.rate_limit import RateLimitMiddleware
+    app.add_middleware(RateLimitMiddleware, default_limit=100, window=60)
 
 app.add_middleware(
   CORSMiddleware,
@@ -138,8 +145,22 @@ if dist_dir.exists():
 
 
 @app.middleware("http")
-async def apply_security_headers(request, call_next):
+async def apply_security_and_cache_headers(request, call_next):
   response = await call_next(request)
+  
+  # Cache-Control headers для оптимизации
+  path = request.url.path
+  if path.startswith("/api/catalog"):
+    # Каталог кэшируется на 5 минут
+    response.headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=60"
+    response.headers["Vary"] = "Accept-Encoding"
+  elif path.startswith("/api/store/status"):
+    # Статус магазина кэшируется на 30 секунд
+    response.headers["Cache-Control"] = "public, max-age=30, stale-while-revalidate=10"
+  elif path.startswith("/assets/") or path.endswith((".js", ".css", ".png", ".jpg", ".svg", ".woff2")):
+    # Статические файлы кэшируются на 1 год
+    response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+  
   # Убрали Permissions-Policy заголовок, чтобы избежать ошибок с browsing-topics
   # response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
   return response
@@ -199,6 +220,9 @@ async def startup():
   
   # Подключаемся к MongoDB при старте для быстрого первого запроса
   await connect_to_mongo()
+  
+  # Подключаемся к Redis при старте
+  await get_redis()
   
   # Запускаем фоновую задачу для очистки удаленных заказов
   import asyncio
@@ -282,6 +306,12 @@ async def shutdown():
     logger.info("MongoDB соединение закрыто")
   except Exception as e:
     logger.warning(f"Ошибка при закрытии соединения с MongoDB: {e}")
+  
+  try:
+    await close_redis()
+    logger.info("Redis соединение закрыто")
+  except Exception as e:
+    logger.warning(f"Ошибка при закрытии соединения с Redis: {e}")
 
 
 app.include_router(catalog.router, prefix=settings.api_prefix)

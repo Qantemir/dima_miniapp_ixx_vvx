@@ -1,6 +1,8 @@
 import { useEffect } from "react";
 import { Toaster as Sonner } from "@/components/ui/sonner";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider, useQueryClient } from "@tanstack/react-query";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+import { queryClient, queryKeys } from "@/lib/react-query";
 import {
   Navigate,
   Outlet,
@@ -12,13 +14,17 @@ import {
 import { lazy, Suspense, type ReactNode } from "react";
 import { CatalogPage } from "./pages/CatalogPage"; // Главная страница - загружаем сразу
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { api } from "./lib/api"; // Статический импорт для prefetch
 
 // Безопасная обертка для lazy loading с обработкой ошибок
-const createLazyComponent = (importFn: () => Promise<any>, componentName: string) => {
+const createLazyComponent = <T extends React.ComponentType<Record<string, unknown>>>(
+  importFn: () => Promise<{ [key: string]: T } | { default: T }>,
+  componentName: string
+) => {
   return lazy(async () => {
     try {
       const module = await importFn();
-      const component = module[componentName] || module.default;
+      const component = (module as { [key: string]: T })[componentName] || (module as { default: T }).default;
       if (!component) {
         throw new Error(`Component ${componentName} not found in module`);
       }
@@ -47,20 +53,6 @@ import NotFound from "./pages/NotFound";
 import { AdminViewProvider, useAdminView } from "./contexts/AdminViewContext";
 import { StoreStatusProvider } from "./contexts/StoreStatusContext";
 import { StoreSleepOverlay } from "./components/StoreSleepOverlay";
-
-// Оптимизированный QueryClient для быстрой работы
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 30 * 1000, // 30 секунд - данные считаются свежими
-      cacheTime: 5 * 60 * 1000, // 5 минут кэш
-      refetchOnWindowFocus: false, // Не перезапрашивать при фокусе
-      refetchOnReconnect: true, // Перезапрашивать при переподключении
-      retry: 1, // Только 1 попытка повтора
-      retryDelay: 1000, // Задержка 1 секунда
-    },
-  },
-});
 
 const RootRoute = () => {
   const { forceClientView } = useAdminView();
@@ -216,9 +208,29 @@ const router = createBrowserRouter(
 );
 
 const AppRouter = () => {
+  const queryClient = useQueryClient();
+  
   useEffect(() => {
     initTelegram();
-  }, []);
+    
+    // Prefetch критичных данных при старте приложения
+    const prefetchCriticalData = async () => {
+      try {
+        // Предзагружаем каталог для быстрого отображения
+        // Используем прямой импорт вместо динамического, т.к. api уже в основном bundle
+        await queryClient.prefetchQuery({
+          queryKey: queryKeys.catalog,
+          queryFn: () => api.getCatalog(),
+          staleTime: 5 * 60 * 1000,
+        });
+      } catch (error) {
+        // Игнорируем ошибки prefetch - это не критично
+        console.debug('Prefetch error:', error);
+      }
+    };
+    
+    prefetchCriticalData();
+  }, [queryClient]);
 
   return <RouterProvider router={router} future={{ v7_startTransition: true }} />;
 };
@@ -230,6 +242,7 @@ const App = () => (
         <Sonner />
         <AppRouter />
       </AdminViewProvider>
+      <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>
   </ErrorBoundary>
 );

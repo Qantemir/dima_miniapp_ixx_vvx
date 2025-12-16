@@ -64,7 +64,7 @@ This project is built with:
 
 Both the React frontend and FastAPI backend read variables from a **single** `.env` file located in the project root.
 
-1. Copy `env.example` → `.env`
+1. Copy `.env.example` → `.env`
 2. Adjust the values:
 
 | Variable | Used by | Description |
@@ -83,23 +83,41 @@ Both the React frontend and FastAPI backend read variables from a **single** `.e
 
 ### Running locally
 
+#### 1. Запуск MongoDB через Docker
+
 ```bash
-# 1. Backend
+# Запустить MongoDB в фоне
+docker-compose up -d mongodb
+
+# Проверить статус
+docker-compose ps
+```
+
+Подробнее о работе с Docker см. [DOCKER.md](./DOCKER.md)
+
+#### 2. Backend
+
+```bash
 cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
+```
 
-# 2. Frontend (new terminal)
+#### 3. Frontend (новый терминал)
+
+```bash
 yarn install # или npm install
 yarn dev     # или npm run dev
 ```
 
-Или одним процессом (после первого `pip install` и `yarn install`):
+#### Или одним процессом (после первого `pip install` и `yarn install`):
 
 ```bash
 yarn dev:full
 ```
+
+> **Важно:** Убедитесь, что MongoDB запущен через Docker перед запуском backend!
 
 Команда `dev:full` автоматически активирует виртуальное окружение backend’а (`backend/.venv`) и параллельно запускает Vite. Если используешь zsh/bash, всё заработает сразу. На Windows PowerShell вместо `source .venv/bin/activate` укажи `.venv\\Scripts\\activate`.
 

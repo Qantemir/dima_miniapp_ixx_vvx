@@ -12,6 +12,7 @@ ENV_PATH = ROOT_DIR / ".env"
 class Settings(BaseSettings):
   mongo_uri: str = Field("mongodb://localhost:27017", env="MONGO_URI")
   mongo_db: str = Field("miniapp", env="MONGO_DB")
+  redis_url: str = Field("redis://localhost:6379/0", env="REDIS_URL")
   api_prefix: str = "/api"
   admin_ids: List[int] = Field(default_factory=list, env="ADMIN_IDS")
   telegram_bot_token: str | None = Field(None, env="TELEGRAM_BOT_TOKEN")
