@@ -18,5 +18,8 @@ cmds = []
 [start]
 cmd = "cd backend && PYTHONPATH=/app/backend:$PYTHONPATH ../.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"
 
+# Alternative: use Procfile
+# Railway will use Procfile if it exists, otherwise use [start] cmd
+
 [variables]
 PYTHON_VERSION = "3.12"
