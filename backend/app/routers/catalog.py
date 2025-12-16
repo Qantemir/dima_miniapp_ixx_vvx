@@ -72,20 +72,25 @@ async def _load_catalog_from_db(db: AsyncIOMotorDatabase, only_available: bool =
   # Фильтруем только доступные товары для публичного каталога (оптимизация)
   # Используем индекс для быстрой фильтрации
   products_filter = {"available": True} if only_available else {}
-  products_task = db.products.find(
-    products_filter,
-    {
-      "name": 1,
-      "description": 1,
-      "price": 1,
-      "image": 1,
-      "images": 1,
-      "category_id": 1,
-      "available": 1,
-      "variants": 1,
-      "_id": 1,  # Явно включаем _id для консистентности
-    },
-  ).hint([("category_id", 1), ("available", 1)])  # Используем составной индекс
+  products_task = (
+    db.products.find(
+      products_filter,
+      {
+        "name": 1,
+        "description": 1,
+        "price": 1,
+        "image": 1,
+        "images": 1,
+        "category_id": 1,
+        "available": 1,
+        "variants": 1,
+        "_id": 1,  # Явно включаем _id для консистентности
+      },
+    )
+    # Используем составной индекс и сразу выгружаем в список, чтобы не передавать курсор в gather
+    .hint([("category_id", 1), ("available", 1)])
+    .to_list(length=None)
+  )
   
   # Выполняем запросы параллельно
   categories_docs, products_docs = await asyncio.gather(categories_task, products_task)
