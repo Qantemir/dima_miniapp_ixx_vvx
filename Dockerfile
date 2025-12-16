@@ -9,6 +9,14 @@ WORKDIR /app
 COPY package*.json ./
 COPY yarn.lock* ./
 
+# Прокидываем Vite-переменные окружения в стадию сборки
+ARG VITE_API_URL
+ARG VITE_PUBLIC_URL
+ARG VITE_ADMIN_IDS
+ENV VITE_API_URL=${VITE_API_URL}
+ENV VITE_PUBLIC_URL=${VITE_PUBLIC_URL}
+ENV VITE_ADMIN_IDS=${VITE_ADMIN_IDS}
+
 # Устанавливаем зависимости
 RUN npm ci
 
