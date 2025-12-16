@@ -46,25 +46,10 @@ async def connect_to_mongo():
     except Exception as e:
       logger.error(f"Failed to connect to MongoDB: {e}")
       logger.error("Server will start but database operations will fail. Please start MongoDB.")
-      # Создаем клиент даже если подключение не удалось, чтобы не падать при каждом запросе
-      use_ssl = "mongodb.net" in settings.mongo_uri or "ssl=true" in settings.mongo_uri.lower()
-      client_config = {
-        "serverSelectionTimeoutMS": 30000,
-        "maxPoolSize": 50,
-        "minPoolSize": 10,
-        "maxIdleTimeMS": 45000,
-        "connectTimeoutMS": 20000,
-        "socketTimeoutMS": 60000,
-        "retryWrites": True,
-        "retryReads": True,
-        "heartbeatFrequencyMS": 10000,
-        "waitQueueTimeoutMS": 30000,
-      }
-      if use_ssl:
-        client_config["ssl"] = True
-      client = AsyncIOMotorClient(settings.mongo_uri, **client_config)
-      db = client[settings.mongo_db]
-      await ensure_indexes(db)
+      # Не пытаемся продолжать инициализацию, оставляем db=None, чтобы приложение могло подняться
+      client = None
+      db = None
+      return
 
 
 async def ensure_db_connection():
