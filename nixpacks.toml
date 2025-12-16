@@ -1,14 +1,18 @@
 [phases.setup]
-aptPkgs = ["python3-venv", "python3-pip"]
+nixPkgs = ["python312", "nodejs-20_x"]
 
 [phases.install]
 cmds = [
-  "cd backend",
-  "python3 -m venv .venv",
-  ".venv/bin/pip install --upgrade pip",
-  ".venv/bin/pip install -r requirements.txt"
+  "cd backend && pip install --upgrade pip && pip install -r requirements.txt",
+  "npm ci",
+  "npm run build"
 ]
 
-[start]
-cmd = "cd backend && .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"
+[phases.build]
+cmds = []
 
+[start]
+cmd = "cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+
+[variables]
+PYTHON_VERSION = "3.12"
