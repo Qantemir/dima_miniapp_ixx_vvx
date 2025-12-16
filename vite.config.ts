@@ -37,9 +37,11 @@ export default defineConfig(({ mode }) => ({
   build: {
     // Оптимизация сборки для production
     target: 'esnext',
-    minify: 'esbuild', // Быстрый минификатор
+    // Временно отключаем минификацию для отладки ошибки "Cannot access 'O' before initialization"
+    minify: false,
     cssCodeSplit: true, // Разделение CSS
-    sourcemap: false, // Отключаем sourcemaps в production для скорости
+    // Включаем sourcemap для чтения стэков в проде
+    sourcemap: true,
     chunkSizeWarningLimit: 1000, // Увеличиваем лимит предупреждений
     rollupOptions: {
       output: {
