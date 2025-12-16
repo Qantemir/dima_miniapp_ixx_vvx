@@ -2,7 +2,6 @@
 // чтобы фронт продолжал работать даже без sonner.
 // В проде можно вернуть sonner, но сейчас важно убрать рантайм-ошибку.
 const log = (prefix: string, message: string) => {
-  // eslint-disable-next-line no-console
   console.log(prefix, message);
   if (typeof window !== "undefined" && window?.alert) {
     // Не спамим алертами — показываем только ошибки/варнинги
