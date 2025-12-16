@@ -111,7 +111,14 @@ backend_dir = Path(__file__).parent.parent
 project_root = backend_dir.parent
 dist_dir = project_root / "dist"
 
+logger = logging.getLogger(__name__)
+logger.info(f"🔍 Looking for dist directory at: {dist_dir}")
+logger.info(f"🔍 Backend dir: {backend_dir}")
+logger.info(f"🔍 Project root: {project_root}")
+logger.info(f"🔍 Dist exists: {dist_dir.exists()}")
+
 if dist_dir.exists():
+    logger.info(f"✅ Found dist directory, mounting static files")
     # Монтируем статические файлы фронтенда (assets, favicon, robots.txt и т.д.)
     app.mount("/assets", StaticFiles(directory=str(dist_dir / "assets")), name="assets")
     
