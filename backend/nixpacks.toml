@@ -5,7 +5,7 @@ aptPkgs = ["python3-venv", "python3-pip"]
 cmds = [
   "python3 -m venv .venv",
   ".venv/bin/pip install --upgrade pip",
-  ".venv/bin/pip install -r requirements.txt"
+  "cd backend && .venv/bin/pip install -r requirements.txt"
 ]
 
 [start]
