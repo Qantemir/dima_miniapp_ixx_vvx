@@ -106,16 +106,30 @@ app.mount("/uploads", StaticFiles(directory=settings.upload_dir), name="uploads"
 import os
 from pathlib import Path
 
-# Определяем путь к dist папке относительно backend/app/main.py
-backend_dir = Path(__file__).parent.parent
-project_root = backend_dir.parent
-dist_dir = project_root / "dist"
-
+# Определяем путь к dist папке, учитывая разные запуски (uvicorn/Procfile/Dockerfile)
 logger = logging.getLogger(__name__)
-logger.info(f"🔍 Looking for dist directory at: {dist_dir}")
-logger.info(f"🔍 Backend dir: {backend_dir}")
-logger.info(f"🔍 Project root: {project_root}")
-logger.info(f"🔍 Dist exists: {dist_dir.exists()}")
+
+def _find_dist_dir() -> Path:
+    candidates = []
+    here = Path(__file__).resolve()
+    # 1) .../backend/app/main.py → project root = ../../
+    candidates.append(here.parent.parent.parent / "dist")
+    # 2) .../app/main.py (если пакет «app» лежит в рабочей директории) → project root = ../
+    candidates.append(here.parent.parent / "dist")
+    # 3) Текущая рабочая директория (WORKDIR в Docker) → ./dist
+    candidates.append(Path.cwd() / "dist")
+
+    for dist_path in candidates:
+        logger.info(f"🔍 Checking dist at: {dist_path}")
+        if dist_path.exists():
+            logger.info(f"✅ Using dist at: {dist_path}")
+            return dist_path
+
+    # Фолбэк — нет dist, вернём путь по умолчанию (чтобы логировать предупреждение ниже)
+    logger.warning("⚠️ dist directory not found in expected locations, frontend will not be served")
+    return Path("/dist")  # заведомо несуществующий, чтобы сработало предупреждение ниже
+
+dist_dir = _find_dist_dir()
 
 if dist_dir.exists():
     logger.info(f"✅ Found dist directory, mounting static files")
