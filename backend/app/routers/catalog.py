@@ -23,7 +23,13 @@ from ..auth import verify_admin
 from ..config import settings
 from ..database import get_db
 from ..cache import cache_get, cache_set, cache_delete_pattern, make_cache_key
-import orjson
+# Используем orjson если доступен, иначе fallback на ujson
+try:
+    import orjson
+    HAS_ORJSON = True
+except ImportError:
+    import ujson as orjson
+    HAS_ORJSON = False
 from ..schemas import (
   CatalogResponse,
   Category,
@@ -340,8 +346,13 @@ async def _refresh_catalog_cache(db: AsyncIOMotorDatabase):
 
 
 def _build_catalog_response(catalog: CatalogResponse, etag: str) -> Response:
-  """Создает ответ с использованием orjson для быстрой сериализации"""
-  content = orjson.dumps(_catalog_to_dict(catalog), option=orjson.OPT_SERIALIZE_NUMPY)
+  """Создает ответ с использованием orjson/ujson для быстрой сериализации"""
+  catalog_dict = _catalog_to_dict(catalog)
+  # Используем orjson если доступен, иначе ujson
+  if HAS_ORJSON:
+    content = orjson.dumps(catalog_dict, option=orjson.OPT_SERIALIZE_NUMPY)
+  else:
+    content = orjson.dumps(catalog_dict).encode('utf-8')
   response = Response(
     content=content,
     media_type="application/json",
@@ -384,7 +395,14 @@ async def get_catalog(
   
   if cached_data:
     try:
-      catalog_dict = orjson.loads(cached_data)
+      # orjson.loads принимает bytes, ujson.loads - строку
+      if HAS_ORJSON:
+        catalog_dict = orjson.loads(cached_data)
+      else:
+        if isinstance(cached_data, bytes):
+          catalog_dict = orjson.loads(cached_data.decode('utf-8'))
+        else:
+          catalog_dict = orjson.loads(cached_data)
       catalog = CatalogResponse(**catalog_dict)
       # Получаем etag из отдельного ключа
       etag_key = f"{cache_key}:etag"
@@ -403,7 +421,11 @@ async def get_catalog(
   # Сохраняем в Redis для следующего раза
   try:
     catalog_dict = _catalog_to_dict(catalog)
-    catalog_bytes = orjson.dumps(catalog_dict, option=orjson.OPT_SERIALIZE_NUMPY)
+    # orjson.dumps возвращает bytes, ujson.dumps - строку
+    if HAS_ORJSON:
+      catalog_bytes = orjson.dumps(catalog_dict, option=orjson.OPT_SERIALIZE_NUMPY)
+    else:
+      catalog_bytes = orjson.dumps(catalog_dict).encode('utf-8')
     await cache_set(cache_key, catalog_bytes, ttl=settings.catalog_cache_ttl_seconds)
     await cache_set(f"{cache_key}:etag", etag.encode('utf-8'), ttl=settings.catalog_cache_ttl_seconds)
   except Exception as e:
