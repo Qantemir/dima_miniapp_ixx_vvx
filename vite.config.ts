@@ -45,28 +45,10 @@ export default defineConfig(({ mode }) => ({
     chunkSizeWarningLimit: 1000, // Увеличиваем лимит предупреждений
     rollupOptions: {
       output: {
-        manualChunks: (id) => {
-          // Разделяем большие библиотеки на отдельные чанки
-          if (id.includes('node_modules')) {
-            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
-              return 'vendor-react';
-            }
-            if (id.includes('@radix-ui')) {
-              return 'vendor-ui';
-            }
-            if (id.includes('@tanstack/react-query')) {
-              return 'vendor-query';
-            }
-            if (id.includes('framer-motion')) {
-              return 'vendor-animations';
-            }
-            if (id.includes('lucide-react')) {
-              return 'vendor-icons';
-            }
-            // Остальные node_modules
-            return 'vendor';
-          }
-        },
+        // Полностью отдаем разбиение Rollup, чтобы избежать циклов между
+        // чанками vendor-* (на проде из-за них React оказывался undefined
+        // в useMergeRef/useLayoutEffect).
+        manualChunks: undefined,
         // Используем абсолютные пути для чанков в продакшене
         chunkFileNames: 'assets/[name]-[hash].js',
         entryFileNames: 'assets/[name]-[hash].js',
