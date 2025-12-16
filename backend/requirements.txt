@@ -8,6 +8,6 @@ httpx==0.27.0
 redis==5.0.1
 hiredis==2.3.2
 # orjson removed for Python 3.13 compatibility
-# Using ujson (already included in FastAPI dependencies)
+# Using ujson (already included in FastAPI dependencies)  
 # Code automatically falls back to ujson if orjson is unavailable (see catalog.py)
 
