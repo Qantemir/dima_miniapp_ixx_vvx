@@ -6,7 +6,7 @@ import json
 import logging
 from typing import Optional, Any
 import redis.asyncio as aioredis
-from ..config import settings
+from .config import settings
 
 logger = logging.getLogger(__name__)
 

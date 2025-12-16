@@ -14,7 +14,7 @@ cmds = [
 cmds = []
 
 [start]
-cmd = "cd backend && ../.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"
+cmd = "cd backend && PYTHONPATH=/app/backend:$PYTHONPATH ../.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"
 
 [variables]
 PYTHON_VERSION = "3.12"
