@@ -340,6 +340,7 @@ async def health():
 
 # SPA fallback - должен быть последним, после всех роутеров
 if dist_dir.exists():
+    logger.info(f"✅ Setting up SPA fallback route")
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
         # Пропускаем API пути и уже обработанные статические файлы
@@ -351,7 +352,11 @@ if dist_dir.exists():
         from fastapi.responses import FileResponse
         index_path = dist_dir / "index.html"
         if index_path.exists():
+            logger.debug(f"Serving index.html for path: {full_path}")
             return FileResponse(str(index_path), media_type="text/html")
+        logger.warning(f"index.html not found at {index_path}")
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Frontend not built")
+else:
+    logger.warning(f"⚠️ Dist directory not found at {dist_dir}, frontend will not be served")
 
