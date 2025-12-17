@@ -116,12 +116,66 @@ export const OrderPage = () => {
     }
   };
 
-  const jsonLdBase = {
+  // Мемоизация базового jsonLd для предотвращения пересоздания на каждом рендере
+  const jsonLdBase = useMemo(() => ({
     "@context": "https://schema.org",
     "@type": "Order",
     url: orderId ? buildCanonicalUrl(`/order/${orderId}`) : buildCanonicalUrl("/order"),
     orderStatus: "https://schema.org/OrderProcessing",
-  };
+  }), [orderId]);
+
+  // Формируем URL для получения чека через endpoint (до early returns)
+  const receiptUrl = useMemo(() => {
+    if (!order) return null;
+    if (!order.payment_receipt_file_id && !order.payment_receipt_url) {
+      return null;
+    }
+    // Если есть payment_receipt_url (старый формат), используем его
+    if (order.payment_receipt_url) {
+      return buildApiAssetUrl(order.payment_receipt_url);
+    }
+    // Если есть payment_receipt_file_id, формируем URL через endpoint
+    if (order.payment_receipt_file_id) {
+      const orderIdForReceipt = orderId || order.id;
+      const baseUrl = API_BASE_URL;
+      if (baseUrl.startsWith('http://') || baseUrl.startsWith('https://')) {
+        const adjustedBaseUrl = baseUrl.replace(/\/app\/api/, '/api');
+        return `${adjustedBaseUrl}/order/${orderIdForReceipt}/receipt`;
+      }
+      return `${baseUrl}/order/${orderIdForReceipt}/receipt`;
+    }
+    return null;
+  }, [order, orderId]);
+
+  // Формируем JSON-LD для заказа (до early returns)
+  const orderJsonLd = useMemo(() => {
+    if (!order) return jsonLdBase;
+    // Фильтруем null/undefined элементы и элементы без обязательных полей
+    const validItems = (order.items || []).filter(
+      item => item && item.product_name && typeof item.price === 'number' && typeof item.quantity === 'number'
+    );
+    return {
+      ...jsonLdBase,
+      orderNumber: order.id,
+      priceCurrency: "KZT",
+      price: order.total_amount,
+      acceptedOffer: validItems.map(item => ({
+        "@type": "Offer",
+        itemOffered: {
+          "@type": "Product",
+          name: item.product_name || 'Товар',
+        },
+        price: item.price,
+        priceCurrency: "KZT",
+        quantity: item.quantity,
+      })),
+      orderStatus: order.status === 'завершён' 
+        ? "https://schema.org/OrderDelivered" 
+        : order.status === 'отменён'
+        ? "https://schema.org/OrderCancelled"
+        : "https://schema.org/OrderProcessing",
+    };
+  }, [order, jsonLdBase]);
 
   if (loading) {
     return (
@@ -156,57 +210,6 @@ export const OrderPage = () => {
   const canEditAddress =
     order.can_edit_address &&
     order.status === 'в обработке';
-  
-  // Формируем URL для получения чека через endpoint
-  const receiptUrl = useMemo(() => {
-    if (!order) return null;
-    if (!order.payment_receipt_file_id && !order.payment_receipt_url) {
-      return null;
-    }
-    // Если есть payment_receipt_url (старый формат), используем его
-    if (order.payment_receipt_url) {
-      return buildApiAssetUrl(order.payment_receipt_url);
-    }
-    // Если есть payment_receipt_file_id, формируем URL через endpoint
-    if (order.payment_receipt_file_id) {
-      const orderIdForReceipt = orderId || order.id;
-      let baseUrl = API_BASE_URL;
-      if (baseUrl.startsWith('http://') || baseUrl.startsWith('https://')) {
-        baseUrl = baseUrl.replace(/\/app\/api/, '/api');
-        return `${baseUrl}/order/${orderIdForReceipt}/receipt`;
-      }
-      return `${baseUrl}/order/${orderIdForReceipt}/receipt`;
-    }
-    return null;
-  }, [order, order.payment_receipt_file_id, order.payment_receipt_url, order.id, orderId]);
-  
-  const orderJsonLd = useMemo(() => {
-    if (!order) return jsonLdBase;
-    // Фильтруем null/undefined элементы и элементы без обязательных полей
-    const validItems = (order.items || []).filter(
-      item => item && item.product_name && typeof item.price === 'number' && typeof item.quantity === 'number'
-    );
-    return {
-      ...jsonLdBase,
-      orderNumber: order.id,
-      priceCurrency: "KZT",
-      price: order.total_amount,
-      acceptedOffer: validItems.map(item => ({
-        "@type": "Offer",
-        itemOffered: {
-          "@type": "Product",
-          name: item.product_name || 'Товар',
-        },
-        price: item.price || 0,
-        priceCurrency: "KZT",
-        eligibleQuantity: {
-          "@type": "QuantitativeValue",
-          value: item.quantity || 0,
-        },
-      })),
-      orderStatus: order.status,
-    };
-  }, [order, jsonLdBase]);
 
   return (
     <>

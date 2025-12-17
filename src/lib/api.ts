@@ -19,8 +19,10 @@ import {
   type UpdatePaymentLinkRequest,
   type ApiError,
   type AdminCategoryDetail,
+  type AdminOrdersResponse,
 } from '@/types/api';
 import { getRequestAuthHeaders } from '@/lib/telegram';
+import { deduplicateRequest, createDedupKey } from './request-deduplication';
 
 class ApiClient {
   private baseUrl: string;
@@ -62,7 +64,10 @@ class ApiClient {
     const controller = new AbortController();
 
     try {
-      timeoutId = setTimeout(() => controller.abort(), 10_000);
+      // Адаптивный timeout: для больших запросов (каталог) больше времени
+      const isLargeRequest = endpoint.includes('/catalog') || endpoint.includes('/admin/orders');
+      const timeout = isLargeRequest ? 15_000 : 10_000;
+      timeoutId = setTimeout(() => controller.abort(), timeout);
 
       const isFormData =
         typeof FormData !== 'undefined' && options?.body instanceof FormData;
@@ -157,11 +162,13 @@ class ApiClient {
   // CLIENT API
 
   async getCatalog(): Promise<CatalogResponse> {
-    return this.request<CatalogResponse>('/catalog');
+    const key = createDedupKey(['catalog']);
+    return deduplicateRequest(key, () => this.request<CatalogResponse>('/catalog'));
   }
 
   async getCart(): Promise<Cart> {
-    return this.request<Cart>('/cart');
+    const key = createDedupKey(['cart']);
+    return deduplicateRequest(key, () => this.request<Cart>('/cart'));
   }
 
   async addToCart(data: {

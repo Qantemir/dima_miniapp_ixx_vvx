@@ -196,7 +196,17 @@ async def add_to_cart(
 
   # Получаем товар и корзину параллельно для оптимизации
   # Для добавления в корзину не нужно проверять истечение (это делается при GET)
-  product_task = db.products.find_one({"_id": product_oid})
+  # Используем проекцию для товара - не загружаем лишние поля
+  product_task = db.products.find_one(
+    {"_id": product_oid},
+    {
+      "name": 1,
+      "price": 1,
+      "image": 1,
+      "variants": 1,
+      "_id": 1,
+    }
+  )
   cart_task = get_cart_document(db, user_id, check_expiry=False)
   
   product, cart = await asyncio.gather(product_task, cart_task)

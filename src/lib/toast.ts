@@ -1,32 +1,22 @@
-// Toast notifications utility
-import { toast as sonnerToast } from 'sonner';
+// Лёгкий fallback-тост без сторонних зависимостей,
+// чтобы фронт продолжал работать даже без sonner.
+// В проде можно вернуть sonner, но сейчас важно убрать рантайм-ошибку.
+const log = (prefix: string, message: string) => {
+  console.log(prefix, message);
+  if (typeof window !== "undefined" && window?.alert) {
+    // Не спамим алертами — показываем только ошибки/варнинги
+    if (prefix === "❌" || prefix === "⚠️") {
+      window.alert(`${prefix} ${message}`);
+    }
+  }
+};
 
 export const toast = {
-  success: (message: string) => {
-    sonnerToast.success(message, {
-      duration: 3000,
-    });
-  },
-  error: (message: string) => {
-    sonnerToast.error(message, {
-      duration: 4000,
-    });
-  },
-  info: (message: string) => {
-    sonnerToast.info(message, {
-      duration: 3000,
-    });
-  },
-  warning: (message: string) => {
-    sonnerToast.warning(message, {
-      duration: 3000,
-    });
-  },
+  success: (message: string) => log("✅", message),
+  error: (message: string) => log("❌", message),
+  info: (message: string) => log("ℹ️", message),
+  warning: (message: string) => log("⚠️", message),
   // Для обратной совместимости - показываем как info
-  show: (message: string) => {
-    sonnerToast.info(message, {
-      duration: 3000,
-    });
-  },
+  show: (message: string) => log("ℹ️", message),
 };
 

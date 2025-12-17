@@ -6,6 +6,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import settings
 from .database import close_mongo_connection, connect_to_mongo
+from .cache import close_redis, get_redis
 from .utils import permanently_delete_order_entry
 from .routers import admin, bot_webhook, cart, catalog, orders, store
 
@@ -82,8 +83,14 @@ import io
         return new_response
 
 
-# Добавляем безопасный GZip middleware
-app.add_middleware(SafeGZipMiddleware, minimum_size=1000)
+# Добавляем безопасный GZip middleware (уменьшен threshold для лучшей компрессии)
+app.add_middleware(SafeGZipMiddleware, minimum_size=500)
+
+# Добавляем Rate Limiting (только в продакшене или по настройке)
+from .config import settings
+if settings.environment == "production":
+    from .middleware.rate_limit import RateLimitMiddleware
+    app.add_middleware(RateLimitMiddleware, default_limit=100, window=60)
 
 app.add_middleware(
   CORSMiddleware,
@@ -99,12 +106,33 @@ app.mount("/uploads", StaticFiles(directory=settings.upload_dir), name="uploads"
 import os
 from pathlib import Path
 
-# Определяем путь к dist папке относительно backend/app/main.py
-backend_dir = Path(__file__).parent.parent
-project_root = backend_dir.parent
-dist_dir = project_root / "dist"
+# Определяем путь к dist папке, учитывая разные запуски (uvicorn/Procfile/Dockerfile)
+logger = logging.getLogger(__name__)
+
+def _find_dist_dir() -> Path:
+    candidates = []
+    here = Path(__file__).resolve()
+    # 1) .../backend/app/main.py → project root = ../../
+    candidates.append(here.parent.parent.parent / "dist")
+    # 2) .../app/main.py (если пакет «app» лежит в рабочей директории) → project root = ../
+    candidates.append(here.parent.parent / "dist")
+    # 3) Текущая рабочая директория (WORKDIR в Docker) → ./dist
+    candidates.append(Path.cwd() / "dist")
+
+    for dist_path in candidates:
+        logger.info(f"🔍 Checking dist at: {dist_path}")
+        if dist_path.exists():
+            logger.info(f"✅ Using dist at: {dist_path}")
+            return dist_path
+
+    # Фолбэк — нет dist, вернём путь по умолчанию (чтобы логировать предупреждение ниже)
+    logger.warning("⚠️ dist directory not found in expected locations, frontend will not be served")
+    return Path("/dist")  # заведомо несуществующий, чтобы сработало предупреждение ниже
+
+dist_dir = _find_dist_dir()
 
 if dist_dir.exists():
+    logger.info(f"✅ Found dist directory, mounting static files")
     # Монтируем статические файлы фронтенда (assets, favicon, robots.txt и т.д.)
     app.mount("/assets", StaticFiles(directory=str(dist_dir / "assets")), name="assets")
     
@@ -138,8 +166,22 @@ if dist_dir.exists():
 
 
 @app.middleware("http")
-async def apply_security_headers(request, call_next):
+async def apply_security_and_cache_headers(request, call_next):
   response = await call_next(request)
+  
+  # Cache-Control headers для оптимизации
+  path = request.url.path
+  if path.startswith("/api/catalog"):
+    # Каталог кэшируется на 5 минут
+    response.headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=60"
+    response.headers["Vary"] = "Accept-Encoding"
+  elif path.startswith("/api/store/status"):
+    # Статус магазина кэшируется на 30 секунд
+    response.headers["Cache-Control"] = "public, max-age=30, stale-while-revalidate=10"
+  elif path.startswith("/assets/") or path.endswith((".js", ".css", ".png", ".jpg", ".svg", ".woff2")):
+    # Статические файлы кэшируются на 1 год
+    response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+  
   # Убрали Permissions-Policy заголовок, чтобы избежать ошибок с browsing-topics
   # response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
   return response
@@ -199,6 +241,9 @@ async def startup():
   
   # Подключаемся к MongoDB при старте для быстрого первого запроса
   await connect_to_mongo()
+  
+  # Подключаемся к Redis при старте
+  await get_redis()
   
   # Запускаем фоновую задачу для очистки удаленных заказов
   import asyncio
@@ -282,6 +327,12 @@ async def shutdown():
     logger.info("MongoDB соединение закрыто")
   except Exception as e:
     logger.warning(f"Ошибка при закрытии соединения с MongoDB: {e}")
+  
+  try:
+    await close_redis()
+    logger.info("Redis соединение закрыто")
+  except Exception as e:
+    logger.warning(f"Ошибка при закрытии соединения с Redis: {e}")
 
 
 app.include_router(catalog.router, prefix=settings.api_prefix)
@@ -303,6 +354,7 @@ async def health():
 
 # SPA fallback - должен быть последним, после всех роутеров
 if dist_dir.exists():
+    logger.info(f"✅ Setting up SPA fallback route")
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
         # Пропускаем API пути и уже обработанные статические файлы
@@ -314,7 +366,11 @@ if dist_dir.exists():
         from fastapi.responses import FileResponse
         index_path = dist_dir / "index.html"
         if index_path.exists():
+            logger.debug(f"Serving index.html for path: {full_path}")
             return FileResponse(str(index_path), media_type="text/html")
+        logger.warning(f"index.html not found at {index_path}")
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Frontend not built")
+else:
+    logger.warning(f"⚠️ Dist directory not found at {dist_dir}, frontend will not be served")
 

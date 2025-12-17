@@ -226,6 +226,8 @@ async def get_last_order(
   current_user: TelegramUser = Depends(get_current_user),
   db: AsyncIOMotorDatabase = Depends(get_db),
 ):
+  # Используем индекс для быстрого поиска последнего заказа
+  # Составной индекс [("user_id", 1), ("created_at", -1)] уже создан в database.py
   doc = await db.orders.find_one(
     {"user_id": current_user.id},
     sort=[("created_at", -1)],

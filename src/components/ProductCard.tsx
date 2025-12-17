@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { motion } from 'framer-motion';
 import { Plus, Minus } from '@/components/icons';
 import { Button } from '@/components/ui/button';
@@ -30,6 +30,7 @@ export const ProductCard = ({
 
   const hasVariants = product.variants && product.variants.length > 0;
   const mustSelectVariant = !selectedVariant;
+  const displayImage = product.images?.[0] ?? product.image;
   
   // Товар без вариаций не может быть продан
   if (!hasVariants) {
@@ -88,8 +89,6 @@ export const ProductCard = ({
   };
   const decrement = () => setQuantity(prev => Math.max(1, prev - 1));
 
-  const displayImage = product.images?.[0] ?? product.image;
-
   return (
     <HoverScale>
       <Card className="w-full overflow-hidden border-border bg-card rounded-2xl shadow-sm h-full transition-shadow hover:shadow-md">
@@ -103,6 +102,9 @@ export const ProductCard = ({
               src={displayImage}
               alt={product.name}
               className="h-full w-full object-cover"
+              loading="lazy"
+              decoding="async"
+              fetchPriority="low"
             />
           </motion.div>
         )}
@@ -207,3 +209,13 @@ export const ProductCard = ({
     </HoverScale>
   );
 };
+
+// Мемоизация компонента для предотвращения лишних ререндеров
+export const MemoizedProductCard = memo(ProductCard, (prevProps, nextProps) => {
+  return (
+    prevProps.product.id === nextProps.product.id &&
+    prevProps.product.available === nextProps.product.available &&
+    prevProps.purchasesDisabled === nextProps.purchasesDisabled &&
+    prevProps.isAdding === nextProps.isAdding
+  );
+});

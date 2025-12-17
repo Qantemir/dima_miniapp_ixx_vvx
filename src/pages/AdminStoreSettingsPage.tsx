@@ -13,6 +13,7 @@ import { toast } from '@/lib/toast';
 import { Seo } from '@/components/Seo';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAdminGuard } from '@/hooks/useAdminGuard';
+import { queryKeys } from '@/lib/react-query';
 
 export const AdminStoreSettingsPage = () => {
   const queryClient = useQueryClient();
@@ -22,10 +23,10 @@ export const AdminStoreSettingsPage = () => {
     data: status,
     isLoading: loading,
   } = useQuery({
-    queryKey: ['store-status'],
+    queryKey: queryKeys.storeStatus,
     queryFn: () => api.getStoreStatus(),
-    staleTime: 10_000,
-    gcTime: 5 * 60 * 1000,
+    staleTime: 60 * 1000, // 1 минута (увеличено с 10 секунд)
+    gcTime: 10 * 60 * 1000, // 10 минут кэш
     enabled: isAuthorized,
   });
   const [saving, setSaving] = useState(false);
@@ -54,7 +55,7 @@ export const AdminStoreSettingsPage = () => {
       const updated = await api.setStoreSleepMode(payload);
       setSleepEnabled(updated.is_sleep_mode);
       setMessage(updated.sleep_message || '');
-      queryClient.invalidateQueries({ queryKey: ['store-status'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.storeStatus });
       toast.success('Статус магазина обновлён');
     } catch (error) {
       toast.error('Не удалось обновить статус магазина');

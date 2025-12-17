@@ -30,6 +30,7 @@ import type { CatalogResponse, Category, Product, ProductPayload, ProductVariant
 import { Seo } from '@/components/Seo';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAdminGuard } from '@/hooks/useAdminGuard';
+import { queryKeys } from '@/lib/react-query';
 
 type DialogMode = 'create' | 'edit';
 
@@ -65,11 +66,11 @@ export const AdminCategoryPage = () => {
     data: categoryData,
     isLoading: categoryLoading,
   } = useQuery({
-    queryKey: ['admin-category', categoryId],
+    queryKey: queryKeys.adminCategory(categoryId!),
     queryFn: fetchCategory,
     enabled: isAuthorized && Boolean(categoryId),
-    staleTime: 30_000,
-    gcTime: 5 * 60 * 1000,
+    staleTime: 2 * 60 * 1000, // 2 минуты (увеличено с 30 секунд)
+    gcTime: 10 * 60 * 1000, // 10 минут кэш
     onError: error => {
       const message = error instanceof Error ? error.message : 'Не удалось загрузить категорию';
       toast.error(message);
@@ -126,30 +127,30 @@ export const AdminCategoryPage = () => {
         if (buttonId !== 'confirm') return;
         
         // Сохраняем предыдущие данные для отката
-        const previousData = queryClient.getQueryData<{ category: Category; products: Product[] }>(['admin-category', categoryId]);
-        const previousCatalog = queryClient.getQueryData<{ categories: Category[]; products: Product[] }>(['admin-catalog']);
-        const previousPublicCatalog = queryClient.getQueryData<CatalogResponse>(['catalog']);
+        const previousData = queryClient.getQueryData<{ category: Category; products: Product[] }>(queryKeys.adminCategory(categoryId!));
+        const previousCatalog = queryClient.getQueryData<{ categories: Category[]; products: Product[] }>(queryKeys.adminCatalog);
+        const previousPublicCatalog = queryClient.getQueryData<CatalogResponse>(queryKeys.catalog);
         
         // МГНОВЕННО скрываем товар из UI через локальное состояние (это происходит синхронно)
         setDeletingProductIds(prev => new Set(prev).add(product.id));
         
         // Оптимистичное обновление кэша - сразу удаляем товар
         if (previousData) {
-          queryClient.setQueryData(['admin-category', categoryId], {
+          queryClient.setQueryData(queryKeys.adminCategory(categoryId!), {
             ...previousData,
             products: previousData.products.filter(p => p.id !== product.id),
           });
         }
         
         if (previousCatalog) {
-          queryClient.setQueryData(['admin-catalog'], {
+          queryClient.setQueryData(queryKeys.adminCatalog, {
             ...previousCatalog,
             products: previousCatalog.products.filter(p => p.id !== product.id),
           });
         }
         
         if (previousPublicCatalog) {
-          queryClient.setQueryData(['catalog'], {
+          queryClient.setQueryData(queryKeys.catalog, {
             ...previousPublicCatalog,
             products: previousPublicCatalog.products.filter(p => p.id !== product.id),
           });
@@ -166,9 +167,9 @@ export const AdminCategoryPage = () => {
             return next;
           });
           // Инвалидируем для синхронизации с сервером в фоне
-          queryClient.invalidateQueries({ queryKey: ['admin-category', categoryId] });
-          queryClient.invalidateQueries({ queryKey: ['admin-catalog'] });
-          queryClient.invalidateQueries({ queryKey: ['catalog'] });
+          queryClient.invalidateQueries({ queryKey: queryKeys.adminCategory(categoryId!) });
+          queryClient.invalidateQueries({ queryKey: queryKeys.adminCatalog });
+          queryClient.invalidateQueries({ queryKey: queryKeys.catalog });
         } catch {
           // Откатываем изменения при ошибке
           setDeletingProductIds(prev => {
@@ -177,13 +178,13 @@ export const AdminCategoryPage = () => {
             return next;
           });
           if (previousData) {
-            queryClient.setQueryData(['admin-category', categoryId], previousData);
+            queryClient.setQueryData(queryKeys.adminCategory(categoryId!), previousData);
           }
           if (previousCatalog) {
-            queryClient.setQueryData(['admin-catalog'], previousCatalog);
+            queryClient.setQueryData(queryKeys.adminCatalog, previousCatalog);
           }
           if (previousPublicCatalog) {
-            queryClient.setQueryData(['catalog'], previousPublicCatalog);
+            queryClient.setQueryData(queryKeys.catalog, previousPublicCatalog);
           }
           toast.error('Не удалось удалить товар');
         }
@@ -289,9 +290,9 @@ export const AdminCategoryPage = () => {
     setSaving(true);
     
     // Оптимистичное обновление
-    const previousData = queryClient.getQueryData<{ category: Category; products: Product[] }>(['admin-category', categoryId]);
-    const previousCatalog = queryClient.getQueryData<{ categories: Category[]; products: Product[] }>(['admin-catalog']);
-    const previousPublicCatalog = queryClient.getQueryData<CatalogResponse>(['catalog']);
+    const previousData = queryClient.getQueryData<{ category: Category; products: Product[] }>(queryKeys.adminCategory(categoryId!));
+    const previousCatalog = queryClient.getQueryData<{ categories: Category[]; products: Product[] }>(queryKeys.adminCatalog);
+    const previousPublicCatalog = queryClient.getQueryData<CatalogResponse>(queryKeys.catalog);
     
     let newProduct: Product | null = null;
     let updatedProduct: Product | null = null;
@@ -311,21 +312,21 @@ export const AdminCategoryPage = () => {
       } as Product;
       
       if (previousData) {
-        queryClient.setQueryData(['admin-category', categoryId], {
+        queryClient.setQueryData(queryKeys.adminCategory(categoryId!), {
           ...previousData,
           products: [...previousData.products, newProduct],
         });
       }
       
       if (previousCatalog) {
-        queryClient.setQueryData(['admin-catalog'], {
+        queryClient.setQueryData(queryKeys.adminCatalog, {
           ...previousCatalog,
           products: [...previousCatalog.products, newProduct],
         });
       }
       
       if (previousPublicCatalog) {
-        queryClient.setQueryData(['catalog'], {
+        queryClient.setQueryData(queryKeys.catalog, {
           ...previousPublicCatalog,
           products: [...previousPublicCatalog.products, newProduct],
         });
@@ -344,7 +345,7 @@ export const AdminCategoryPage = () => {
       };
       
       if (previousData) {
-        queryClient.setQueryData(['admin-category', categoryId], {
+        queryClient.setQueryData(queryKeys.adminCategory(categoryId!), {
           ...previousData,
           products: previousData.products.map(p => 
             p.id === selectedProduct.id ? updatedProduct : p
@@ -353,7 +354,7 @@ export const AdminCategoryPage = () => {
       }
       
       if (previousCatalog) {
-        queryClient.setQueryData(['admin-catalog'], {
+        queryClient.setQueryData(queryKeys.adminCatalog, {
           ...previousCatalog,
           products: previousCatalog.products.map(p => 
             p.id === selectedProduct.id ? updatedProduct : p
@@ -362,7 +363,7 @@ export const AdminCategoryPage = () => {
       }
       
       if (previousPublicCatalog) {
-        queryClient.setQueryData(['catalog'], {
+        queryClient.setQueryData(queryKeys.catalog, {
           ...previousPublicCatalog,
           products: previousPublicCatalog.products.map(p =>
             p.id === selectedProduct.id ? updatedProduct : p
@@ -387,7 +388,7 @@ export const AdminCategoryPage = () => {
       
       const tempId = dialogMode === 'create' ? newProduct?.id : selectedProduct?.id;
       
-      queryClient.setQueryData(['admin-category', categoryId], (oldData: { category: Category; products: Product[] } | undefined) => {
+      queryClient.setQueryData(queryKeys.adminCategory(categoryId!), (oldData: { category: Category; products: Product[] } | undefined) => {
         if (!oldData || !tempId) return oldData;
         const exists = oldData.products.some(p => p.id === tempId);
         return {
@@ -398,7 +399,7 @@ export const AdminCategoryPage = () => {
         };
       });
       
-      queryClient.setQueryData(['admin-catalog'], (oldData: { categories: Category[]; products: Product[] } | undefined) => {
+      queryClient.setQueryData(queryKeys.adminCatalog, (oldData: { categories: Category[]; products: Product[] } | undefined) => {
         if (!oldData || !tempId) return oldData;
         const exists = oldData.products.some(p => p.id === tempId);
         return {
@@ -409,7 +410,7 @@ export const AdminCategoryPage = () => {
         };
       });
       
-      queryClient.setQueryData(['catalog'], (oldData: CatalogResponse | undefined) => {
+      queryClient.setQueryData(queryKeys.catalog, (oldData: CatalogResponse | undefined) => {
         if (!oldData || !tempId) return oldData;
         const exists = oldData.products.some(p => p.id === tempId);
         return {
@@ -421,26 +422,26 @@ export const AdminCategoryPage = () => {
       });
       
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['admin-category', categoryId] }),
-        queryClient.invalidateQueries({ queryKey: ['admin-catalog'] }),
-        queryClient.invalidateQueries({ queryKey: ['catalog'] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.adminCategory(categoryId!) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.adminCatalog }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.catalog }),
       ]);
       
       await Promise.all([
-        queryClient.refetchQueries({ queryKey: ['admin-category', categoryId], type: 'active' }),
-        queryClient.refetchQueries({ queryKey: ['admin-catalog'], type: 'active' }),
-        queryClient.refetchQueries({ queryKey: ['catalog'], type: 'active' }),
+        queryClient.refetchQueries({ queryKey: queryKeys.adminCategory(categoryId!), type: 'active' }),
+        queryClient.refetchQueries({ queryKey: queryKeys.adminCatalog, type: 'active' }),
+        queryClient.refetchQueries({ queryKey: queryKeys.catalog, type: 'active' }),
       ]);
     } catch (error) {
       // Откатываем изменения при ошибке
       if (previousData) {
-        queryClient.setQueryData(['admin-category', categoryId], previousData);
+        queryClient.setQueryData(queryKeys.adminCategory(categoryId!), previousData);
       }
       if (previousCatalog) {
-        queryClient.setQueryData(['admin-catalog'], previousCatalog);
+        queryClient.setQueryData(queryKeys.adminCatalog, previousCatalog);
       }
       if (previousPublicCatalog) {
-        queryClient.setQueryData(['catalog'], previousPublicCatalog);
+        queryClient.setQueryData(queryKeys.catalog, previousPublicCatalog);
       }
       setDialogOpen(true); // Открываем диалог обратно при ошибке
       toast.error('Ошибка сохранения товара');

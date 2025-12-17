@@ -1,4 +1,6 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
+import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 interface Props {
   children: ReactNode;
@@ -10,44 +12,63 @@ interface State {
   error: Error | null;
 }
 
+/**
+ * Error Boundary для обработки ошибок React компонентов
+ * Предотвращает полный краш приложения при ошибках в компонентах
+ */
 export class ErrorBoundary extends Component<Props, State> {
-  public state: State = {
-    hasError: false,
-    error: null,
-  };
+  constructor(props: Props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
 
-  public static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
   }
 
-  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    // Логируем ошибку для мониторинга
     console.error('ErrorBoundary caught an error:', error, errorInfo);
+    
+    // В продакшене можно отправить в систему мониторинга
+    if (import.meta.env.PROD) {
+      // Можно интегрировать с Sentry, LogRocket и т.д.
+    }
   }
 
-  public render() {
+  handleReset = () => {
+    this.setState({ hasError: false, error: null });
+    // Перезагружаем страницу для полного сброса состояния
+    window.location.reload();
+  };
+
+  render() {
     if (this.state.hasError) {
       if (this.props.fallback) {
         return this.props.fallback;
       }
 
       return (
-        <div className="flex min-h-screen items-center justify-center bg-background p-4">
-          <div className="text-center max-w-md">
-            <h1 className="mb-4 text-2xl font-bold text-destructive">
-              Произошла ошибка
-            </h1>
-            <p className="mb-4 text-muted-foreground">
-              {this.state.error?.message || 'Неожиданная ошибка приложения'}
-            </p>
-            <button
-              onClick={() => {
-                this.setState({ hasError: false, error: null });
-                window.location.reload();
-              }}
-              className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
-            >
-              Перезагрузить страницу
-            </button>
+        <div className="min-h-screen flex items-center justify-center p-4 bg-background">
+          <div className="max-w-md w-full space-y-4">
+            <Alert variant="destructive">
+              <AlertTitle>Произошла ошибка</AlertTitle>
+              <AlertDescription>
+                {this.state.error?.message || 'Неожиданная ошибка приложения'}
+              </AlertDescription>
+            </Alert>
+            <div className="flex gap-2">
+              <Button onClick={this.handleReset} className="flex-1">
+                Перезагрузить страницу
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => window.location.href = '/'}
+                className="flex-1"
+              >
+                На главную
+              </Button>
+            </div>
           </div>
         </div>
       );
@@ -56,5 +77,3 @@ export class ErrorBoundary extends Component<Props, State> {
     return this.props.children;
   }
 }
-
-

@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShoppingCart, ArrowLeft } from '@/components/icons';
 import { Button } from '@/components/ui/button';
-import { CartItem } from '@/components/CartItem';
+import { MemoizedCartItem as CartItem } from '@/components/CartItem';
 import { api } from '@/lib/api';
 import { showMainButton, hideMainButton, showBackButton, hideBackButton } from '@/lib/telegram';
 import { toast } from '@/lib/toast';

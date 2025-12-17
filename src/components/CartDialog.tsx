@@ -9,7 +9,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { CartItem } from '@/components/CartItem';
+import { MemoizedCartItem as CartItem } from '@/components/CartItem';
 import { api } from '@/lib/api';
 import { toast } from '@/lib/toast';
 import { Skeleton } from '@/components/ui/skeleton';

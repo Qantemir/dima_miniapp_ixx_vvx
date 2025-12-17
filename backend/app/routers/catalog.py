@@ -22,6 +22,14 @@ from pymongo import ReturnDocument
 from ..auth import verify_admin
 from ..config import settings
 from ..database import get_db
+from ..cache import cache_get, cache_set, cache_delete_pattern, make_cache_key
+# Используем orjson если доступен, иначе fallback на ujson
+try:
+    import orjson
+    HAS_ORJSON = True
+except ImportError:
+    import ujson as orjson
+    HAS_ORJSON = False
 from ..schemas import (
   CatalogResponse,
   Category,
@@ -58,23 +66,31 @@ async def _load_catalog_from_db(db: AsyncIOMotorDatabase, only_available: bool =
     only_available: Загружать только доступные товары (по умолчанию True для оптимизации)
   """
   # Параллельная загрузка категорий и товаров для ускорения
-  categories_task = db.categories.find({}, {"name": 1}).to_list(length=None)
+  # Используем проекцию для уменьшения объема данных
+  categories_task = db.categories.find({}, {"name": 1, "_id": 1}).to_list(length=None)
   
   # Фильтруем только доступные товары для публичного каталога (оптимизация)
+  # Используем индекс для быстрой фильтрации
   products_filter = {"available": True} if only_available else {}
-  products_task = db.products.find(
-    products_filter,
-    {
-      "name": 1,
-      "description": 1,
-      "price": 1,
-      "image": 1,
-      "images": 1,
-      "category_id": 1,
-      "available": 1,
-      "variants": 1,
-    },
-  ).to_list(length=None)
+  products_task = (
+    db.products.find(
+      products_filter,
+      {
+        "name": 1,
+        "description": 1,
+        "price": 1,
+        "image": 1,
+        "images": 1,
+        "category_id": 1,
+        "available": 1,
+        "variants": 1,
+        "_id": 1,  # Явно включаем _id для консистентности
+      },
+    )
+    # Используем составной индекс и сразу выгружаем в список, чтобы не передавать курсор в gather
+    .hint([("category_id", 1), ("available", 1)])
+    .to_list(length=None)
+  )
   
   # Выполняем запросы параллельно
   categories_docs, products_docs = await asyncio.gather(categories_task, products_task)
@@ -317,6 +333,12 @@ async def invalidate_catalog_cache(db: AsyncIOMotorDatabase | None = None):
   _catalog_cache_etag = None
   _catalog_cache_version = None
 
+  # Очищаем Redis кэш
+  try:
+    await cache_delete_pattern("catalog:*")
+  except Exception as e:
+    logger.debug(f"Ошибка очистки Redis кэша: {e}")
+
   if db is not None:
     _catalog_cache_version = await _bump_catalog_cache_version(db)
 
@@ -328,10 +350,22 @@ async def _refresh_catalog_cache(db: AsyncIOMotorDatabase):
     logger.warning("Failed to warm catalog cache after mutation: %s", exc)
 
 
-def _build_catalog_response(catalog: CatalogResponse, etag: str) -> JSONResponse:
-  response = JSONResponse(content=_catalog_to_dict(catalog))
-  response.headers["ETag"] = etag
-  response.headers["Cache-Control"] = _build_cache_control_value()
+def _build_catalog_response(catalog: CatalogResponse, etag: str) -> Response:
+  """Создает ответ с использованием orjson/ujson для быстрой сериализации"""
+  catalog_dict = _catalog_to_dict(catalog)
+  # Используем orjson если доступен, иначе ujson
+  if HAS_ORJSON:
+    content = orjson.dumps(catalog_dict, option=orjson.OPT_SERIALIZE_NUMPY)
+  else:
+    content = orjson.dumps(catalog_dict).encode('utf-8')
+  response = Response(
+    content=content,
+    media_type="application/json",
+    headers={
+      "ETag": etag,
+      "Cache-Control": _build_cache_control_value(),
+    }
+  )
   return response
 
 
@@ -360,7 +394,48 @@ async def get_catalog(
   db: AsyncIOMotorDatabase = Depends(get_db),
   if_none_match: str | None = Header(None, alias="If-None-Match"),
 ):
+  # Проверяем Redis кэш сначала
+  cache_key = make_cache_key("catalog", only_available=True)
+  cached_data = await cache_get(cache_key)
+  
+  if cached_data:
+    try:
+      # orjson.loads принимает bytes, ujson.loads - строку
+      if HAS_ORJSON:
+        catalog_dict = orjson.loads(cached_data)
+      else:
+        if isinstance(cached_data, bytes):
+          catalog_dict = orjson.loads(cached_data.decode('utf-8'))
+        else:
+          catalog_dict = orjson.loads(cached_data)
+      catalog = CatalogResponse(**catalog_dict)
+      # Получаем etag из отдельного ключа
+      etag_key = f"{cache_key}:etag"
+      cached_etag = await cache_get(etag_key)
+      if cached_etag:
+        etag = cached_etag.decode('utf-8')
+        if if_none_match and if_none_match == etag:
+          return _build_not_modified_response(etag)
+        return _build_catalog_response(catalog, etag)
+    except Exception as e:
+      logger.debug(f"Ошибка чтения из Redis кэша: {e}")
+  
+  # Если нет в Redis, используем стандартный кэш
   catalog, etag = await fetch_catalog(db)
+  
+  # Сохраняем в Redis для следующего раза
+  try:
+    catalog_dict = _catalog_to_dict(catalog)
+    # orjson.dumps возвращает bytes, ujson.dumps - строку
+    if HAS_ORJSON:
+      catalog_bytes = orjson.dumps(catalog_dict, option=orjson.OPT_SERIALIZE_NUMPY)
+    else:
+      catalog_bytes = orjson.dumps(catalog_dict).encode('utf-8')
+    await cache_set(cache_key, catalog_bytes, ttl=settings.catalog_cache_ttl_seconds)
+    await cache_set(f"{cache_key}:etag", etag.encode('utf-8'), ttl=settings.catalog_cache_ttl_seconds)
+  except Exception as e:
+    logger.debug(f"Ошибка сохранения в Redis кэш: {e}")
+  
   if if_none_match and if_none_match == etag:
     return _build_not_modified_response(etag)
   return _build_catalog_response(catalog, etag)

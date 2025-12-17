@@ -93,7 +93,7 @@ export const useAdminOrderDetail = (orderId?: string) => {
     }
     // Формируем URL для получения чека через админский endpoint
     // Используем тот же подход, что и в ApiClient.request для формирования URL
-    let baseUrl = API_BASE_URL;
+    const baseUrl = API_BASE_URL;
     if (baseUrl.startsWith('http://') || baseUrl.startsWith('https://')) {
       const base = baseUrl.replace(/\/app\/api/, '/api');
       return `${base}/admin/order/${orderId}/receipt`;

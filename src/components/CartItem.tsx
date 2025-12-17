@@ -1,3 +1,4 @@
+import { memo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Trash2, Plus, Minus } from '@/components/icons';
 import { Button } from '@/components/ui/button';
@@ -9,22 +10,26 @@ interface CartItemProps {
   onRemove: (itemId: string) => void;
 }
 
-export const CartItem = ({ item, onUpdateQuantity, onRemove }: CartItemProps) => {
+const CartItem = ({ item, onUpdateQuantity, onRemove }: CartItemProps) => {
   const totalPrice = item.price * item.quantity;
 
-  const handleDecrease = () => {
+  const handleDecrease = useCallback(() => {
     if (item.quantity > 1) {
       onUpdateQuantity(item.id, item.quantity - 1);
     } else {
       onRemove(item.id);
     }
-  };
+  }, [item.id, item.quantity, onUpdateQuantity, onRemove]);
 
-  const handleIncrease = () => {
+  const handleIncrease = useCallback(() => {
     if (item.quantity < 50) {
       onUpdateQuantity(item.id, item.quantity + 1);
     }
-  };
+  }, [item.id, item.quantity, onUpdateQuantity]);
+
+  const handleRemove = useCallback(() => {
+    onRemove(item.id);
+  }, [item.id, onRemove]);
 
   return (
     <motion.div 
@@ -38,6 +43,8 @@ export const CartItem = ({ item, onUpdateQuantity, onRemove }: CartItemProps) =>
             src={item.image}
             alt={item.product_name}
             className="w-full h-full object-cover"
+            loading="lazy"
+            decoding="async"
           />
         </div>
       )}
@@ -55,7 +62,7 @@ export const CartItem = ({ item, onUpdateQuantity, onRemove }: CartItemProps) =>
           <Button
             size="icon"
             variant="ghost"
-            onClick={() => onRemove(item.id)}
+            onClick={handleRemove}
             className="flex-shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10 h-9 w-9 sm:h-10 sm:w-10 rounded-lg"
           >
             <Trash2 className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -103,3 +110,12 @@ export const CartItem = ({ item, onUpdateQuantity, onRemove }: CartItemProps) =>
     </motion.div>
   );
 };
+
+// Мемоизация для предотвращения лишних ререндеров
+export const MemoizedCartItem = memo(CartItem, (prevProps, nextProps) => {
+  return (
+    prevProps.item.id === nextProps.item.id &&
+    prevProps.item.quantity === nextProps.item.quantity &&
+    prevProps.item.price === nextProps.item.price
+  );
+});

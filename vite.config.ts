@@ -37,18 +37,18 @@ export default defineConfig(({ mode }) => ({
   build: {
     // Оптимизация сборки для production
     target: 'esnext',
-    minify: 'esbuild', // Быстрый минификатор
+    // Временно отключаем минификацию для отладки ошибки "Cannot access 'O' before initialization"
+    minify: false,
     cssCodeSplit: true, // Разделение CSS
-    sourcemap: false, // Отключаем sourcemaps в production для скорости
+    // Включаем sourcemap для чтения стэков в проде
+    sourcemap: true,
+    chunkSizeWarningLimit: 1000, // Увеличиваем лимит предупреждений
     rollupOptions: {
       output: {
-        manualChunks: {
-          // Разделяем большие библиотеки на отдельные чанки
-          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          'vendor-ui': ['@radix-ui/react-dialog'],
-          'vendor-query': ['@tanstack/react-query'],
-          'vendor-animations': ['framer-motion'],
-        },
+        // Полностью отдаем разбиение Rollup, чтобы избежать циклов между
+        // чанками vendor-* (на проде из-за них React оказывался undefined
+        // в useMergeRef/useLayoutEffect).
+        manualChunks: undefined,
         // Используем абсолютные пути для чанков в продакшене
         chunkFileNames: 'assets/[name]-[hash].js',
         entryFileNames: 'assets/[name]-[hash].js',
@@ -65,7 +65,6 @@ export default defineConfig(({ mode }) => ({
         warn(warning);
       },
     },
-    chunkSizeWarningLimit: 1000, // Увеличиваем лимит предупреждений
     // Улучшаем совместимость модулей
     commonjsOptions: {
       include: [/node_modules/],
