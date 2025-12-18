@@ -7,4 +7,6 @@ __pycache__/
 *.pyc
 backend.nixpacks.toml
 backend.Procfile
+Dockerfile.backend
+Dockerfile.frontend.backup
 

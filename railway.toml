@@ -2,6 +2,7 @@
 # Этот файл гарантирует, что Railway запустит фронтенд, а не бэкенд
 
 [build]
+# ЯВНО указываем использовать nixpacks, а не Dockerfile
 builder = "nixpacks"
 
 [deploy]
