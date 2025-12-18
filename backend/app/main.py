@@ -234,9 +234,6 @@ async def cleanup_deleted_orders():
 
 @app.on_event("startup")
 async def startup():
-  # БЛОКИРОВКА ДЕПЛОЯ - удалите эту строку для нормальной работы
-  raise RuntimeError("🚫 Deployment intentionally blocked - remove this line to enable deployment")
-  
   # Настраиваем логирование для pymongo - уменьшаем уровень для периодических задач переподключения
   # Это предотвращает засорение логов ошибками AutoReconnect во время нормальной работы
   pymongo_logger = logging.getLogger("pymongo")
