@@ -94,7 +94,7 @@ const PageLoader = () => (
   </div>
 );
 
-//const router = createBrowserRouter(
+const router = createBrowserRouter(
   [
     {
       element: <RootLayoutWithProviders />,
