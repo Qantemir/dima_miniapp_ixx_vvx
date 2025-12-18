@@ -149,16 +149,21 @@ class ApiClient {
         clearTimeout(timeoutId);
       }
 
+      // Обработка сетевых ошибок (CORS, нет подключения и т.д.)
       if (error instanceof TypeError) {
         if (error.message.includes('fetch') || error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-          // Используем baseUrl, который уже нормализован из VITE_API_URL
-          // Если это относительный путь, показываем его как есть
-          // Если это абсолютный URL, показываем его полностью
+          // Проверяем, не была ли это CORS ошибка
           const displayUrl = this.baseUrl;
-          throw new Error(`Не удалось подключиться к серверу. Убедитесь, что бэкенд запущен и доступен по адресу ${displayUrl}`);
+          throw new Error(`Не удалось подключиться к серверу. Проверьте:\n1. Бэкенд запущен и доступен по адресу ${displayUrl}\n2. CORS настроен правильно на бэкенде`);
         }
       }
 
+      // Если это уже обработанная ошибка, пробрасываем дальше
+      if (error instanceof Error) {
+        throw error;
+      }
+
+      // Для всех остальных ошибок
       throw error;
     }
   }
@@ -383,3 +388,4 @@ class ApiClient {
 }
 
 export const api = new ApiClient(API_BASE_URL);
+
