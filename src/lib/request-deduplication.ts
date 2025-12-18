@@ -28,7 +28,7 @@ export function deduplicateRequest<T>(
   // Проверяем, есть ли уже активный запрос
   const existing = pendingRequests.get(key);
   if (existing && now - existing.timestamp < REQUEST_TIMEOUT) {
-    return existing.promise;
+    return existing.promise as Promise<T>;
   }
   
   // Создаем новый запрос
