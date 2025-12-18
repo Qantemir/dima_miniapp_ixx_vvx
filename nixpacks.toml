@@ -21,7 +21,7 @@ cmds = [
 ]
 
 [start]
-cmd = "echo '🚀 Starting frontend server...' && npx serve -s dist -l ${PORT:-3000}"
+cmd = "echo '🚀 Starting frontend server...' && node_modules/.bin/serve -s dist -l ${PORT:-3000}"
 
 [variables]
 NODE_ENV = "production"
