@@ -60,7 +60,7 @@ class ApiClient {
       url = `${this.baseUrl}${endpoint}`;
     }
 
-    let timeoutId: NodeJS.Timeout | null = null;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
     const controller = new AbortController();
 
     try {
@@ -151,7 +151,8 @@ class ApiClient {
 
       if (error instanceof TypeError) {
         if (error.message.includes('fetch') || error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-          throw new Error('Не удалось подключиться к серверу. Убедитесь, что бэкенд запущен на http://localhost:8000');
+          const apiUrl = this.baseUrl || import.meta.env.VITE_API_URL;
+          throw new Error(`Не удалось подключиться к серверу. Убедитесь, что бэкенд запущен на ${apiUrl}`);
         }
       }
 
