@@ -176,10 +176,12 @@ export interface ApiError {
 // - пути, начинающиеся с '/', оставались относительными (для прокси Vite и одинакового origin);
 // - голые домены/поддомены получали https://;
 // - путь всегда заканчивался на /api.
-const rawApiUrl = (import.meta.env.VITE_API_URL || '/api').trim();
+const rawApiUrl = (import.meta.env.VITE_API_URL || '/api').trim().replace(/^["']|["']$/g, '');
 
 const normalizeApiBaseUrl = (value: string) => {
   if (!value) return '/api';
+  // Убираем кавычки, если есть
+  value = value.replace(/^["']|["']$/g, '').trim();
   // Абсолютный URL
   if (value.startsWith('http://') || value.startsWith('https://')) {
     return value.replace(/\/$/, '');
