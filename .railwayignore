@@ -9,4 +9,6 @@ backend.nixpacks.toml
 backend.Procfile
 Dockerfile.backend
 Dockerfile.frontend.backup
+Caddyfile
+Caddyfile.backup
 
