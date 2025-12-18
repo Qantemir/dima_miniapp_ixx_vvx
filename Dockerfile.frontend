@@ -1,7 +1,0 @@
-# Этот файл создан для совместимости с Railway
-# Railway должен использовать nixpacks.toml вместо этого файла
-# См. railway.toml для конфигурации сборки
-
-# Если Railway все еще использует этот файл, удалите его
-# и очистите настройки Dockerfile Path в Railway Settings → Build
-

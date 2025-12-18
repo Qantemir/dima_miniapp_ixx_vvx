@@ -4,6 +4,8 @@
 [build]
 # ЯВНО указываем использовать nixpacks, а не Dockerfile
 builder = "nixpacks"
+# Отключаем поиск Dockerfile
+watchPatterns = ["package.json", "nixpacks.toml"]
 
 [deploy]
 # Явная команда запуска фронтенда
