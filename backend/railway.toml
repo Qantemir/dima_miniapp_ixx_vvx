@@ -1,0 +1,17 @@
+# Явная конфигурация для бэкенд-сервиса на Railway
+# Этот файл гарантирует, что Railway запустит бэкенд, а не фронтенд
+
+[build]
+# ЯВНО указываем использовать nixpacks
+builder = "nixpacks"
+
+[deploy]
+# Явная команда запуска бэкенда
+startCommand = ".venv/bin/uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 10
+
+# Указываем, что это Python проект
+[env]
+PYTHON_VERSION = "3.12"
+
