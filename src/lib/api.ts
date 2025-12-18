@@ -151,8 +151,15 @@ class ApiClient {
 
       if (error instanceof TypeError) {
         if (error.message.includes('fetch') || error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-          const apiUrl = this.baseUrl || import.meta.env.VITE_API_URL;
-          throw new Error(`Не удалось подключиться к серверу. Убедитесь, что бэкенд запущен на ${apiUrl}`);
+          // Используем переменную окружения напрямую - она должна быть установлена в .env
+          const envApiUrl = import.meta.env.VITE_API_URL;
+          if (envApiUrl) {
+            throw new Error(`Не удалось подключиться к серверу. Убедитесь, что бэкенд запущен на ${envApiUrl}`);
+          } else {
+            // Если переменная не установлена, показываем относительный путь
+            const displayUrl = this.baseUrl.startsWith('http') ? this.baseUrl : this.baseUrl;
+            throw new Error(`Не удалось подключиться к серверу. Проверьте настройку VITE_API_URL в .env файле (текущее значение: ${displayUrl})`);
+          }
         }
       }
 
