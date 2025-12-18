@@ -2,7 +2,7 @@
 # Railway будет использовать этот файл для сборки и запуска фронтенда
 
 [phases.setup]
-nixPkgs = ["nodejs_20", "npm"]
+nixPkgs = ["nodejs_20"]
 
 [phases.install]
 cmds = [
