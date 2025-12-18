@@ -19,7 +19,7 @@ import gzip
 import io
 
 
-#class SafeGZipMiddleware(BaseHTTPMiddleware):
+class SafeGZipMiddleware(BaseHTTPMiddleware):
     """
     Собственная реализация GZip, которая не ломается на закрытых стримах
     и пропускает SSE/streaming/HEAD/304 ответы.
