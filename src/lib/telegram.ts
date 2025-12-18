@@ -386,10 +386,23 @@ export const hideMainButton = () => {
   }
 };
 
+// Храним последний обработчик для правильного удаления
+let activeBackButtonHandler: (() => void) | null = null;
+
 export const showBackButton = (onClick: () => void) => {
   const tg = getTelegram();
   if (!hasTelegramInitContext(tg) || !isVersionSupported('6.1') || !tg.BackButton) return;
 
+  // Удаляем предыдущий обработчик, если он был
+  if (activeBackButtonHandler) {
+    try {
+      tg.BackButton.offClick(activeBackButtonHandler);
+    } catch {
+      // Игнорируем ошибки, если обработчик уже удален
+    }
+  }
+
+  activeBackButtonHandler = onClick;
   tg.BackButton.onClick(onClick);
   tg.BackButton.show();
 };
@@ -398,8 +411,17 @@ export const hideBackButton = () => {
   const tg = getTelegram();
   if (!hasTelegramInitContext(tg) || !isVersionSupported('6.1') || !tg.BackButton) return;
   
+  // Удаляем обработчик, если он был сохранен
+  if (activeBackButtonHandler) {
+    try {
+      tg.BackButton.offClick(activeBackButtonHandler);
+    } catch {
+      // Игнорируем ошибки, если обработчик уже удален
+    }
+    activeBackButtonHandler = null;
+  }
+  
   tg.BackButton.hide();
-  tg.BackButton.offClick(() => {});
 };
 
 // Deprecated: используйте toast из '@/lib/toast' вместо showAlert

@@ -72,8 +72,17 @@ class ApiClient {
       const isFormData =
         typeof FormData !== 'undefined' && options?.body instanceof FormData;
       const headers = this.buildHeaders(options?.headers as HeadersInit);
+      
+      // Для FormData НЕ устанавливаем Content-Type - браузер сделает это сам с правильным boundary
+      // Для JSON запросов устанавливаем Content-Type
       if (!isFormData && !headers.has('Content-Type')) {
         headers.set('Content-Type', 'application/json');
+      }
+      
+      // Для FormData удаляем Content-Type, если он был установлен вручную
+      // Браузер должен установить его автоматически с boundary
+      if (isFormData) {
+        headers.delete('Content-Type');
       }
 
       const response = await fetch(url, {
@@ -154,7 +163,7 @@ class ApiClient {
         if (error.message.includes('fetch') || error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
           // Проверяем, не была ли это CORS ошибка
           const displayUrl = this.baseUrl;
-          throw new Error(`Не удалось подключиться к серверу. Проверьте:\n1. Бэкенд запущен и доступен по адресу ${displayUrl}\n2. CORS настроен правильно на бэкенде`);
+          throw new Error(`Не удалось подключиться к серверу. Проверьте: 1) Бэкенд запущен и доступен по адресу ${displayUrl} 2) CORS настроен правильно на бэкенде`);
         }
       }
 

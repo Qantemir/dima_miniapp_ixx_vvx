@@ -32,7 +32,7 @@ def get_gridfs() -> GridFS:
       waitQueueTimeoutMS=30000,
       # Дополнительные параметры для стабильности SSL соединения
       ssl=True,  # Явно включаем SSL для Atlas
-      ssl_cert_reqs=None,  # Используем настройки по умолчанию для Atlas
+      # ssl_cert_reqs удален - в новых версиях PyMongo эта опция не поддерживается
     )
     _sync_db = _sync_client[settings.mongo_db]
   return GridFS(_sync_db)
