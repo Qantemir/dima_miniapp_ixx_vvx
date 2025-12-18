@@ -9,7 +9,7 @@ watchPatterns = ["package.json", "nixpacks.toml"]
 
 [deploy]
 # Явная команда запуска фронтенда
-startCommand = "node_modules/.bin/serve -s dist -l $PORT"
+startCommand = "export PATH=$PATH:$(pwd)/node_modules/.bin && serve -s dist -l $PORT"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 10
 

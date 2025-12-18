@@ -2,13 +2,16 @@
 # Railway будет использовать этот файл для сборки и запуска фронтенда
 
 [phases.setup]
-nixPkgs = ["nodejs-20_x"]
+nixPkgs = ["nodejs-20_x", "npm"]
 
 [phases.install]
 cmds = [
   "echo '🔨 Building frontend...'",
+  "which node && node --version",
+  "which npm && npm --version",
   "npm ci",
-  "echo '📦 Dependencies installed'"
+  "echo '📦 Dependencies installed'",
+  "ls -la node_modules/.bin/serve || echo '⚠️ serve not found in node_modules'"
 ]
 
 [phases.build]
@@ -21,7 +24,7 @@ cmds = [
 ]
 
 [start]
-cmd = "echo '🚀 Starting frontend server...' && node_modules/.bin/serve -s dist -l ${PORT:-3000}"
+cmd = "echo '🚀 Starting frontend server...' && export PATH=$PATH:$(pwd)/node_modules/.bin && serve -s dist -l ${PORT:-3000}"
 
 [variables]
 NODE_ENV = "production"
