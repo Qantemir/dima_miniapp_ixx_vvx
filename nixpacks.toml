@@ -1,25 +1,18 @@
 [phases.setup]
-nixPkgs = ["python312", "nodejs-20_x"]
+nixPkgs = ["nodejs-20_x"]
 
 [phases.install]
 cmds = [
-  "python3.12 -m venv .venv",
-  ".venv/bin/pip install --upgrade pip",
-  ".venv/bin/pip install -r backend/requirements.txt",
   "npm ci",
-  "npm run build",
-  "ls -la dist/ || echo 'WARNING: dist directory not found after build'",
-  "ls -la dist/assets/ || echo 'WARNING: dist/assets directory not found'"
+  "npm run build"
 ]
 
 [phases.build]
 cmds = []
 
 [start]
-cmd = "cd backend && PYTHONPATH=/app/backend:$PYTHONPATH ../.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"
-
-# Alternative: use Procfile
-# Railway will use Procfile if it exists, otherwise use [start] cmd
+cmd = "npx serve -s dist -l ${PORT:-3000}"
 
 [variables]
-PYTHON_VERSION = "3.12"
+NODE_ENV = "production"
+

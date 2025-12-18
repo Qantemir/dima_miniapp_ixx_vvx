@@ -1,2 +1,2 @@
-web: cd backend && PYTHONPATH=/app/backend:$PYTHONPATH ../.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
+web: npx serve -s dist -l ${PORT:-3000}
 

@@ -19,9 +19,11 @@
 
 **Root Directory:** `backend`
 
-**Build Command:** (Railway автоматически использует `backend/nixpacks.toml`)
+**Build Command:** (Railway автоматически использует `backend/nixpacks.toml` или `backend/Procfile`)
 
-**Start Command:** (автоматически из `backend/nixpacks.toml`)
+**Start Command:** (автоматически из `backend/nixpacks.toml` или `backend/Procfile`)
+
+**Важно:** Railway будет искать конфигурацию в папке `backend/`, поэтому использует `backend/nixpacks.toml`
 
 **Переменные окружения:**
 ```
@@ -38,9 +40,14 @@ ENVIRONMENT=production
 
 **Root Directory:** (пусто, корень проекта)
 
-**Build Command:** (Railway автоматически использует `frontend.nixpacks.toml`)
+**Build Command:** (Railway автоматически использует `nixpacks.toml` из корня)
 
-**Start Command:** (автоматически из `frontend.nixpacks.toml`)
+**Start Command:** (автоматически из `Procfile` или `nixpacks.toml` из корня)
+
+**Важно:** 
+- Railway будет искать конфигурацию в корне проекта
+- Используется `Procfile` (если есть) или `nixpacks.toml` из корня
+- Эти файлы настроены для фронтенда (Node.js + serve)
 
 **Переменные окружения:**
 ```
@@ -68,9 +75,13 @@ NODE_ENV=production
 
 ## Структура файлов конфигурации
 
-- `backend/nixpacks.toml` - конфигурация сборки бэкенда
-- `frontend.nixpacks.toml` - конфигурация сборки фронтенда
-- `frontend.Procfile` - альтернативный способ запуска фронтенда (если Railway не использует nixpacks)
+- **Корень проекта (для фронтенда):**
+  - `Procfile` - запуск фронтенда через serve
+  - `nixpacks.toml` - конфигурация сборки фронтенда
+
+- **Папка backend (для бэкенда):**
+  - `backend/nixpacks.toml` - конфигурация сборки бэкенда
+  - `backend/Procfile` - альтернативный способ запуска бэкенда
 
 ## Troubleshooting
 
