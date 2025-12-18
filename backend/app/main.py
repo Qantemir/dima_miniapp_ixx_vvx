@@ -95,7 +95,7 @@ if settings.environment == "production":
 app.add_middleware(
   CORSMiddleware,
   allow_origins=["*"],
-  allow_credentials=True,
+  allow_credentials=False,  # Убрано, так как несовместимо с allow_origins=["*"] и cookies не используются
   allow_methods=["*"],
   allow_headers=["*"],
 )
