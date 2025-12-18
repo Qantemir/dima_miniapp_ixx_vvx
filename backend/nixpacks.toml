@@ -1,14 +1,16 @@
 [phases.setup]
-aptPkgs = ["python3-venv", "python3-pip"]
+nixPkgs = ["python312"]
 
 [phases.install]
 cmds = [
-  "cd backend",
-  "python3 -m venv .venv",
+  "python3.12 -m venv .venv",
   ".venv/bin/pip install --upgrade pip",
   ".venv/bin/pip install -r requirements.txt"
 ]
 
 [start]
-cmd = "cd backend && .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"
+cmd = ".venv/bin/uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"
+
+[variables]
+PYTHON_VERSION = "3.12"
 
