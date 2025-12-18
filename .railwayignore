@@ -1,0 +1,10 @@
+# Railway ignore file - исключаем бэкенд из фронтенд-сервиса
+backend/
+*.py
+requirements.txt
+.venv/
+__pycache__/
+*.pyc
+backend.nixpacks.toml
+backend.Procfile
+

@@ -10,6 +10,7 @@
     "dev:full": "concurrently \"cd backend && .venv/bin/python3 -m uvicorn app.main:app --reload --port 8000\" \"vite\"",
     "build": "vite build",
     "build:dev": "vite build --mode development",
+    "start": "npx serve -s dist -l ${PORT:-3000}",
     "lint": "eslint .",
     "preview": "vite preview",
     "docker:mongodb:start": "docker-compose up -d mongodb",

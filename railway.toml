@@ -1,8 +1,16 @@
+# Явная конфигурация для фронтенд-сервиса на Railway
+# Этот файл гарантирует, что Railway запустит фронтенд, а не бэкенд
+
 [build]
 builder = "nixpacks"
 
 [deploy]
+# Явная команда запуска фронтенда
 startCommand = "npx serve -s dist -l $PORT"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 10
+
+# Указываем, что это Node.js проект
+[env]
+NODE_ENV = "production"
 

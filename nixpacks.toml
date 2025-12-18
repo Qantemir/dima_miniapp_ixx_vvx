@@ -1,18 +1,29 @@
+# Явная конфигурация для фронтенда (React + Vite)
+# Railway будет использовать этот файл для сборки и запуска фронтенда
+
 [phases.setup]
 nixPkgs = ["nodejs-20_x"]
 
 [phases.install]
 cmds = [
+  "echo '🔨 Building frontend...'",
   "npm ci",
-  "npm run build"
+  "echo '📦 Dependencies installed'"
 ]
 
 [phases.build]
-cmds = []
+cmds = [
+  "echo '🏗️  Building React app...'",
+  "npm run build",
+  "echo '✅ Build completed'",
+  "ls -la dist/ || echo '⚠️ WARNING: dist directory not found'",
+  "ls -la dist/assets/ || echo '⚠️ WARNING: dist/assets directory not found'"
+]
 
 [start]
-cmd = "npx serve -s dist -l ${PORT:-3000}"
+cmd = "echo '🚀 Starting frontend server...' && npx serve -s dist -l ${PORT:-3000}"
 
 [variables]
 NODE_ENV = "production"
+NIXPACKS_NO_MOUNT_CACHE = "1"
 
